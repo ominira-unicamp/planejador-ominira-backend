@@ -1,6 +1,6 @@
 generator client {
-  provider   = "prisma-client"
-  output     = "./generated"
+  provider = "prisma-client"
+  output   = "./generated"
 }
 
 datasource db {
@@ -8,20 +8,182 @@ datasource db {
 }
 
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
-  posts Post[]
+  id    Int    @id @default(autoincrement())
+  email String @unique
+  name  String
 }
 
-model Post {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  viewCount Int      @default(0)
-  author    User?    @relation(fields: [authorId], references: [id])
-  authorId  Int?
+// ----------------------- Academic Models ----------------------- //
+
+model Institute {
+  id               Int              @id @default(autoincrement())
+  name             String
+  coursesOfferings CourseOffering[]
+  prefixes         Prefixes[]
+  programs         Program[]
+}
+
+model Prefixes {
+  id          Int       @id @default(autoincrement())
+  prefix      String    @unique
+  institute   Institute @relation(fields: [instituteId], references: [id])
+  instituteId Int
+}
+
+model Course {
+  id               Int                     @id @default(autoincrement())
+  code             String                  @unique
+  name             String
+  credits          Int
+  coursesOfferings  CourseOffering[]
+  programCourses   ProgramModalityCourse[]
+  studentCourses   StudentCourse[]
+}
+
+// ----------------------- Programs Catalog Models ----------------------- //
+
+model Catalog {
+  id       Int              @id @default(autoincrement())
+  year     Int
+  programs CatalogProgram[]
+
+  students Student[]
+}
+
+model Program {
+  id              Int              @id @default(autoincrement())
+  code            Int              @unique
+  name            String
+  institute       Institute        @relation(fields: [instituteId], references: [id])
+  instituteId     Int
+  catalogPrograms CatalogProgram[]
+
+  programCourses ProgramModalityCourse[]
+  students       Student[]
+}
+
+model Modality {
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  name String
+
+  programCourses ProgramModalityCourse[]
+  students Student[]
+}
+
+model CatalogProgram {
+  id        Int     @id @default(autoincrement())
+  catalog   Catalog @relation(fields: [catalogId], references: [id])
+  catalogId Int
+  program   Program @relation(fields: [programId], references: [id])
+  programId Int
+}
+
+model ProgramModalityCourse {
+  id         Int      @id @default(autoincrement())
+  program    Program  @relation(fields: [programId], references: [id])
+  programId  Int
+  modality   Modality @relation(fields: [modalityId], references: [id])
+  modalityId Int
+  course     Course   @relation(fields: [courseId], references: [id])
+  courseId   Int
+
+  @@unique([programId, modalityId, courseId])
+}
+
+// ----------------------- Timetable Booklet Models ----------------------- //
+
+model StudyPeriod {
+  id               Int              @id @default(autoincrement())
+  name             String
+  startDate        DateTime
+  endDate          DateTime
+  coursesOfferings CourseOffering[]
+}
+
+model Teacher {
+  id      Int     @id @default(autoincrement())
+  name    String
+  classes Class[]
+}
+
+model Room {
+  id             Int             @id @default(autoincrement())
+  code           String          @unique
+  classSchedules ClassSchedule[]
+}
+
+model CourseOffering {
+  id            Int         @id @default(autoincrement())
+  course        Course      @relation(fields: [courseId], references: [id])
+  courseId      Int
+  studyPeriod   StudyPeriod @relation(fields: [studyPeriodId], references: [id])
+  studyPeriodId Int
+  classes       Class[]
+  institute     Institute   @relation(fields: [instituteId], references: [id])
+  instituteId   Int
+  reservations  Int[]
+}
+
+model Class {
+  id               Int             @id @default(autoincrement())
+  name             String
+  Teachers         Teacher[]
+  classSchedules   ClassSchedule[]
+  reservations     Int[]
+  coursesOfferings CourseOffering  @relation(fields: [courseOfferingId], references: [id])
+  courseOfferingId Int
+}
+
+//  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+model ClassSchedule {
+  id        Int    @id @default(autoincrement())
+  dayOfWeek DayOfWeek 
+  start     String
+  end       String
+  room      Room   @relation(fields: [roomId], references: [id])
+  roomId    Int
+  class     Class  @relation(fields: [classId], references: [id])
+  classId   Int
+}
+
+// ----------------------- Student Models ----------------------- //
+
+enum StudentCourseStatus {
+  ENROLLED
+  COMPLETED
+  DROPPED
+}
+
+model Student {
+  id         Int             @id @default(autoincrement())
+  ra         String          @unique
+  name       String
+  courses    StudentCourse[]
+  program    Program         @relation(fields: [programId], references: [id])
+  programId  Int
+  modality   Modality        @relation(fields: [modalityId], references: [id])
+  modalityId Int
+  catalog    Catalog         @relation(fields: [catalogId], references: [id])
+  catalogId  Int
+}
+
+model StudentCourse {
+  id        Int                 @id @default(autoincrement())
+  student   Student             @relation(fields: [studentId], references: [id])
+  studentId Int
+  course    Course              @relation(fields: [courseId], references: [id])
+  courseId  Int
+  status    StudentCourseStatus
+
+  @@unique([studentId, courseId])
 }
