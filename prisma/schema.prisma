@@ -131,7 +131,7 @@ model Class {
   Teachers         Teacher[]
   classSchedules   ClassSchedule[]
   reservations     Int[]
-  coursesOfferings CourseOffering  @relation(fields: [courseOfferingId], references: [id])
+  coursesOffering CourseOffering  @relation(fields: [courseOfferingId], references: [id])
   courseOfferingId Int
 }
 
@@ -187,3 +187,6 @@ model StudentCourse {
 
   @@unique([studentId, courseId])
 }
+
+
+
