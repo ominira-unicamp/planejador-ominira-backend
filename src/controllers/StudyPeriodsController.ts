@@ -6,6 +6,9 @@ import z from 'zod';
 import prisma from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
 import { start } from 'repl';
+import path from 'path';
+import ResponseBuilder from '../ResponseBuilder';
+import { ZodErrorResponse } from '../Validation';
 
 extendZodWithOpenApi(z);
 
@@ -42,16 +45,10 @@ registry.registerPath({
 	method: 'get',
 	path: '/study-periods',
 	tags: ['studyPeriod'],
-	responses: {
-		200: {
-			description: "A list of study periods",
-			content: {
-				'application/json': {
-					schema: z.array(studyPeriodEntity),
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(z.array(studyPeriodEntity), "A list of study periods")
+		.internalServerError()
+		.build(),
 });
 async function list(req: Request, res: Response) {
 	prisma.studyPeriod.findMany().then((studyPeriods) => {
@@ -69,19 +66,24 @@ registry.registerPath({
 	method: 'get',
 	path: '/study-periods/{id}',
 	tags: ['studyPeriod'],
-	responses: {
-		200: {
-			description: "A study period by id",
-			content: {
-				'application/json': {
-					schema: z.array(studyPeriodEntity),
-				},
-			},
-		},
+	request: {
+		params: z.object({
+			id: z.coerce.number().int(),
+		}).strict(),
 	},
+	responses: new ResponseBuilder()
+		.ok(studyPeriodEntity, "A study period by id")
+		.badRequest()
+		.notFound()
+		.internalServerError()
+		.build(),
 });
 async function get(req: Request, res: Response) {
-	const id = z.coerce.number().int().parse(req.params.id);
+	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["params", "id"], error));
+		return;
+	}
 
 	prisma.studyPeriod.findUnique({
 		where: {
@@ -89,7 +91,7 @@ async function get(req: Request, res: Response) {
 		},
 	}).then((studyPeriod) => {
 		if (!studyPeriod) {
-			res.status(404).send("Not found");
+			res.status(404).json({ error: "Study period not found" });
 			return;
 		}
 		const entity: z.infer<typeof studyPeriodEntity> = {

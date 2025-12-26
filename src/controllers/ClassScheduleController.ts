@@ -3,9 +3,11 @@ import type { Request, Response } from "express";
 import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma from '../PrismaClient'
+import prisma, { selectIdName, selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
 import { id } from 'zod/v4/locales';
+import ResponseBuilder from '../ResponseBuilder';
+import { ZodErrorResponse } from '../Validation';
 extendZodWithOpenApi(z);
 
 const router = Router()
@@ -15,7 +17,7 @@ const daysOfWeekEnum = z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FR
 
 const prismaClassScheduleFieldSelection = {
 	include: {
-		room: {select: {code: true}},
+		room: selectIdCode,
 		class: {
 			select: {
 				id: true,
@@ -23,25 +25,9 @@ const prismaClassScheduleFieldSelection = {
 				courseOfferingId: true,
 				coursesOffering: {
 					select: {
-						institute: {
-							select: {
-								id: true,
-								name: true,
-							}
-						},
-						course: {
-							select: {
-								id: true,
-								name: true,
-								code: true,
-							}
-						},
-						studyPeriod: {
-							select: {
-								id: true,
-								name: true,
-							}
-						}
+						institute: selectIdName,
+						course: selectIdCode,
+						studyPeriod: selectIdName
 					}
 				}
 			}
@@ -111,52 +97,27 @@ registry.registerPath({
 	request: {
 		query: getClassSchedules,
 	},
-	responses: {
-		200: {
-			description: "A list of class schedules",
-			content: {
-				'application/json': {
-					schema: z.array(ClassScheduleEntity),
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(z.array(ClassScheduleEntity), "A list of class schedules")
+		.badRequest()
+		.internalServerError()
+		.build(),
 });
 async function list(req: Request, res: Response) {
-	const query = getClassSchedules.parse(req.query);
+	const { success, data: query, error } = getClassSchedules.safeParse(req.query);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["query"], error));
+		return;
+	}
 	prisma.classSchedule.findMany({
 		where: {
 			dayOfWeek: query.dayOfWeek,
-			room: {
-				id: query.roomId,
-				code: {
-					equals: query.roomCode,
-					mode: 'insensitive',
-				}
-			},
+			room: whereIdCode(query.roomId, query.roomCode),
 			class: {
 				coursesOffering: {
-					institute: {
-						id: query.instituteId,
-						name: {
-							equals: query.instituteName,
-							mode: 'insensitive',
-						}
-					},
-					course: {
-						id: query.courseId,
-						code: {
-							equals: query.courseCode,
-							mode: 'insensitive',
-						}
-					},
-					studyPeriod: {
-						id: query.periodId,
-						name: {
-							equals: query.periodName,
-							mode: 'insensitive',
-						}
-					},
+					institute: whereIdName(query.instituteId, query.instituteName),
+					course: whereIdCode(query.courseId, query.courseCode),
+					studyPeriod: whereIdName(query.periodId, query.periodName),
 				},
 			},
 		},
@@ -215,19 +176,19 @@ registry.registerPath({
 			id: z.int(),
 		}),
 	},
-	responses: {
-		200: {
-			description: "A class schedule",
-			content: {
-				'application/json': {
-					schema: ClassScheduleEntity,
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(ClassScheduleEntity, "A class schedule by id")
+		.badRequest()
+		.notFound()
+		.internalServerError()
+		.build(),
 });
 async function get(req: Request, res: Response) {
-	const id = z.coerce.number().int().parse(req.params.id);
+	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["params", "id"], error));
+		return;
+	}
 	prisma.classSchedule.findUnique({
 		where: {
 			id: id,

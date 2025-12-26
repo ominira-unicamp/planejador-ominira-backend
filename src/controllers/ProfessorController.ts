@@ -3,6 +3,8 @@ import type { Request, Response } from "express";
 import prisma from '../PrismaClient'
 import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+import ResponseBuilder from '../ResponseBuilder';
+import { ZodErrorResponse } from '../Validation';
 
 extendZodWithOpenApi(z);
 
@@ -28,20 +30,19 @@ registry.registerPath({
     request: {
         query: listProfessorsQuery,
     },
-    responses: {
-        200: {
-            description: "A list of professors",
-            content: {
-                'application/json': {
-                    schema: z.array(professorEntity), 
-                },
-            },
-        },
-    },
+    responses: new ResponseBuilder()
+        .ok(z.array(professorEntity), "A list of professors")
+        .badRequest()
+        .internalServerError()
+        .build(),
 });
 
 async function list(req: Request, res: Response) {
-    const query = listProfessorsQuery.parse(req.query);
+    const { success, data: query, error } = listProfessorsQuery.safeParse(req.query);
+    if (!success) {
+        res.status(400).json(ZodErrorResponse(["query"], error));
+        return;
+    }
     prisma.professor.findMany({
         where: {
             classes: {
@@ -81,20 +82,20 @@ registry.registerPath({
             id: z.int(),
         }),
     },
-    responses: {
-        200: {
-            description: "A list of professors",
-            content: {
-                'application/json': {
-                    schema: professorEntity, 
-                },
-            },
-        },
-    },
+    responses: new ResponseBuilder()
+        .ok(professorEntity, "A professor by id")
+        .badRequest()
+        .notFound()
+        .internalServerError()
+        .build(),
 });
 
 async function get(req: Request, res: Response) {
-    const id = z.coerce.number().int().parse(req.params.id);
+    const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
+    if (!success) {
+        res.status(400).json(ZodErrorResponse(["params", "id"], error));
+        return;
+    }
     prisma.professor.findUnique({
         where: {
             id: id,

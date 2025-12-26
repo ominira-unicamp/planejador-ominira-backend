@@ -5,6 +5,8 @@ import z from 'zod';
 
 import prisma from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
+import ResponseBuilder from '../ResponseBuilder';
+import { ZodErrorResponse } from '../Validation';
 
 extendZodWithOpenApi(z);
 
@@ -19,9 +21,7 @@ function relatedPathsForInstitute(instituteId: number) {
 		coursesOfferings: resourcesPaths.courseOffering.list({
 			instituteId: instituteId
 		}),
-		courses: resourcesPaths.course.list({
-			instituteId: instituteId
-		})
+		courses: resourcesPaths.course.list({instituteId: instituteId})
 	}
 }
 
@@ -39,16 +39,10 @@ registry.registerPath({
 	method: 'get',
 	path: '/institutes',
 	tags: ['institute'],
-	responses: {
-		200: {
-			description: "A list of institutes",
-			content: {
-				'application/json': {
-					schema: z.array(instituteEntity),
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(z.array(instituteEntity), "A list of institutes")
+		.internalServerError()
+		.build(),
 });
 async function list(req: Request, res: Response) {
 	prisma.institute.findMany().then((institutes) => {
@@ -71,19 +65,19 @@ registry.registerPath({
 			id: z.int(),
 		}),
 	},
-	responses: {
-		200: {
-			description: "A list of institutes",
-			content: {
-				'application/json': {
-					schema: instituteEntity,
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(instituteEntity, "An institute by id")
+		.badRequest()
+		.notFound()
+		.internalServerError()
+		.build(),
 });
 async function get(req: Request, res: Response) {
-	const id = z.coerce.number().int().parse(req.params.id);
+	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["params", "id"], error));
+		return;
+	}
 
 	prisma.institute.findUnique({
 		where: {

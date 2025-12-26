@@ -3,8 +3,10 @@ import type { Request, Response } from "express";
 import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma from '../PrismaClient'
+import prisma, { selectIdName, selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
+import ResponseBuilder from '../ResponseBuilder';
+import { ZodErrorResponse } from '../Validation';
 
 extendZodWithOpenApi(z);
 
@@ -13,9 +15,9 @@ const registry = new OpenAPIRegistry();
 
 const prismaCourseOfferingFieldSelection = {
 	include: {
-		institute: { select: { name: true } },
-		studyPeriod: { select: { name: true } },
-		course: { select: { code: true } }
+		institute: selectIdName,
+		studyPeriod: selectIdName,
+		course: selectIdCode
 	}
 }
 const relatedPathsForClassOffering = (
@@ -64,42 +66,23 @@ registry.registerPath({
 	request: {
 		query: getCourseOffering,
 	},
-	responses: {
-		200: {
-			description: "A list of course offerings",
-			content: {
-				'application/json': {
-					schema: z.array(CourseOfferingEntity),
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(z.array(CourseOfferingEntity), "A list of course offerings")
+		.badRequest()
+		.internalServerError()
+		.build(),
 });
 async function list(req: Request, res: Response) {
-	const query = getCourseOffering.parse(req.query);
+	const { success, data: query, error } = getCourseOffering.safeParse(req.query);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["query"], error));
+		return;
+	}
 	prisma.courseOffering.findMany({
 		where: {
-			instituteId: query.instituteId,
-			institute: {
-				name: {
-					equals: query.instituteCode,
-					mode: 'insensitive',
-				}
-			},
-			courseId: query.courseId,
-			course: {
-				code: {
-					equals: query.courseCode,
-					mode: 'insensitive',
-				}
-			},
-			studyPeriodId: query.periodId,
-			studyPeriod: {
-				name: {
-					equals: query.periodName,
-					mode: 'insensitive',
-				}
-			},
+			institute: whereIdName(query.instituteId, query.instituteCode),
+			course: whereIdCode(query.courseId, query.courseCode),
+			studyPeriod: whereIdName(query.periodId, query.periodName),
 		},
 		...prismaCourseOfferingFieldSelection
 	}).then((courseOfferings) => {
@@ -151,19 +134,19 @@ registry.registerPath({
 			id: z.int(),
 		}),
 	},
-	responses: {
-		200: {
-			description: "A list of course offerings",
-			content: {
-				'application/json': {
-					schema: CourseOfferingEntity,
-				},
-			},
-		},
-	},
+	responses: new ResponseBuilder()
+		.ok(CourseOfferingEntity, "A course offering by id")
+		.badRequest()
+		.notFound()
+		.internalServerError()
+		.build(),
 });
 async function get(req: Request, res: Response) {
-	const id = z.coerce.number().int().parse(req.params.id);
+	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
+	if (!success) {
+		res.status(400).json(ZodErrorResponse(["params", "id"], error));
+		return;
+	}
 	prisma.courseOffering.findUnique({
 		where: {
 			id: id,
