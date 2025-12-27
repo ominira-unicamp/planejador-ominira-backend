@@ -6,7 +6,7 @@ import z, { success, ZodAny, ZodType } from 'zod';
 import prisma from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationErrorField, ValidationErrorType, ZodErrorResponse } from '../Validation';
+import { requestSafeParse, ValidationErrorField, ValidationErrorType, ZodErrorResponse } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { ParamsDictionary } from 'express-serve-static-core';
 
@@ -183,7 +183,7 @@ registry.registerPath({
 
 async function patch(req: Request, res: Response) {
 
-	const {query, params, body , success, error } = requestSafeParse({
+	const {params, body , success, error } = requestSafeParse({
 		paramsSchema: z.object({
 			id: z.coerce.number().int(),
 		}).strict(),
@@ -263,8 +263,5 @@ export default {
 	paths: {
 		entity: entityPath,
 	},
-}
-function requestSafeParse(arg0: { paramsSchema: z.ZodObject<{ id: z.ZodCoercedNumber<unknown>; }, z.core.$strict>; params: ParamsDictionary; bodySchema: z.ZodObject<{ code: z.ZodOptional<z.ZodString>; startDate: z.ZodOptional<z.ZodPipe<z.ZodUnion<readonly [z.ZodString, z.ZodDate]>, z.ZodCoercedDate<string | Date>>>; }, z.core.$strict>; body: any; }): { query: any; params: any; body: any; success: any; error: any; } {
-	throw new Error('Function not implemented.');
 }
 

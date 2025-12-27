@@ -3,9 +3,8 @@ import type { Request, Response } from "express";
 import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma, { selectIdName, selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
+import prisma, { selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
-import { id } from 'zod/v4/locales';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { ZodErrorResponse } from '../Validation';
 extendZodWithOpenApi(z);
@@ -25,9 +24,9 @@ const prismaClassScheduleFieldSelection = {
 				courseOfferingId: true,
 				coursesOffering: {
 					select: {
-						institute: selectIdName,
+						institute: selectIdCode,
 						course: selectIdCode,
-						studyPeriod: selectIdName
+						studyPeriod: selectIdCode
 					}
 				}
 			}
@@ -78,8 +77,8 @@ function relatedPathsForClassSchedule(
 	}
 }
 const getClassSchedules = z.object({
-	periodId: z.coerce.number().int().optional(),
-	periodName: z.string().optional(),
+	studyPeriodId: z.coerce.number().int().optional(),
+	studyPeriodCode: z.string().optional(),
 	instituteId: z.coerce.number().int().optional(),
 	instituteCode: z.string().optional(),
 	courseId: z.coerce.number().int().optional(),
@@ -117,7 +116,7 @@ async function list(req: Request, res: Response) {
 				coursesOffering: {
 					institute: whereIdName(query.instituteId, query.instituteCode),
 					course: whereIdCode(query.courseId, query.courseCode),
-					studyPeriod: whereIdName(query.periodId, query.periodName),
+					studyPeriod: whereIdName(query.studyPeriodId, query.studyPeriodCode),
 				},
 			},
 		},
@@ -131,12 +130,12 @@ async function list(req: Request, res: Response) {
 				className: classObj.name,
 				classId: classObj.id,
 				instituteId: classObj.coursesOffering.institute.id,
-				instituteCode: classObj.coursesOffering.institute.name,
+				instituteCode: classObj.coursesOffering.institute.code,
 				courseId: classObj.coursesOffering.course.id,
 				courseCode: classObj.coursesOffering.course.code,
 				courseOfferingId: classObj.courseOfferingId,
 				periodId: classObj.coursesOffering.studyPeriod.id,
-				periodName: classObj.coursesOffering.studyPeriod.name,
+				periodName: classObj.coursesOffering.studyPeriod.code,
 				_paths: relatedPathsForClassSchedule(
 					classSchedule.id,
 					classObj.coursesOffering.studyPeriod.id,
@@ -206,12 +205,12 @@ async function get(req: Request, res: Response) {
 			className: classObj.name,
 			classId: classObj.id,
 			instituteId: classObj.coursesOffering.institute.id,
-			instituteCode: classObj.coursesOffering.institute.name,
+			instituteCode: classObj.coursesOffering.institute.code,
 			courseId: classObj.coursesOffering.course.id,
 			courseCode: classObj.coursesOffering.course.code,
 			courseOfferingId: classObj.courseOfferingId,
 			periodId: classObj.coursesOffering.studyPeriod.id,
-			periodName: classObj.coursesOffering.studyPeriod.name,
+			periodName: classObj.coursesOffering.studyPeriod.code,
 			_paths: relatedPathsForClassSchedule(
 				classSchedule.id,
 				classObj.coursesOffering.studyPeriod.id,

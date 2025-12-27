@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma, { selectIdName, selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
+import prisma, { selectIdCode, whereIdName, whereIdCode } from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { ZodErrorResponse } from '../Validation';
@@ -15,8 +15,8 @@ const registry = new OpenAPIRegistry();
 
 const prismaCourseOfferingFieldSelection = {
 	include: {
-		institute: selectIdName,
-		studyPeriod: selectIdName,
+		institute: selectIdCode,
+		studyPeriod: selectIdCode,
 		course: selectIdCode
 	}
 }
@@ -41,7 +41,7 @@ const CourseOfferingEntity = z.object({
 	courseId: z.number().int(),
 	courseCode: z.string(),
 	studyPeriodId: z.number().int(),
-	studyPeriodName: z.string(),
+	studyPeriodCode: z.string(),
 	_paths: z.object({
 		entity: z.string(),
 		institute: z.string(),
@@ -90,9 +90,9 @@ async function list(req: Request, res: Response) {
 			const {institute, course, studyPeriod, ...rest} = co;
 			return {
 				...rest,
-				instituteCode: institute.name,
+				instituteCode: institute.code,
 				courseCode: course.code,
-				studyPeriodName: studyPeriod.name,
+				studyPeriodCode: studyPeriod.code,
 				_paths: relatedPathsForClassOffering(
 					co.id,
 					co.courseId,
@@ -162,9 +162,9 @@ async function get(req: Request, res: Response) {
 		
 		const entity: z.infer<typeof CourseOfferingEntity> = {
 			...rest,
-			instituteCode: institute.name,
+			instituteCode: institute.code,
 			courseCode: course.code,
-			studyPeriodName: studyPeriod.name,
+			studyPeriodCode: studyPeriod.code,
 			_paths: relatedPathsForClassOffering(
 				courseOffering.id,
 				courseOffering.courseId,

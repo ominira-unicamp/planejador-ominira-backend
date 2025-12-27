@@ -1,7 +1,6 @@
 import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient, Prisma} from '../prisma/generated/client'
+import { PrismaClient,  Prisma as MyPrisma } from '../prisma/generated/client'
 import * as models from '../prisma/generated/zod/schemas/models/index'
-import { id } from 'zod/v4/locales'
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter: pool })
 
@@ -45,18 +44,18 @@ const selectIdName = {
 		id: true,
 		name: true
 	}
-}
+} as const;
 const selectIdCode = {
 	select: {
-		id: true, 
+		id: true,
 		code: true
 	}
-}
+} as const;
 
 
 export default prisma
 export {
-	Prisma, 
+	MyPrisma, 
 	models,
 	whereIdCode,
 	whereIdName,

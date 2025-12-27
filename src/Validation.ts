@@ -102,7 +102,8 @@ function requestSafeParse<A extends ZodType, B extends ZodType, C extends ZodTyp
 export {
 	ZodErrorResponse,
 	ValidationErrorSchema,
-	ValidationError
+	ValidationError,
+	requestSafeParse
 }
 export type {
 	ValidationErrorField,
