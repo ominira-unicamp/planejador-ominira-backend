@@ -23,9 +23,6 @@ function relatedPathsForInstitute(instituteId: number) {
 		classes: resourcesPaths.class.list({
 			instituteId: instituteId
 		}),
-		coursesOfferings: resourcesPaths.courseOffering.list({
-			instituteId: instituteId
-		}),
 		courses: resourcesPaths.course.list({instituteId: instituteId})
 	}
 }
@@ -45,7 +42,6 @@ const instituteBase = z.object({
 const instituteEntity = instituteBase.extend({
 	_paths: z.object({
 		classes: z.string(),
-		coursesOfferings: z.string(),
 		courses: z.string(),
 	}).strict()
 }).strict().openapi('InstituteEntity');

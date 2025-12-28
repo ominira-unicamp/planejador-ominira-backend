@@ -56,7 +56,6 @@ async function main() {
   console.log('🗑️  Limpando dados existentes...')
   await prisma.classSchedule.deleteMany()
   await prisma.class.deleteMany()
-  await prisma.courseOffering.deleteMany()
   await prisma.room.deleteMany()
   await prisma.professor.deleteMany()
   await prisma.studyPeriod.deleteMany()
@@ -109,18 +108,11 @@ async function main() {
           create: {
             code: disciplinaData.codigo,
             name: disciplinaData.nome,
+            instituteId: institute.id,
             credits: 4, // Valor padrão
           },
         })
 
-        // Criar oferta de curso
-        const courseOffering = await prisma.courseOffering.create({
-          data: {
-            courseId: course.id,
-            studyPeriodId: studyPeriod.id,
-            instituteId: institute.id
-          },
-        })
 
         // Processar turmas
         for (const turmaData of disciplinaData.turmas) {
@@ -143,7 +135,8 @@ async function main() {
           const classEntity = await prisma.class.create({
             data: {
               code: turmaData.nome,
-              courseOfferingId: courseOffering.id,
+              courseId: course.id,
+              studyPeriodId: studyPeriod.id,
               reservations: turmaData.reservas,
               professors: {
                 connect: professors.map(t => ({ id: t.id })),

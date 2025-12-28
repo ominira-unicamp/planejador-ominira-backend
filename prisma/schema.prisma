@@ -22,11 +22,11 @@ model User {
 // ----------------------- Academic Models ----------------------- //
 
 model Institute {
-  id               Int              @id @default(autoincrement())
-  code             String           @unique
-  coursesOfferings CourseOffering[]
-  prefixes         Prefixes[]
-  programs         Program[]
+  id       Int        @id @default(autoincrement())
+  code     String     @unique
+  courses  Course[]
+  prefixes Prefixes[]
+  programs Program[]
 }
 
 model Prefixes {
@@ -37,13 +37,15 @@ model Prefixes {
 }
 
 model Course {
-  id               Int                     @id @default(autoincrement())
-  code             String                  @unique
-  name             String
-  credits          Int
-  coursesOfferings CourseOffering[]
-  programCourses   ProgramModalityCourse[]
-  studentCourses   StudentCourse[]
+  id             Int                     @id @default(autoincrement())
+  code           String                  @unique
+  name           String
+  credits        Int
+  institute      Institute               @relation(fields: [instituteId], references: [id])
+  instituteId    Int
+  classes        Class[]
+  programCourses ProgramModalityCourse[]
+  studentCourses StudentCourse[]
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
@@ -70,7 +72,7 @@ model Program {
 
 model Modality {
   id   Int    @id @default(autoincrement())
-  code String 
+  code String
   name String
 
   programCourses ProgramModalityCourse[]
@@ -100,10 +102,10 @@ model ProgramModalityCourse {
 // ----------------------- Timetable Booklet Models ----------------------- //
 
 model StudyPeriod {
-  id               Int              @id @default(autoincrement())
-  code             String           @unique
-  startDate        DateTime
-  coursesOfferings CourseOffering[]
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  startDate DateTime
+  classes   Class[]
 }
 
 model Professor {
@@ -118,25 +120,16 @@ model Room {
   classSchedules ClassSchedule[]
 }
 
-model CourseOffering {
-  id            Int         @id @default(autoincrement())
-  course        Course      @relation(fields: [courseId], references: [id])
-  courseId      Int
-  studyPeriod   StudyPeriod @relation(fields: [studyPeriodId], references: [id])
-  studyPeriodId Int
-  classes       Class[]
-  institute     Institute   @relation(fields: [instituteId], references: [id])
-  instituteId   Int
-}
-
 model Class {
-  id               Int             @id @default(autoincrement())
-  code             String
-  professors       Professor[]
-  classSchedules   ClassSchedule[]
-  reservations     Int[]
-  coursesOffering  CourseOffering  @relation(fields: [courseOfferingId], references: [id])
-  courseOfferingId Int
+  id             Int             @id @default(autoincrement())
+  code           String
+  studyPeriod    StudyPeriod     @relation(fields: [studyPeriodId], references: [id])
+  studyPeriodId  Int
+  course         Course          @relation(fields: [courseId], references: [id])
+  courseId       Int
+  professors     Professor[]
+  classSchedules ClassSchedule[]
+  reservations   Int[]
 }
 
 //  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 

@@ -21,14 +21,11 @@ const registry = new OpenAPIRegistry()
 
 const relatedPathsForStudyPeriod = (studyPeriodId: number) => {
 	return {
-		courseOfferings: resourcesPaths.courseOffering.list({
-			periodId: studyPeriodId
-		}),
 		classes: resourcesPaths.class.list({
-			periodId: studyPeriodId
+			studyPeriodId: studyPeriodId
 		}),
 		classSchedules: resourcesPaths.classSchedule.list({
-			periodId: studyPeriodId
+			studyPeriodId: studyPeriodId
 		}),
 	}
 }
@@ -39,8 +36,7 @@ const studyPeriodBase = z.object({
 }).strict();
 
 const studyPeriodEntity = studyPeriodBase.extend({
-	_paths: z.object({
-		courseOfferings: z.string(),
+	_paths: z.object({ 
 		classes: z.string(),
 		classSchedules: z.string(),
 	})

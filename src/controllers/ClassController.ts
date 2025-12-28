@@ -19,38 +19,38 @@ const registry = new OpenAPIRegistry();
 const prismaClassFieldSelection = {
 	include: {
 		professors: selectIdName,
-		coursesOffering: {
+		studyPeriod: selectIdCode,
+		course: {
 			select: {
-				studyPeriod: selectIdCode,
-				course: selectIdCode,
+				id: true,
+				code: true,
 				institute: selectIdCode,
-			}  
-		}  
+			}
+
+		},
 	}  
 } as const satisfies MyPrisma.ClassDefaultArgs;
 type PrismaClassPayload = MyPrisma.ClassGetPayload<typeof prismaClassFieldSelection>;
 
 function buildClassEntity(classData: PrismaClassPayload): z.infer<typeof classEntity> {
-	const { coursesOffering, ...rest } = classData;
+	const { course, studyPeriod, ...rest } = classData;
 	return {
 		...rest,
-		studyPeriodId: coursesOffering.studyPeriod.id,
-		studyPeriodCode: coursesOffering.studyPeriod.code,
-		courseId: coursesOffering.course.id,
-		courseCode: coursesOffering.course.code,
-		instituteId: coursesOffering.institute.id,
-		instituteCode: coursesOffering.institute.code,
+		studyPeriodId: studyPeriod.id,
+		studyPeriodCode: studyPeriod.code,
+		courseId: course.id,
+		courseCode: course.code,
+		instituteId: course.institute.id,
+		instituteCode: course.institute.code,
 		professorIds: classData.professors.map((p) => p.id),
 		_paths: relatedPathsForClass(classData),
 	};
 }
 function relatedPathsForClass(classPayload: PrismaClassPayload) {
-	const coursesOffering = classPayload.coursesOffering;
 	return {
-		studyPeriod: resourcesPaths.studyPeriod.entity(coursesOffering.studyPeriod.id),
-		institute: resourcesPaths.institute.entity(coursesOffering.institute.id),
-		course: resourcesPaths.course.entity(coursesOffering.course.id),
-		courseOffering: resourcesPaths.courseOffering.entity(classPayload.courseOfferingId),
+		studyPeriod: resourcesPaths.studyPeriod.entity(classPayload.studyPeriod.id),
+		institute: resourcesPaths.institute.entity(classPayload.course.institute.id),
+		course: resourcesPaths.course.entity(classPayload.course.id),
 		class: resourcesPaths.class.entity(classPayload.id),
 		classSchedules: resourcesPaths.classSchedule.list({
 			classId: classPayload.id,
@@ -63,15 +63,14 @@ function relatedPathsForClass(classPayload: PrismaClassPayload) {
 const classBaseSchema = z.object({
 	id: z.number().int(),
 	code: z.string().min(1),
-	courseOfferingId: z.number().int(),
 	reservations: z.array(z.number().int()),
+	courseId: z.number().int(),
+	studyPeriodId: z.number().int(),
 	professorIds: z.array(z.number().int()),
 });
 
 const classEntity = classBaseSchema.extend({
-	studyPeriodId: z.number().int(),
 	studyPeriodCode: z.string(),
-	courseId: z.number().int(),
 	courseCode: z.string(),
 	instituteId: z.number().int(),
 	instituteCode: z.string(),
@@ -83,7 +82,6 @@ const classEntity = classBaseSchema.extend({
 		studyPeriod: z.string(),
 		institute: z.string(),
 		course: z.string(),
-		courseOffering: z.string(),
 		class: z.string(),
 		classSchedules: z.string(),
 		professors: z.string(),
@@ -99,8 +97,8 @@ const listClassesQuery = z.object({
 	instituteCode: z.string().optional(),
 	courseId: z.coerce.number().int().optional(),
 	courseCode: z.string().optional(),
-	periodId: z.coerce.number().int().optional(),
-	periodName: z.string().optional(),
+	studyPeriodId: z.coerce.number().int().optional(),
+	studyPeriodCode: z.string().optional(),
 	professorId: z.coerce.number().int().optional(),
 	professorName: z.string().optional(),
 }).openapi('GetClassesQuery');
@@ -130,12 +128,11 @@ async function listAll(req: Request, res: Response) {
 	}
 	const classes = await prisma.class.findMany({
 		where: {
-			coursesOffering: {
-				instituteId: query.instituteId,
+			course: {
+				...whereIdCode(query.courseId, query.courseCode),
 				institute: whereIdCode(query.instituteId, query.instituteCode),
-				course: whereIdCode(query.courseId, query.courseCode),
-				studyPeriod: whereIdCode(query.periodId, query.periodName)
 			},
+			studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
 			professors: {
 				some: whereIdName(query.professorId, query.professorName)
 			},
@@ -155,7 +152,7 @@ router.get('/classes', listAll)
 type ListQueryParams = {
 	instituteId?: number | undefined,
 	courseId?: number | undefined,
-	periodId?: number | undefined,
+	studyPeriodId?: number | undefined,
 	professorId?: number | undefined
 }
 
@@ -163,13 +160,13 @@ type ListQueryParams = {
 function listPath({
 	instituteId,
 	courseId,
-	periodId,
+	studyPeriodId: studyPeriodId,
 	professorId
 }: ListQueryParams) {
 	return `/classes?` + [
 		instituteId ? "instituteId=" + instituteId : undefined,
 		courseId ? "courseId=" + courseId : undefined,
-		periodId ? "periodId=" + periodId : undefined,
+		studyPeriodId ? "studyPeriodId=" + studyPeriodId : undefined,
 		professorId ? "professorId=" + professorId : undefined,
 	].filter(Boolean).join('&');
 }
@@ -242,12 +239,20 @@ async function create(req: Request, res: Response) {
 		errors.addErrors(ZodErrorResponse(['body'], error));
 	}
 	if (body) {
-		const courseOffering = await prisma.courseOffering.findUnique({
-			where: { id: body.courseOfferingId }
+		const course = await prisma.course.findUnique({
+			where: { id: body.courseId }
 		});
 
-		if (!courseOffering) {
-			errors.addError(['body', 'courseOfferingId'], 'Course offering not found');
+		if (!course) {
+			errors.addError(['body', 'courseId'], 'Course not found');
+		}
+
+		const studyPeriod = await prisma.studyPeriod.findUnique({
+			where: { id: body.studyPeriodId }
+		});
+		
+		if (!studyPeriod) {
+			errors.addError(['body', 'studyPeriodId'], 'Study period not found');
 		}
 	
 		if (body.professorIds.length > 0) {
@@ -266,7 +271,8 @@ async function create(req: Request, res: Response) {
 	const classData = await prisma.class.create({
 		data: {
 			code: body.code,
-			courseOfferingId: body.courseOfferingId,
+			courseId: body.courseId,
+			studyPeriodId: body.studyPeriodId,
 			reservations: body.reservations,
 			professors: {
 				connect: body.professorIds.map(id => ({ id })),
@@ -316,13 +322,16 @@ async function patch(req: Request, res: Response) {
 	})
 	const validation = new ValidationError('Validation errors', error);
 
-	if (success && body?.courseOfferingId !== undefined) {
-		const courseOffering = await prisma.courseOffering.findUnique({where: { id: body.courseOfferingId }});
-		if (!courseOffering) 
-			validation.addError(['body', 'courseOfferingId'], 'Course offering not found');
-		
+	if (success && body?.courseId !== undefined) {
+		const course = await prisma.course.findUnique({where: { id: body.courseId }});
+		if (!course) 
+			validation.addError(['body', 'courseId'], 'Course not found');
 	}
-
+	if (success && body?.studyPeriodId !== undefined) {
+		const studyPeriod = await prisma.studyPeriod.findUnique({ where: { id: body.studyPeriodId } });
+		if (!studyPeriod)
+			validation.addError(['body', 'studyPeriodId'], 'Study period not found');
+	}
 	if (success && body?.professorIds && body.professorIds.length > 0) {
 		const professors = await prisma.professor.findMany({where: { id: { in: body.professorIds } }});
 		if (professors.length !== body.professorIds.length) {
@@ -346,7 +355,8 @@ async function patch(req: Request, res: Response) {
 		where: { id },
 		data: {
 			...(body.code !== undefined && { code: body.code }),
-			...(body.courseOfferingId !== undefined && { courseOfferingId: body.courseOfferingId }),
+			...(body.courseId !== undefined && { courseId: body.courseId }),
+			...(body.studyPeriodId !== undefined && { studyPeriodId: body.studyPeriodId }),
 			...(body.reservations !== undefined && { reservations: body.reservations }),
 			...(body.professorIds !== undefined && {
 				professors: {

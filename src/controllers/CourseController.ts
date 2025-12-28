@@ -21,7 +21,6 @@ type PrismaCoursePayload = MyPrisma.CourseGetPayload<{}>;
 function relatedPathsForCourse(courseId: number) {
 	return {
 		classes: resourcesPaths.class.list({courseId}),
-		courseOfferings: resourcesPaths.courseOffering.list({courseId}),
 	}
 }
 
@@ -37,12 +36,12 @@ const courseBase = z.object({
 	code: z.string().min(1),
 	name: z.string().min(1),
 	credits: z.number().int().min(0),
+	instituteId: z.number().int(),
 });
 
 const courseEntity = courseBase.extend({
 	_paths: z.object({
 		classes: z.string(),
-		courseOfferings: z.string(),
 	}).strict()
 }).strict().openapi('CourseEntity');
 

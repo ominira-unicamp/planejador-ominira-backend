@@ -24,12 +24,14 @@ const prismaClassScheduleFieldSelection = {
 			select: {
 				id: true,
 				code: true,
-				courseOfferingId: true,
-				coursesOffering: {
+				courseId: true,
+				studyPeriodId: true,
+				studyPeriod: selectIdCode,
+				course: {
 					select: {
+						id: true,
+						code: true,
 						institute: selectIdCode,
-						course: selectIdCode,
-						studyPeriod: selectIdCode
 					}
 				}
 			}
@@ -43,14 +45,12 @@ function relatedPathsForClassSchedule(
 	studyPeriodId: number,
 	instituteId: number,
 	courseId: number,
-	courseOfferingId: number,
 	classId: number,
 ) {
 	return {
 		studyPeriod: resourcesPaths.studyPeriod.entity(studyPeriodId),
 		institute: resourcesPaths.institute.entity(instituteId),
 		course: resourcesPaths.course.entity(courseId),
-		courseOffering: resourcesPaths.courseOffering.entity(courseOfferingId),
 		class: resourcesPaths.class.entity(classId),
 		entity: entityPath(classScheduleId)
 	}
@@ -63,19 +63,17 @@ function buildClassScheduleEntity(classSchedule: PrismaClassSchedulePayload) : z
 		roomCode: room.code,
 		classCode: classObj.code,
 		classId: classObj.id,
-		instituteId: classObj.coursesOffering.institute.id,
-		instituteCode: classObj.coursesOffering.institute.code,
-		courseId: classObj.coursesOffering.course.id,
-		courseCode: classObj.coursesOffering.course.code,
-		courseOfferingId: classObj.courseOfferingId,
-		periodId: classObj.coursesOffering.studyPeriod.id,
-		periodName: classObj.coursesOffering.studyPeriod.code,
+		instituteId: classObj.course.institute.id,
+		instituteCode: classObj.course.institute.code,
+		courseId: classObj.course.id,
+		courseCode: classObj.course.code,
+		studyPeriodId: classObj.studyPeriod.id,
+		studyPeriodCode: classObj.studyPeriod.code,
 		_paths: relatedPathsForClassSchedule(
 			classSchedule.id,
-			classObj.coursesOffering.studyPeriod.id,
-			classObj.coursesOffering.institute.id,
-			classObj.coursesOffering.course.id,
-			classObj.courseOfferingId,
+			classObj.studyPeriod.id,
+			classObj.course.institute.id,
+			classObj.course.id,
 			classObj.id
 		)
 	}
@@ -96,15 +94,13 @@ const ClassScheduleEntity = classScheduleBase.extend({
 	instituteCode: z.string(),
 	courseId: z.number().int(),
 	courseCode: z.string(),
-	courseOfferingId: z.number().int(),
-	periodId: z.number().int(),
-	periodName: z.string(),
+	studyPeriodId: z.number().int(),
+	studyPeriodCode: z.string(),
 	_paths: z.object({
 		entity: z.string(),
 		studyPeriod: z.string(),
 		institute: z.string(),
 		course: z.string(),
-		courseOffering: z.string(),
 		class: z.string(),
 	}).strict(),
 }).strict().openapi('ClassScheduleEntity');
@@ -150,9 +146,9 @@ async function list(req: Request, res: Response) {
 			dayOfWeek: query.dayOfWeek,
 			room: whereIdCode(query.roomId, query.roomCode),
 			class: {
-				coursesOffering: {
+				course: {
+					...whereIdCode(query.courseId, query.courseCode),
 					institute: whereIdName(query.instituteId, query.instituteCode),
-					course: whereIdCode(query.courseId, query.courseCode),
 					studyPeriod: whereIdName(query.studyPeriodId, query.studyPeriodCode),
 				},
 			},
@@ -167,15 +163,15 @@ router.get('/class-schedules', list)
 interface ListQueryParams {
 	instituteId?: number,
 	courseId?: number,
-	periodId?: number,
+	studyPeriodId?: number,
 	classId?: number,
 }
 
-function listPath({ instituteId, courseId, periodId, classId }: ListQueryParams) {
+function listPath({ instituteId, courseId, studyPeriodId, classId }: ListQueryParams) {
 	return `/class-schedules?` + [
 		instituteId ? "instituteId=" + instituteId : undefined,
 		courseId ? "courseId=" + courseId : undefined,
-		periodId ? "periodId=" + periodId : undefined,
+		studyPeriodId ? "studyPeriodId=" + studyPeriodId : undefined,
 		classId ? "classId=" + classId : undefined,
 	].filter(Boolean).join('&');
 }
