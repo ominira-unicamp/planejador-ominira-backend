@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { Request, Response } from "express";
 import prisma, { MyPrisma } from '../PrismaClient'
+import { AuthRegistry } from '../auth';
 import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import ResponseBuilder from '../openapi/ResponseBuilder';
@@ -10,6 +11,7 @@ import RequestBuilder from '../openapi/RequestBuilder';
 extendZodWithOpenApi(z);
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry();
 
 type PrismaRoomPayload = MyPrisma.RoomGetPayload<{}>;
@@ -36,6 +38,7 @@ const roomEntity = roomBase.extend({
     })
 }).strict().openapi('RoomEntity');
 
+authRegistry.addException('GET', '/rooms');
 registry.registerPath({
     method: 'get',
     path: '/rooms',
@@ -56,6 +59,7 @@ router.get('/rooms', list)
 
 
 
+authRegistry.addException('GET', '/rooms/:id');
 registry.registerPath({
     method: 'get',
     path: '/rooms/{id}',
@@ -242,8 +246,9 @@ function entityPath(roomId: number) {
 }
 export default {
 	router,
-    registry,
-    paths: {
-        entity: entityPath,
-    },
+	registry,
+	authRegistry,
+	paths: {
+		entity: entityPath,
+	},
 }

@@ -4,10 +4,31 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import Controlellers from "./Controllers";
 
-
+function convertExpressToOpenAPI(path: string): string {
+  return path.replace(/\/:([\w-]+)/g, '/{$1}');
+}
 
 const router = Router()
 const registry = Controlellers.registry;
+
+registry.registerComponent('securitySchemes', 'BearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT', 
+  description: 'JWT authorization using the Bearer scheme',
+});
+
+registry.definitions.forEach(r => {
+	if (r.type == "route") {
+		for (const exception of Controlellers.authRegistry.exceptions) {
+			if (r.route.method.toUpperCase() == exception.method && r.route.path === convertExpressToOpenAPI(exception.path)) {
+				return; 
+			}
+		}
+		r.route.security = [{ BearerAuth: [] }];
+	}
+})
+
 const generator = new OpenApiGeneratorV3(registry.definitions);
 
 router.get('/openapi.json', (req : Request, res : Response) => {

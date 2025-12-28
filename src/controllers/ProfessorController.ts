@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { Request, Response } from "express";
 import prisma, { MyPrisma } from '../PrismaClient'
+import { AuthRegistry } from '../auth';
 import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import ResponseBuilder from '../openapi/ResponseBuilder';
@@ -10,6 +11,7 @@ import RequestBuilder from '../openapi/RequestBuilder';
 extendZodWithOpenApi(z);
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry();
 
 type PrismaProfessorPayload = MyPrisma.ProfessorGetPayload<{}>;
@@ -40,6 +42,7 @@ const listProfessorsQuery = z.object({
     classId: z.coerce.number().int().optional(),
 }).openapi('ListProfessorsQuery');
 
+authRegistry.addException('GET', '/professors');
 registry.registerPath({
     method: 'get',
     path: '/professors',
@@ -88,6 +91,7 @@ function listPath({
 	].filter(Boolean).join('&');
 }
 
+authRegistry.addException('GET', '/professors/:id');
 registry.registerPath({
     method: 'get',
     path: '/professors/{id}',
@@ -261,8 +265,9 @@ function entityPath(professorId: number) {
 export default {
 	router,
     registry,
-    paths: {
-        list: listPath,
-        entity: entityPath,
-    },
+	authRegistry,
+	paths: {
+		list: listPath,
+		entity: entityPath,
+	},
 }

@@ -4,6 +4,7 @@ import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-op
 import z from 'zod';
 
 import prisma, { selectIdCode, whereIdName, whereIdCode, MyPrisma } from '../PrismaClient'
+import { AuthRegistry } from '../auth';
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { requestSafeParse, ValidationError, ZodErrorResponse } from '../Validation';
@@ -12,6 +13,7 @@ import RequestBuilder from '../openapi/RequestBuilder';
 extendZodWithOpenApi(z);
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry();
 
 const prismaCourseOfferingFieldSelection = {
@@ -81,6 +83,7 @@ const getCourseOffering = z.object({
 	periodName: z.string().optional(),
 }).openapi('GetCourseOfferingQuery');
 
+authRegistry.addException('GET', '/course-offerings');
 registry.registerPath({
 	method: 'get',
 	path: '/course-offerings',
@@ -136,6 +139,7 @@ function listPath({
 
 
 
+authRegistry.addException('GET', '/course-offerings/:id');
 registry.registerPath({
 	method: 'get',
 	path: '/course-offerings/{id}',
@@ -353,6 +357,7 @@ function entityPath(courseOfferingId: number) {
 export default {
 	router,
 	registry,
+	authRegistry,
 	paths: {
 		list: listPath,
 		entity: entityPath,

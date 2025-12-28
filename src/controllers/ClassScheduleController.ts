@@ -4,6 +4,7 @@ import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-op
 import z from 'zod';
 
 import prisma, { selectIdCode, whereIdName, whereIdCode, MyPrisma } from '../PrismaClient'
+import { AuthRegistry } from '../auth';
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { requestSafeParse, ValidationError, ZodErrorResponse } from '../Validation';
@@ -11,6 +12,7 @@ import RequestBuilder from '../openapi/RequestBuilder';
 extendZodWithOpenApi(z);
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry();
 
 const daysOfWeekEnum = z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']).openapi('DaysOfWeekEnum');
@@ -120,6 +122,7 @@ const getClassSchedules = z.object({
 	dayOfWeek: daysOfWeekEnum.optional(),
 }).openapi('GetClassSchedulesQuery');
 
+authRegistry.addException('GET', '/class-schedules');
 registry.registerPath({
 	method: 'get',
 	path: '/class-schedules',
@@ -177,6 +180,7 @@ function listPath({ instituteId, courseId, periodId, classId }: ListQueryParams)
 	].filter(Boolean).join('&');
 }
 
+authRegistry.addException('GET', '/class-schedules/:id');
 registry.registerPath({
 	method: 'get',
 	path: '/class-schedules/{id}',
@@ -383,6 +387,7 @@ function entityPath(id: number) {
 export default {
 	router,
 	registry,
+	authRegistry,
 	paths: {
 		list: listPath,
 		entity: entityPath,

@@ -1,3 +1,5 @@
+import auth from './controllers/AuthController'
+
 import professor from './controllers/ProfessorController'
 import institute from './controllers/InstituteController'
 import course from './controllers/CourseController'
@@ -7,11 +9,14 @@ import studyPeriods from './controllers/StudyPeriodsController'
 import classSchedule from './controllers/ClassScheduleController'
 import room from './controllers/RoomController'
 
+
 import { Router } from 'express'
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi'
+import { AuthRegistry } from './auth'
 
 
 const paths = {
+	auth: auth.paths,
 	class: classController.paths,
 	classSchedule: classSchedule.paths,
 	course: course.paths,
@@ -24,6 +29,7 @@ const paths = {
 
 export default {
 	router: Router().use(
+		auth.router,
 		professor.router,
 		institute.router,
 		course.router,
@@ -34,6 +40,7 @@ export default {
 		room.router,
 	),
 	registry: new OpenAPIRegistry([
+		auth.registry,
 		professor.registry,
 		institute.registry,
 		course.registry,
@@ -43,8 +50,20 @@ export default {
 		studyPeriods.registry,
 		room.registry
 	]),
+	authRegistry: new AuthRegistry([
+		auth.authRegistry,
+		classController.authRegistry,
+		professor.authRegistry,
+		institute.authRegistry,
+		course.authRegistry,
+		courseOffering.authRegistry,
+		classSchedule.authRegistry,
+		studyPeriods.authRegistry,
+		room.authRegistry,
+	]),
 	resourcesPaths: paths,
 	all: {
+		auth,
 		professor,
 		institute,
 		course,

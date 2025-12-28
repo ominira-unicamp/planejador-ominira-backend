@@ -4,6 +4,7 @@ import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-op
 import z, { success, ZodAny, ZodType } from 'zod';
 
 import prisma from '../PrismaClient'
+import { AuthRegistry } from '../auth';
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { requestSafeParse, ValidationError, ValidationErrorField, ValidationErrorType, ZodErrorResponse } from '../Validation';
@@ -13,6 +14,7 @@ import { ParamsDictionary } from 'express-serve-static-core';
 extendZodWithOpenApi(z);
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry()
 
 
@@ -44,6 +46,7 @@ const studyPeriodEntity = studyPeriodBase.extend({
 	})
 }).strict().openapi('StudyPeriodEntity');
 
+authRegistry.addException('GET', '/study-periods');
 registry.registerPath({
 	method: 'get',
 	path: '/study-periods',
@@ -65,6 +68,7 @@ async function list(req: Request, res: Response) {
 }
 router.get('/study-periods', list)
 
+authRegistry.addException('GET', '/study-periods/:id');
 registry.registerPath({
 	method: 'get',
 	path: '/study-periods/{id}',
@@ -266,6 +270,7 @@ function entityPath(studyPeriodId: number) {
 export default {
 	router,
 	registry,
+	authRegistry,
 	paths: {
 		entity: entityPath,
 	},

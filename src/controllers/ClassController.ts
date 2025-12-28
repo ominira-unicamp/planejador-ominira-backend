@@ -8,10 +8,12 @@ import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
 import { requestSafeParse, ValidationError, ZodErrorResponse } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
+import { AuthRegistry } from '../auth';
 extendZodWithOpenApi(z);
 
 
 const router = Router()
+const authRegistry = new AuthRegistry();
 const registry = new OpenAPIRegistry();
 
 const prismaClassFieldSelection = {
@@ -103,7 +105,7 @@ const listClassesQuery = z.object({
 	professorName: z.string().optional(),
 }).openapi('GetClassesQuery');
 
-
+authRegistry.addException('GET', '/classes');
 registry.registerPath({
 	method: 'get',
 	path: '/classes',
@@ -172,7 +174,7 @@ function listPath({
 	].filter(Boolean).join('&');
 }
 
-
+authRegistry.addException('GET', '/classes/:id');
 registry.registerPath({
 	method: 'get',
 	path: '/classes/{id}',
@@ -397,6 +399,7 @@ router.delete('/classes/:id', deleteClass)
 export default {
 	router,
 	registry,
+	authRegistry,
 	paths: {
 		list: listPath,
 		entity: entityPath,
