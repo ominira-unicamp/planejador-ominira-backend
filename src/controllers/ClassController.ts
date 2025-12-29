@@ -207,7 +207,6 @@ registry.registerPath({
 
 
 async function create(req: Request, res: Response) {
-
 	const { success, data: body, error } = await createClassBody.and(z.object({
 		courseId: zodIds.course.exists,
 		studyPeriodId: zodIds.studyPeriod.exists,

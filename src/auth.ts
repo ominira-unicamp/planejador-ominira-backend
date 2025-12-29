@@ -1,20 +1,31 @@
 import { Request, Response, NextFunction } from "express";
 import * as jose from "jose";
 import { match, pathToRegexp, compile, parse, stringify } from "path-to-regexp";
-if (!process.env.secretKey) {
-	console.warn("Warning: secretKey environment variable is not set. Using default value.");
-} 
+
 const disabled = process.env.DISABLED_AUTH === 'true';
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (!process.env.secretKey && !disabled) {
+	throw new Error('secretKey environment variable is required when authentication is enabled. Set DISABLED_AUTH=true for development or provide a secretKey.');
+}
+
 const secretKey = process.env.secretKey ?? "default";
+
+// In production, enforce minimum secret key length
+if (isProduction && !disabled && secretKey.length < 32) {
+	throw new Error('secretKey must be at least 32 characters in production environment.');
+}
+
 const secret = new TextEncoder().encode(secretKey)
 const alg = 'HS256'
 
-async function generateToken(payload: object, expiresIn: string = '2h'): Promise<string> {
-	const jwt = await new jose.SignJWT({ 'urn:example:claim': true })
+async function generateToken(payload: { userId: number; [key: string]: any }, expiresIn: string = '2h'): Promise<string> {
+	const jwt = await new jose.SignJWT(payload)
 		.setProtectedHeader({ alg })
+		.setSubject(String(payload.userId))
+		.setIssuedAt()
 		.setExpirationTime(expiresIn)
 		.sign(secret)
-	console.log(jwt)
 	return jwt;
 
 }

@@ -61,6 +61,12 @@ class ResponseBuilder {
 		}
 		return this;
 	}
+	unauthorized(): ResponseBuilder {
+		this.response[401] = {
+			description: "Unauthorized - authentication required"
+		}
+		return this;
+	}
 	build(): Record<number, ResponseConfig | ReferenceObject> {
 		return this.response;
 	}

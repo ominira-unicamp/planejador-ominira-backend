@@ -64,7 +64,9 @@ async function list(req: Request, res: Response) {
 		res.status(400).json(ZodErrorResponse(error, ["query"]));
 		return;
 	}
-	const professors = await prisma.professor.findMany({ where: { classes: { some: { id: query.classId } } } });
+	const professors = await prisma.professor.findMany({ 
+		where: query.classId ? { classes: { some: { id: query.classId } } } : {} 
+	});
 	const entities = professors.map((professor) => buildProfessorEntity(professor));
 	res.json(entities)
 

@@ -26,6 +26,9 @@ registry.definitions.forEach(r => {
 			}
 		}
 		r.route.security = [{ BearerAuth: [] }];
+		r.route.responses['401'] = {
+			description: 'Unauthorized - Missing or invalid JWT token',
+		};
 	}
 })
 

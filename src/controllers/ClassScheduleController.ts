@@ -146,11 +146,12 @@ async function list(req: Request, res: Response) {
 			dayOfWeek: query.dayOfWeek,
 			room: whereIdCode(query.roomId, query.roomCode),
 			class: {
+				...whereIdCode(query.classId, undefined),
 				course: {
 					...whereIdCode(query.courseId, query.courseCode),
-					institute: whereIdName(query.instituteId, query.instituteCode),
-					studyPeriod: whereIdName(query.studyPeriodId, query.studyPeriodCode),
+					institute: whereIdCode(query.instituteId, query.instituteCode),
 				},
+				studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
 			},
 		},
 		...prismaClassScheduleFieldSelection,
@@ -186,7 +187,7 @@ router.get('/class-schedules/:id', defaultGetHandler(
 ))
 
 
-const createClassScheduleBody = classScheduleBase.openapi('CreateClassScheduleBody');
+const createClassScheduleBody = classScheduleBase.omit({ id: true }).openapi('CreateClassScheduleBody');
 
 registry.registerPath({
 	method: 'post',
@@ -203,10 +204,10 @@ registry.registerPath({
 });
 
 async function create(req: Request, res: Response) {
-	const { success, data: body, error } = createClassScheduleBody.and(z.object({
+	const { success, data: body, error } = await createClassScheduleBody.and(z.object({
 		roomId: zodIds.room.exists,
 		classId: zodIds.class.exists
-	})).safeParse(req.body);
+	})).safeParseAsync(req.body);
 	if (!success) {
 		res.status(400).json(new ValidationError(ZodErrorResponse(error, ['body'])));
 		return;
@@ -251,6 +252,13 @@ async function patch(req: Request, res: Response) {
 		return;
 	}
 	const { params: { id }, body } = data;
+
+	// Check if class schedule exists
+	const existing = await prisma.classSchedule.findUnique({ where: { id } });
+	if (!existing) {
+		res.status(404).json({ error: 'Class schedule not found' });
+		return;
+	}
 
 	const classSchedule = await prisma.classSchedule.update({
 		where: { id: id },

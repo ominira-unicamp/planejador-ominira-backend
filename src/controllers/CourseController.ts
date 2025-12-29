@@ -159,7 +159,7 @@ async function patch(req: Request, res: Response) {
 		body: patchCourseBody,
 	}).safeParseAsync(req);
 	const validation = new ValidationError(ZodErrorResponse(error));
-	if (success) {
+	if (success && data.body.code !== undefined) {
 		const existing = await prisma.course.findUnique({ where: { code: data.body.code } });
 		if (existing && existing.id !== data.params.id) {
 			validation.addError(['body', 'code'], 'A course with this code already exists');
