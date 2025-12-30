@@ -51,7 +51,8 @@ class AuthRegistry {
 			if (exception.method === method) {
 				const fn = match(exception.path, { decode: decodeURIComponent });
 				const result = fn(path);
-				if (result) return true;
+				if (result)
+					return true;
 			}
 		}
 		return false;

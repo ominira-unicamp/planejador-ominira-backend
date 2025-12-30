@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import prisma, { MyPrisma } from "./PrismaClient";
 import { z } from "zod";
-import { ZodErrorResponse } from "./Validation";
+import { ZodToApiError } from "./Validation";
 import ResponseBuilder from "./openapi/ResponseBuilder";
 import { RouteConfig } from "@asteasolutions/zod-to-openapi";
 function defaultOpenApiGetPath(
@@ -39,7 +39,7 @@ function defaultGetHandler<
 	return async function get(req, res): Promise<void> {
 		const parsed = z.coerce.number().int().safeParse(req.params.id);
 		if (!parsed.success) {
-			res.status(400).json(ZodErrorResponse(parsed.error, ["params", "id"]));
+			res.status(400).json(ZodToApiError(parsed.error, ["path", "id"]));
 			return;
 		}
 		const id: number = parsed.data;

@@ -6,7 +6,7 @@ import z, { ZodTuple } from 'zod';
 import prisma, { MyPrisma, selectIdCode, selectIdName, whereIdCode, whereIdName } from '../PrismaClient'
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationError, ValidationErrorField, ZodErrorResponse } from '../Validation';
+import { ValidationError, ValidationErrorField, ZodToApiError } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { AuthRegistry } from '../auth';
 import { zodIds } from '../PrismaValidator';
@@ -126,7 +126,7 @@ registry.registerPath({
 async function listAll(req: Request, res: Response) {
 	const { success, data: query, error } = listClassesQuery.safeParse(req.query);
 	if (!success) {
-		res.status(400).json(ZodErrorResponse(error, ["query"]));
+		res.status(400).json(ZodToApiError(error, ["query"]));
 		return
 	}
 	const classes = await prisma.class.findMany({
@@ -214,7 +214,7 @@ async function create(req: Request, res: Response) {
 	})).safeParseAsync(req.body);
 
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, ['body'])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, ['body'])));
 		return;
 	}
 	const classData = await prisma.class.create({
@@ -267,7 +267,7 @@ async function patch(req: Request, res: Response) {
 	});
 	const {success, data, error} = await reqSchema.safeParseAsync(req);
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, [])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, [])));
 		return;
 	}
 	const { params: { id }, body } = data;
@@ -316,7 +316,7 @@ registry.registerPath({
 async function deleteClass(req: Request, res: Response) {
 	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
 	if (!success) {
-		res.status(400).json(ZodErrorResponse(error, ['params', 'id']));
+		res.status(400).json(ZodToApiError(error, ['path', 'id']));
 		return;
 	}
 

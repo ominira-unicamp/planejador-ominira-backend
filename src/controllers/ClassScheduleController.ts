@@ -7,7 +7,7 @@ import prisma, { selectIdCode, whereIdName, whereIdCode, MyPrisma } from '../Pri
 import { AuthRegistry } from '../auth';
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationError, ZodErrorResponse } from '../Validation';
+import { ValidationError, ZodToApiError } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { zodIds } from '../PrismaValidator';
 import { defaultGetHandler, defaultOpenApiGetPath } from '../defaultEndpoint';
@@ -138,7 +138,7 @@ async function list(req: Request, res: Response) {
 	
 	const { success, data: query, error } = getClassSchedules.safeParse(req.query);
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, ['query'])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, ['query'])));
 		return;
 	}
 	prisma.classSchedule.findMany({
@@ -209,7 +209,7 @@ async function create(req: Request, res: Response) {
 		classId: zodIds.class.exists
 	})).safeParseAsync(req.body);
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, ['body'])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, ['body'])));
 		return;
 	}
 	const classSchedule = await prisma.classSchedule.create({
@@ -248,7 +248,7 @@ async function patch(req: Request, res: Response) {
 		}))
 	}).safeParseAsync(req);
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, [])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, [])));
 		return;
 	}
 	const { params: { id }, body } = data;
@@ -296,7 +296,7 @@ registry.registerPath({
 async function deleteClassSchedule(req: Request, res: Response) {
 	const { success, data: id, error } = z.coerce.number().int().safeParse(req.params.id);
 	if (!success) {
-		res.status(400).json(new ValidationError(ZodErrorResponse(error, ['params', 'id'])));
+		res.status(400).json(new ValidationError(ZodToApiError(error, ['path', 'id'])));
 		return;
 	}
 	const existing = await prisma.classSchedule.findUnique({ where: { id: id } });

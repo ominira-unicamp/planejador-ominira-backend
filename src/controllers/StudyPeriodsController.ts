@@ -7,7 +7,7 @@ import prisma from '../PrismaClient'
 import { AuthRegistry } from '../auth';
 import { resourcesPaths } from '../Controllers';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationError, ValidationErrorField, ValidationErrorType, ZodErrorResponse } from '../Validation';
+import { ValidationError, ValidationErrorField, ValidationErrorType, ZodToApiError } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { defaultGetHandler, defaultOpenApiGetPath } from '../defaultEndpoint';
@@ -103,12 +103,16 @@ async function create(req: Request, res: Response) {
 	const { success, data: body, error } = createStudyPeriodBody.safeParse(req.body);
 	const errors = new ValidationError([]);
 	if (!success)
-		errors.addErrors(ZodErrorResponse(error, ["body"]));
+		errors.addErrors(ZodToApiError(error, ["body"]));
 
 	if (body) {
 		const existing = await prisma.studyPeriod.findFirst({ where: { code: body.code } });
 		if (existing)
-			errors.addError(["body", "code"], "A study period with this code already exists");
+			errors.addError({
+				code: "ALREADY_EXISTS",
+				path: ["body", "code"],
+				message: "A study period with this code already exists"
+			});
 	}
 	if (errors.errors.length > 0 || !success) {
 		res.status(400).json(errors);

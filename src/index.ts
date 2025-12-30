@@ -7,7 +7,6 @@ import Controlellers from './Controllers'
 import errorHandler from './Middlewares/erroHandler'
 import jsonErrorHandler from './Middlewares/jsonErrorHandler'
 const app = express()
-
 const corsOrigin = process.env.CORS_ORIGIN || '*'
 app.use(cors({
   origin: corsOrigin === '*' ? '*' : corsOrigin.split(','),

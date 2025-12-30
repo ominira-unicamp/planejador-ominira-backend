@@ -5,7 +5,7 @@ import { AuthRegistry } from '../auth';
 import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationError, ZodErrorResponse } from '../Validation';
+import { ValidationError, ZodToApiError } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { defaultGetHandler, defaultOpenApiGetPath } from '../defaultEndpoint';
 
@@ -61,7 +61,7 @@ registry.registerPath({
 async function list(req: Request, res: Response) {
 	const { success, data: query, error } = listProfessorsQuery.safeParse(req.query);
 	if (!success) {
-		res.status(400).json(ZodErrorResponse(error, ["query"]));
+		res.status(400).json(ZodToApiError(error, ["query"]));
 		return;
 	}
 	const professors = await prisma.professor.findMany({ 
@@ -113,7 +113,7 @@ async function create(req: Request, res: Response) {
 	const { success, data: body, error } = createProfessorBody.safeParse(req.body);
 	const errors = new ValidationError([]);
 	if (!success) {
-		errors.addErrors(ZodErrorResponse(error, ['body']));
+		errors.addErrors(ZodToApiError(error, ['body']));
 	}
 
 	if (errors.errors.length > 0 || !success) {

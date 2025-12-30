@@ -5,7 +5,7 @@ import { AuthRegistry } from '../auth';
 import { OpenAPIRegistry, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import ResponseBuilder from '../openapi/ResponseBuilder';
-import { ValidationError, ZodErrorResponse } from '../Validation';
+import { ValidationError, ZodToApiError } from '../Validation';
 import RequestBuilder from '../openapi/RequestBuilder';
 import { defaultGetHandler, defaultOpenApiGetPath } from '../defaultEndpoint';
 
@@ -90,13 +90,17 @@ async function create(req: Request, res: Response) {
 	const { success, data: body, error } = createRoomBody.safeParse(req.body);
 	const errors = new ValidationError([]);
 	if (!success) {
-		errors.addErrors(ZodErrorResponse(error, ['body']));
+		errors.addErrors(ZodToApiError(error, ['body']));
 	}
 	
 	if (body) {
 		const existing = await prisma.room.findUnique({ where: { code: body.code } });
 		if (existing) {
-			errors.addError(['body', 'code'], 'A room with this code already exists');
+			errors.addError({
+				code: "ALREADY_EXISTS",
+				path: ['body', 'code'],
+				message: 'A room with this code already exists'
+			});
 		}
 	}
 	
@@ -137,11 +141,15 @@ async function patch(req: Request, res: Response) {
 		params: z.object({ id: z.coerce.number().int() }).strict(),
 		body: patchRoomBody,
 	}).safeParse(req);
-	const validation = new ValidationError(ZodErrorResponse(error));
+	const validation = new ValidationError(ZodToApiError(error));
 	if (success) {
 		const existing = await prisma.room.findUnique({ where: { code: data.body.code } });
 		if (existing && existing.id !== data.params.id) {
-			validation.addError(['body', 'code'], 'A room with this code already exists');
+			validation.addError({
+				code: "ALREADY_EXISTS",
+				path: ['body', 'code'],
+				message: 'A room with this code already exists'
+			});
 		}
 	}
 

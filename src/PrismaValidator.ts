@@ -18,14 +18,21 @@ async function verifyExistsMany(prismaDelegate: DelageteType, ids: number[]) {
 }
 
 
-const buildZodSchemas = (prismaDelegate: DelageteType, uniqueMessage: string, manyMessage: string)  => ({
-	exists: z.number().int().refine(
-		async (val) => await verifyExists(prismaDelegate, val),
-		{ message: uniqueMessage }
+const buildZodSchemas = (prismaDelegate: DelageteType, uniqueMessage: string, manyMessage: string) => ({
+	exists: z.number().int().superRefine(
+		async (val, ctx) => {
+			if (!await verifyExists(prismaDelegate, val)) {
+				ctx.addIssue({
+					code: 'custom',
+					message: uniqueMessage,
+					params: { code: 'REFERENCE_NOT_FOUND' },
+				});
+			}
+		}
 	),
 	existsMany: z.array(z.number().int()).refine(
 		async (vals) => await verifyExistsMany(prismaDelegate, vals),
-		{ message: manyMessage }
+		{ message: manyMessage, params: { code: 'REFERENCE_NOT_FOUND' } }
 	),
 })
 

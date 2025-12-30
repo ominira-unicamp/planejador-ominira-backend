@@ -5,46 +5,79 @@ type ValidationErrorField = {
 	path: PropertyKey[],
 	message: string
 }
-type ValidationErrorType = {
-	message: string,
-	errors: ValidationErrorField[]
+const ErrorCodeSchema = z.enum([
+	'INVALID_TYPE',
+	'INVALID_VALUE',
+	'REQUIRED',
+	'REFERENCE_NOT_FOUND',
+	'ALREADY_EXISTS',
+]).openapi('ErrorCode');
+
+
+const ErrorFieldSchema = z.object({
+	code: ErrorCodeSchema,
+	path: z.array(z.string()),
+	message: z.string(),
+}).openapi('ErrorField');
+
+const ApiErrorSchema = z.object({
+	message: z.string(),           // Mensagem resumida geral
+	errors: z.array(ErrorFieldSchema),
+}).openapi("ApiError");
+
+type ErrorFieldType = z.infer<typeof ErrorFieldSchema>;
+type ValidationErrorType = z.infer<typeof ApiErrorSchema>;
+type ErrorCode = z.infer<typeof ErrorCodeSchema>;
+
+
+type PathPrefix = ['query' | 'path' | 'body' | 'header', ...string[]] | [];
+
+// Mapeia código do Zod para nosso ErrorCode
+function zodCodeToErrorCode(issue: z.core.$ZodIssue): z.infer<typeof ErrorCodeSchema> {
+
+	switch (issue.code) {
+		case 'invalid_type':
+			return 'INVALID_TYPE';
+		case 'custom':
+			return issue.params?.code || 'INVALID_VALUE';
+		default:
+			return 'INVALID_VALUE';
+	}
 }
-function ZodErrorResponse(error: z.ZodError | undefined, pathPrefix: string[] = []): ValidationErrorField[] {
-	if (!error) {
+
+
+function ZodToApiError(zodError: z.ZodError | undefined, prefix: PathPrefix = []): z.infer<typeof ErrorFieldSchema>[] {
+	if (!zodError) {
 		return [];
 	}
-	return error.issues.map((err) => ({
-		path: [...pathPrefix, ...err.path],
-		message: err.message
+	return zodError.issues.map(issue => ({
+		code: zodCodeToErrorCode(issue),
+		path: [...prefix, ...issue.path.map(String)],
+		message: issue.message,
 	}));
 }
-const ValidationErrorFieldSchema = z.object({
-	message: z.string(),
-	path: z.array(z.string()),
-});
-const ValidationErrorSchema = z.object({
-	message: z.string(),
-	errors: z.array(ValidationErrorFieldSchema)
-}).openapi("ValidationError");
 
-class ValidationError implements ValidationErrorType {
-	constructor(public errors: ValidationErrorField[] = [], public message: string = "Validation error") {
+const ValidationErrorSchema = ApiErrorSchema;
+
+class ApiError implements ValidationErrorType {
+	constructor(public errors: ErrorFieldType[] = [], public message: string = "Validation error") {
 	}
-	addError(path: PropertyKey[], message: string) {
-		this.errors.push({ path, message });
+	addError(error: ErrorFieldType) {
+		this.errors.push(error);
 	}
-	addErrors(newErrors: ValidationErrorField[]) {
+	addErrors(newErrors: ErrorFieldType[]) {
 		this.errors.push(...newErrors);
 	}
 
 }
 
 export {
-	ZodErrorResponse,
+	ZodToApiError as ZodToApiError,
 	ValidationErrorSchema,
-	ValidationError,
+	ApiError as ValidationError,
 }
 export type {
+	ErrorCode,
 	ValidationErrorField,
 	ValidationErrorType
 }
