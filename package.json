@@ -1,14 +1,19 @@
 {
-  "name": "express",
-  "version": "1.0.0",
-  "license": "MIT",
+  "name": "pomi-backend",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "npx prisma migrate deploy && npx prisma generate && npx prisma db seed",
+    "prisma:seed": "npx prisma db seed"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.2.0",
     "@prisma/adapter-pg": "7.0.0",
-    "@prisma/client": "7.0.0",
+    "@prisma/client": "^7.2.0",
     "@scalar/express-api-reference": "^0.8.30",
     "express": "5.1.0",
     "helmet": "^8.1.0",
@@ -22,7 +27,7 @@
     "@types/node": "22.18.12",
     "@types/pg": "^8.15.6",
     "dotenv": "^17.2.1",
-    "prisma": "7.0.0",
+    "prisma": "^7.2.0",
     "prisma-zod-generator": "^2.1.2",
     "tsx": "^4.20.6",
     "typescript": "5.8.2"
