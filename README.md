@@ -39,8 +39,8 @@ Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, qu
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/ominira-unicamp/planejador-ominira-backend.git
-cd planejador-ominira-backend
+git clone https://github.com/ominira-unicamp/pomi-backend.git
+cd pomi-backend
 ```
 
 ### 2. Instale as dependências
@@ -108,3 +108,7 @@ pomi-backend/
 ├── prisma.config.ts
 └── tsconfig.json
 ```
+
+## LICENÇA
+
+O projeto está licenciado pelos termos da AGPL v3.0, para informações completas ver [licença](https://github.com/ominira-unicamp/pomi-backend/blob/main/LICENSE).
