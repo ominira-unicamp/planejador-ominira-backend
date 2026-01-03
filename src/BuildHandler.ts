@@ -51,15 +51,15 @@ export class OutputBuilder<A  extends { [key: number]: z.ZodOptional<z.ZodType> 
 		return this as unknown as OutputBuilder<A & { 200: z.ZodOptional<Z> }>;
 	}
 	created<Z extends ZodType>(schema: Z, description: string): OutputBuilder<A & { 201: z.ZodOptional<Z> }> {
-		this.response[201] = schema.optional().meta({description: description}).optional();
+		this.response[201] = schema.optional().meta({description: description});
 		return this as unknown as OutputBuilder<A & { 201: z.ZodOptional<Z> }>;
 	}
-	noContent(): OutputBuilder<A & { 204: z.ZodOptional<z.ZodUndefined>}> {
-		this.response[204] = z.undefined().optional().meta({description: "No content"});
-		return this as unknown as OutputBuilder<A & { 204: z.ZodOptional<z.ZodUndefined> }>;
+	noContent(description?: string): OutputBuilder<A & { 204: z.ZodOptional<z.ZodNull>}> {
+		this.response[204] = z.null().optional().openapi({ description: description || "No content", type: "string" });
+		return this as unknown as OutputBuilder<A & { 204: z.ZodOptional<z.ZodNull> }>;
 	}
 	badRequest(): OutputBuilder<A & { 400: z.ZodOptional<typeof ValidationErrorSchema> }> {
-		this.response[400] = ValidationErrorSchema.optional().meta({description: "Bad request"}).optional()
+		this.response[400] = ValidationErrorSchema.optional().meta({description: "Bad request"})
 		return this as unknown as OutputBuilder<A & { 400: z.ZodOptional<typeof ValidationErrorSchema> }>;
 	}
 	notFound(): OutputBuilder<A & { 404: z.ZodOptional<z.ZodObject<{ description: z.ZodDefault<z.ZodString>; }>> }> {
@@ -68,10 +68,10 @@ export class OutputBuilder<A  extends { [key: number]: z.ZodOptional<z.ZodType> 
 		}).optional().meta({description: "Not found"});
 		return this as unknown as OutputBuilder<A & { 404: z.ZodOptional<z.ZodObject<{ description: z.ZodDefault<z.ZodString>; }>> }>;
 	}
-	unauthorized(): OutputBuilder<A & { 401: z.ZodOptional<z.ZodUndefined> }> {
-		this.response[401] = z.undefined().optional().meta({ description: "Unauthorized - authentication required" })
+	unauthorized(): OutputBuilder<A & { 401: z.ZodOptional<z.ZodString> }> {
+		this.response[401] = z.string().length(0).optional().openapi({ description: "Unauthorized - authentication required", type: "string" });
 		
-		return this as unknown as OutputBuilder<A & { 401: z.ZodOptional<z.ZodUndefined> }>;
+		return this as unknown as OutputBuilder<A & { 401: z.ZodOptional<z.ZodString> }>;
 	}
 	build(): z.ZodObject<A> {
 		return z.object(this.response);
@@ -119,6 +119,9 @@ export function openApiArgsFromIO(io : IO) {
 				break;
 			case 201:
 				response.created(schema, "Resource created successfully");
+				break;
+			case 204:
+				response.noContent();
 				break;
 			case 400:
 				response.badRequest();

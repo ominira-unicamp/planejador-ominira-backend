@@ -70,7 +70,7 @@ const remove = {
 		}).strict(),
 	}),
 	output: new OutputBuilder()
-		.ok(z.null(), "Course deleted successfully")
+		.noContent("Course deleted successfully")
 		.notFound()
 		.build(),
 }

@@ -11,7 +11,7 @@ extendZodWithOpenApi(z);
 import courseEntity from './Entity.js';
 import IO from './Interface.js';
 import { buildHandler } from '../../BuildHandler.js';
-import registry from './Openapi.js';
+import registry from './OpenAPI.js';
 
 
 const list = defaultListHandler(
@@ -99,7 +99,7 @@ async function deleteFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer
 		}
 	}
 	await prisma.course.delete({ where: { id: id } });
-	return { 204: null };
+	return { 200: undefined };
 }
 
 const router = Router()
