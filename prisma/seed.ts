@@ -80,7 +80,7 @@ async function main() {
   // Primeira passagem: coletar todos os dados únicos
   console.log('📊 Coletando dados...')
   for (const periodo of seedData) {
-    if (periodo.ano < 2024) continue
+    //if (periodo.ano < 2024) continue
 
     studyPeriods.push({
       code: `${periodo.ano}s${periodo.semestre}`,
@@ -88,8 +88,8 @@ async function main() {
     })
 
     for (const institutoData of periodo.institutos) {
-      if (!["IC", "FEEC"].includes(institutoData.nome)) continue
-      
+      //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
+
       allInstitutes.set(institutoData.nome, { code: institutoData.nome })
 
       for (const disciplinaData of institutoData.diciplinas) {
@@ -104,7 +104,7 @@ async function main() {
           turmaData.docentes
             .filter(d => d && d.trim() !== '')
             .forEach(d => allProfessors.set(d.trim(), { name: d.trim() }))
-          
+
           turmaData.aulas.forEach(a => allRooms.set(a.sala, { code: a.sala }))
         }
       }
@@ -182,12 +182,12 @@ async function main() {
   }> = []
 
   for (const periodo of seedData) {
-    if (periodo.ano < 2024) continue
-    
+    //if (periodo.ano < 2024) continue
+
     const studyPeriod = studyPeriodsMap.get(`${periodo.ano}s${periodo.semestre}`)!
 
     for (const institutoData of periodo.institutos) {
-      if (!["IC", "FEEC"].includes(institutoData.nome)) continue
+      //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
 
       for (const disciplinaData of institutoData.diciplinas) {
         const course = coursesMap.get(disciplinaData.codigo)!
@@ -210,33 +210,56 @@ async function main() {
     }
   }
 
-  // Inserir todas as turmas individualmente com professores usando $transaction
+  // Inserir todas as turmas em batch sem professores
   console.log(`👥 Inserindo ${allClasses.length} turmas...`)
-  const createdClassesArray = await Promise.all(
-    allClasses.map(c => 
-      prisma.class.create({
-        data: {
-          code: c.code,
-          courseId: c.courseId,
-          studyPeriodId: c.studyPeriodId,
-          reservations: c.reservations,
-          professors: {
-            connect: c.professorIds.map(id => ({ id }))
-          }
-        },
-        include: { course: true, studyPeriod: true }
-      }).then(createdClass => {
-        
-        console.log(`   ➕ Turma criada: ${createdClass.course.code} - ${createdClass.code} (${createdClass.studyPeriod.code})`)
-        return createdClass
-      })
-    )
-  )
+  await prisma.class.createMany({
+    data: allClasses.map(c => ({
+      code: c.code,
+      courseId: c.courseId,
+      studyPeriodId: c.studyPeriodId,
+      reservations: c.reservations,
+    })),
+    skipDuplicates: true,
+  })
+
+  // Buscar todas as classes criadas
+  console.log('🔍 Buscando turmas criadas...')
+  const createdClassesArray = await prisma.class.findMany({
+    include: { course: true, studyPeriod: true }
+  })
 
   // Criar mapa de turmas por chave única
   const classesMap = new Map(
-    createdClassesArray.map((c, index) => [allClasses[index].turmaKey, c])
+    createdClassesArray.map((c) => [
+      `${c.studyPeriod.code.split('s')[0]}-${c.studyPeriod.code.split('s')[1]}-${c.course.code}-${c.code}`,
+      c
+    ])
   )
+
+  // Preparar conexões com professores em batch
+  console.log('🔗 Conectando professores às turmas...')
+  const professorConnections: Array<{ A: number; B: number }> = []
+
+  for (const classData of allClasses) {
+    const classEntity = classesMap.get(classData.turmaKey)
+    if (!classEntity) continue
+
+    for (const professorId of classData.professorIds) {
+      professorConnections.push({
+        A: classEntity.id,
+        B: professorId,
+      })
+    }
+  }
+
+  // Inserir conexões em batch usando executeRaw
+  console.log(`🔗 Inserindo ${professorConnections.length} conexões professor-turma...`)
+  if (professorConnections.length > 0) {
+    const values = professorConnections.map(c => `(${c.A}, ${c.B})`).join(', ')
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "_ClassToProfessor" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
+    )
+  }
 
   // Coletar todos os horários para inserção em batch
   console.log('📅 Coletando horários...')
@@ -249,10 +272,10 @@ async function main() {
   }> = []
 
   for (const periodo of seedData) {
-    if (periodo.ano < 2024) continue
+    //if (periodo.ano < 2024) continue
 
     for (const institutoData of periodo.institutos) {
-      if (!["IC", "FEEC"].includes(institutoData.nome)) continue
+      //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
 
       for (const disciplinaData of institutoData.diciplinas) {
         for (const turmaData of disciplinaData.turmas) {
