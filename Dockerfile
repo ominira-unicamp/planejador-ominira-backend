@@ -26,5 +26,5 @@ COPY --from=builder /usr/src/app/prisma ./prisma
 COPY --from=builder /usr/src/app/prisma.config.ts ./
 
 RUN npm ci --omit=dev
-
+EXPOSE 3000
 CMD ["sh", "-c", "npm run prisma:deploy && npm start"]
