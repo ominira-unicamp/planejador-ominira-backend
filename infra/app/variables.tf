@@ -40,3 +40,9 @@ variable "jwt_secret" {
   type = string
   sensitive = true
 }
+
+variable "custom_domain" {
+  description = "Custom domain for the Cloud Run service"
+  type        = string
+  default     = "api.pomi.ominira.dev"
+}

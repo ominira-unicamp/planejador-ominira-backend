@@ -3,18 +3,27 @@ output "cloud_run_url" {
   value       = google_cloud_run_v2_service.api.uri
 }
 
-output "database_connection_name" {
-  description = "Cloud SQL instance connection name"
-  value       = data.google_sql_database_instance.instance.connection_name
+output "cloud_run_domain" {
+  description = "Domínio do Cloud Run para CNAME (sem https://)"
+  value       = replace(google_cloud_run_v2_service.api.uri, "https://", "")
 }
 
-output "database_public_ip" {
-  description = "Cloud SQL instance public IP"
-  value       = data.google_sql_database_instance.instance.public_ip_address
+output "cloud_run_name" {
+  description = "Nome do serviço Cloud Run"
+  value       = google_cloud_run_v2_service.api.name
 }
 
-output "database_url" {
-  description = "Database connection string"
-  value       = "postgresql://${var.db_user}:${var.db_password}@${data.google_sql_database_instance.instance.public_ip_address}:5432/${var.db_name}?schema=public"
-  sensitive   = true
+output "cloud_run_location" {
+  description = "Localização do serviço Cloud Run"
+  value       = google_cloud_run_v2_service.api.location
+}
+
+output "custom_domain" {
+  description = "Domínio customizado configurado"
+  value       = google_cloud_run_domain_mapping.api_pomi.name
+}
+
+output "custom_domain_status" {
+  description = "Status do domínio customizado"
+  value       = google_cloud_run_domain_mapping.api_pomi.status
 }
