@@ -12,7 +12,7 @@ data "google_sql_database_instance" "instance" {
 resource "google_cloud_run_v2_service" "api" {
   name     = var.app_name
   location = var.region
-  deletion_protection = false
+  deletion_protection = true
   
   template {
     health_check_disabled = true
