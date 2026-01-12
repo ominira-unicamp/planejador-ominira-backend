@@ -18,7 +18,7 @@ resource "google_cloud_run_v2_service" "api" {
     health_check_disabled = true
 
     containers {
-	  image = var.container_image
+	  image = "gcr.io/${var.project_id}/pomi-backend:latest"
 	  
       resources {
         limits = {

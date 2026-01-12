@@ -6,7 +6,7 @@ variable "project_id" {
 variable region {
   type    = string
   description = "Google Cloud region to deploy resources"
-  default = "southamerica-east1"
+  default = "us-east1"
 }
 variable app_name {
   type = string
@@ -31,11 +31,8 @@ variable "db_password" {
   description = "Database user password"
   type = string
   sensitive = true
-}
-variable "container_image" {
-  description = "Container image for the Cloud Run service"
-  type = string
-}
+} 
+
 variable "jwt_secret" {
   type = string
   sensitive = true

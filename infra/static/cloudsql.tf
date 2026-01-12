@@ -5,13 +5,16 @@ resource "google_sql_database_instance" "instance" {
   deletion_protection = false
 
   settings {
-    tier = "db-f1-micro"
+    tier = "db-g1-small"
 
-    disk_type = "PD_HDD"
-    disk_size = 10
+    disk_type       = "PD_SSD"
+    disk_size       = 50
+    disk_autoresize = true
+    disk_autoresize_limit = 100
 
     insights_config {
-      query_insights_enabled = false
+      query_insights_enabled = true
+      query_plans_per_minute = 5
     }
 
     backup_configuration {
@@ -33,16 +36,22 @@ resource "google_sql_database_instance" "instance" {
       }
     }
   }
-  depends_on = [google_project_service.cloud_sql]
+  depends_on = [
+    google_project_service.cloud_sql,
+    google_compute_global_address.sql_static_ip
+  ]
 }
 
 resource "google_sql_user" "users" {
   name     = var.db_user
   instance = google_sql_database_instance.instance.name
   password = var.db_password
+
+  depends_on = [ google_sql_database_instance.instance ]
 }
 
 resource "google_sql_database" "database" {
   name     = var.db_name
   instance = google_sql_database_instance.instance.name
+  depends_on = [ google_sql_database_instance.instance ]
 }
