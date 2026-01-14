@@ -1,0 +1,39 @@
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Development files
+*.md
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Data and volumes
+data/
+
+# Terraform
+terraform/
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Docker
+Dockerfile
+docker-compose.yaml
+.docker.env
+
+# IDE
+.vscode/
+.idea/
+
+# Tests
+*.test.ts
+*.spec.ts
+__tests__/
+
+# Documentation
+docs/
+README.md

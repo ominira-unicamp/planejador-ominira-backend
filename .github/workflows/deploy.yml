@@ -1,0 +1,169 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ============================================
+  # Build and Push Docker Image
+  # ============================================
+  build-and-push-image:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    environment: OpenTofuDeploy
+    
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      
+      # === Google Cloud Authentication ===
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: projects/${{ vars.TF_VAR_ORG_ID }}/locations/global/workloadIdentityPools/pomi-gh-pool/providers/pomi-gh-prvdr
+          service_account: tofu-github@${{ vars.TF_VAR_PROJECT_ID }}.iam.gserviceaccount.com
+          token_format: access_token
+      
+      - name: Login to Google Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: gcr.io
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+      
+      # === GitHub Container Registry Authentication ===
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      # === Docker Build & Push ===
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            gcr.io/${{ vars.TF_VAR_PROJECT_ID }}/${{ vars.TF_VAR_APP_NAME }}
+      
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      
+      # === Security Attestation ===
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: gcr.io/${{ vars.TF_VAR_PROJECT_ID }}/${{ vars.TF_VAR_APP_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # ============================================
+  # Deploy to Google Cloud Run
+  # ============================================
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: build-and-push-image
+    
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write
+    
+    environment: 
+      name: OpenTofuDeploy
+      url: ${{ steps.deploy-url.outputs.url }}
+    env:
+      TF_VAR_project_id: ${{ vars.TF_VAR_PROJECT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      # === Create GitHub Deployment ===
+      - name: Create deployment
+        id: deployment
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          environment: OpenTofuDeploy
+          initial-status: in_progress
+      
+      # === Google Cloud Authentication ===
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: projects/387955562300/locations/global/workloadIdentityPools/pomi-gh-pool/providers/pomi-gh-prvdr
+          service_account: tofu-github@project-0523a5e9-ab0e-4b80-bdf.iam.gserviceaccount.com
+      
+      # === OpenTofu Setup ===
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: latest
+      
+      - name: OpenTofu Init
+        working-directory: ./infra/app
+        run: tofu init
+      
+      # === Deploy Infrastructure ===
+      - name: OpenTofu Apply
+        id: tofu-apply
+        working-directory: ./infra/app
+        run: |
+          tofu apply -auto-approve \
+            -var "region=${{ vars.TF_VAR_REGION }}" \
+            -var "app_name=${{ vars.TF_VAR_APP_NAME }}" \
+            -var "db_instance_name=${{ vars.TF_VAR_DB_INSTANCE_NAME }}" \
+            -var "db_name=${{ vars.TF_VAR_DB_NAME }}" \
+            -var "db_user=${{ vars.TF_VAR_DB_USER }}" \
+            -var "db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" \
+            -var "jwt_secret=${{ secrets.TF_VAR_JWT_SECRET }}"
+      
+      # === Get Deployment URL ===
+      - name: Get Cloud Run URL
+        id: deploy-url
+        working-directory: ./infra/app
+        run: |
+          URL=$(tofu output -raw cloud_run_url)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "::notice title=Deployment URL::$URL"
+      
+      # === Update GitHub Deployment Status ===
+      - name: Update deployment status (success)
+        if: success()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          state: success
+          deployment-id: ${{ steps.deployment.outputs.deployment_id }}
+          environment-url: ${{ steps.deploy-url.outputs.url }}
+      
+      - name: Update deployment status (failure)
+        if: failure()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          state: failure
+          deployment-id: ${{ steps.deployment.outputs.deployment_id }} 

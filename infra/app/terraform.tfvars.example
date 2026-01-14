@@ -1,0 +1,11 @@
+# Copie este arquivo para terraform.tfvars e preencha os valores
+
+project_id      = "seu-projeto-gcp"
+region          = "us-east1"
+app_name        = "pomi-backend"
+db_instance_name = "pomi-db"
+db_name         = "pomi"
+db_user         = "pomi_user"
+db_password     = "sua-senha-segura-aqui"
+jwt_secret      = "seu-jwt-secret-aqui"
+container_image = "gcr.io/seu-projeto-gcp/pomi-backend:latest"
