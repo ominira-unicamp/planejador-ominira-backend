@@ -55,15 +55,20 @@ Table Program {
   instituteId Int [not null]
   catalogPrograms CatalogProgram [not null]
   students Student [not null]
-  courseBlockSets CourseBlockSet [not null]
 }
 
-Table Modality {
+Table Specialization {
   id Int [pk, increment]
   code String [not null]
   name String [not null]
   students Student [not null]
-  courseBlockSets CourseBlockSet [not null]
+  catalogSpecializations CatalogSpecialization [not null]
+}
+
+Table Language {
+  id Int [pk, increment]
+  name String [not null]
+  catalogLanguages CatalogLanguage [not null]
 }
 
 Table CatalogProgram {
@@ -72,26 +77,47 @@ Table CatalogProgram {
   catalogId Int [not null]
   program Program [not null]
   programId Int [not null]
+  catalogSpecializations CatalogSpecialization [not null]
+  catalogLanguages CatalogLanguage [not null]
+  courseBlocks CourseBlock [not null]
+
+  indexes {
+    (catalogId, programId) [unique]
+  }
 }
 
-Table CourseBlockSet {
+Table CatalogSpecialization {
   id Int [pk, increment]
-  program Program [not null]
-  programId Int [not null]
-  type CourseBlockSetType [not null]
-  title String
-  modality Modality
-  modalityId Int
+  catalogProgram CatalogProgram [not null]
+  catalogProgramId Int [not null]
+  specialization Specialization [not null]
+  specializationId Int [not null]
+  courseBlocks CourseBlock [not null]
+
+  indexes {
+    (catalogProgramId, specializationId) [unique]
+  }
+}
+
+Table CatalogLanguage {
+  id Int [pk, increment]
+  catalogProgram CatalogProgram [not null]
+  catalogProgramId Int [not null]
+  language Language [not null]
+  languageId Int [not null]
   courseBlocks CourseBlock [not null]
 }
 
 Table CourseBlock {
   id Int [pk, increment]
   type CourseBlockType [not null]
-  title String [not null]
   credits Int
-  courseBlockSet CourseBlockSet [not null]
-  courseBlockSetId Int [not null]
+  catalogLanguage CatalogLanguage
+  catalogLanguageId Int
+  catalogSpecialization CatalogSpecialization
+  catalogSpecializationId Int
+  catalogProgram CatalogProgram
+  catalogProgramId Int
   courseRequirements CourseRequirement [not null]
 }
 
@@ -156,8 +182,8 @@ Table Student {
   name String [not null]
   program Program
   programId Int
-  modality Modality
-  modalityId Int
+  specialization Specialization
+  specializationId Int
   catalog Catalog
   catalogId Int
   courses StudentCourse [not null]
@@ -223,12 +249,6 @@ Enum YearPeriods {
   SECOND_SEMESTER
 }
 
-Enum CourseBlockSetType {
-  base
-  modality
-  language
-}
-
 Enum CourseBlockType {
   mandatory
   elective
@@ -268,11 +288,19 @@ Ref: CatalogProgram.catalogId > Catalog.id
 
 Ref: CatalogProgram.programId > Program.id
 
-Ref: CourseBlockSet.programId > Program.id
+Ref: CatalogSpecialization.catalogProgramId > CatalogProgram.id
 
-Ref: CourseBlockSet.modalityId > Modality.id
+Ref: CatalogSpecialization.specializationId > Specialization.id
 
-Ref: CourseBlock.courseBlockSetId > CourseBlockSet.id
+Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id
+
+Ref: CatalogLanguage.languageId > Language.id
+
+Ref: CourseBlock.catalogLanguageId > CatalogLanguage.id
+
+Ref: CourseBlock.catalogSpecializationId > CatalogSpecialization.id
+
+Ref: CourseBlock.catalogProgramId > CatalogProgram.id
 
 Ref: CourseRequirement.courseBlockId > CourseBlock.id
 
@@ -290,7 +318,7 @@ Ref: ClassSchedule.classId > Class.id
 
 Ref: Student.programId > Program.id
 
-Ref: Student.modalityId > Modality.id
+Ref: Student.specializationId > Specialization.id
 
 Ref: Student.catalogId > Catalog.id
 
