@@ -27,13 +27,14 @@ export function buildHandler<PT extends z.ZodType, Q extends z.ZodType, B extend
 			return res.status(400).json(new ValidationError(ZodToApiError(error, [])));
 		const output = await fn(input);
 		const status = Object.keys(outputSchema.shape).map(k => parseInt(k)).find(statusCode => {
-			if (Object.hasOwn(outputSchema.shape, statusCode)) {
+			if (Object.hasOwn(output, statusCode)) {
 				return true;
 			}
 		})
 		if (status == undefined) {
 			throw new Error("No status code defined in output schema");
 		}		
+		res.status(status);
 		return res.json(output[status] );
 	}
 }

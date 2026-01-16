@@ -6,6 +6,7 @@ import openapi from './OpenApi.js'
 import Controlellers from './Controllers.js'
 import errorHandler from './Middlewares/erroHandler.js'
 import jsonErrorHandler from './Middlewares/jsonErrorHandler.js'
+import studentMiddleware from './Middlewares/studentMidleware.js'
 const app = express()
 const corsOrigin = process.env.CORS_ORIGIN || '*'
 app.use(cors({
@@ -32,6 +33,7 @@ app.use(helmet({
 app.use(express.json())
 app.use(jsonErrorHandler)
 app.use(Controlellers.authRegistry.middleware())
+app.use("/student/:sid", studentMiddleware);
 app.use(openapi.router)
 app.use(Controlellers.router)
 app.use(errorHandler)

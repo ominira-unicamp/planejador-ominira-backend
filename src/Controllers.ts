@@ -10,7 +10,6 @@ import room from './controllers/RoomController/RoomController.js'
 
 import studentController from './controllers/StudentControllers/StudentController/StudentController.js'
 import CurriculumController from './controllers/StudentControllers/CurriculumController/CurriculumController.js'
-import CurriculumCourseController from './controllers/StudentControllers/CurriculumCourseController/CurriculumCourseController.js'
 
 import { Router } from 'express'
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi'
@@ -32,7 +31,6 @@ const controllers: Controler[] = [
 	studyPeriods,
 	studentController,
 	CurriculumController,
-	CurriculumCourseController
 ] 
 
 const router = Router().use(controllers.filter(c => c.router).map(c => c.router!));
@@ -56,5 +54,4 @@ export const resourcesPaths = {
 	studyPeriod: studyPeriods.paths,
 	student: studentController.paths,
 	curriculum: CurriculumController.paths,
-	curriculumCourse: CurriculumCourseController.paths,
 };
