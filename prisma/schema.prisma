@@ -1,7 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
-  moduleFormat = "esm"
+  provider            = "prisma-client"
+  output              = "./generated"
+  moduleFormat        = "esm"
   importFileExtension = "js"
 }
 
@@ -9,6 +9,10 @@ generator zod {
   provider = "prisma-zod-generator"
   output   = "./generated/zod"
   config   = "./config-zod.json"
+}
+
+generator dbml {
+  provider = "prisma-dbml-generator"
 }
 
 datasource db {
@@ -40,9 +44,12 @@ model Institute {
 
 model Prefixes {
   id          Int       @id @default(autoincrement())
-  prefix      String    @unique
+  prefix      String     @unique
   institute   Institute @relation(fields: [instituteId], references: [id])
   instituteId Int
+
+  courseRequirements CourseRequirement[]
+  courses            Course[]
 }
 
 model Course {
@@ -52,12 +59,13 @@ model Course {
   credits     Int
   institute   Institute @relation(fields: [instituteId], references: [id])
   instituteId Int
+  prefix      Prefixes? @relation(fields: [prefixId], references: [id])
+  prefixId    Int?
 
-  classes        Class[]
-  programCourses ProgramModalityCourse[]
-  studentCourses StudentCourse[]
-
-  curriculumCourses CurriculumCourse[]
+  classes            Class[]
+  studentCourses     StudentCourse[]
+  curriculumCourses  CurriculumCourse[]
+  courseRequirements CourseRequirement[]
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
@@ -77,18 +85,22 @@ model Program {
   institute       Institute        @relation(fields: [instituteId], references: [id])
   instituteId     Int
   catalogPrograms CatalogProgram[]
-
-  programCourses ProgramModalityCourse[]
-  students       Student[]
+  students        Student[]
 }
 
-model Modality {
-  id   Int    @id @default(autoincrement())
-  code String
-  name String
+model Specialization {
+  id       Int       @id @default(autoincrement())
+  code     String
+  name     String
+  students Student[]
 
-  programCourses ProgramModalityCourse[]
-  students       Student[]
+  catalogSpecializations CatalogSpecialization[]
+}
+
+model Language {
+  id   Int    @id @default(autoincrement())
+  name String
+  catalogLanguages CatalogLanguage[]
 }
 
 model CatalogProgram {
@@ -97,18 +109,72 @@ model CatalogProgram {
   catalogId Int
   program   Program @relation(fields: [programId], references: [id])
   programId Int
+  catalogSpecializations CatalogSpecialization[]
+  catalogLanguages CatalogLanguage[]
+  @@unique([catalogId, programId])
+  courseBlocks CourseBlock[]
 }
 
-model ProgramModalityCourse {
-  id         Int      @id @default(autoincrement())
-  program    Program  @relation(fields: [programId], references: [id])
-  programId  Int
-  modality   Modality @relation(fields: [modalityId], references: [id])
-  modalityId Int
-  course     Course   @relation(fields: [courseId], references: [id])
-  courseId   Int
+model CatalogSpecialization {
+  id               Int            @id @default(autoincrement())
+  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id])
+  catalogProgramId Int
+  specialization   Specialization @relation(fields: [specializationId], references: [id])
+  specializationId Int
 
-  @@unique([programId, modalityId, courseId])
+  courseBlocks CourseBlock[]
+  @@unique([catalogProgramId, specializationId])
+}
+
+model CatalogLanguage {
+  id               Int            @id @default(autoincrement())
+  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id])
+  catalogProgramId Int
+  language         Language       @relation(fields: [languageId], references: [id])
+  languageId       Int
+  courseBlocks CourseBlock[]
+
+}
+
+// ----------------------- Course Requirements Models ----------------------- //
+
+enum CourseBlockType {
+  mandatory
+  elective
+}
+
+enum CourseRequirementType {
+  any
+  prefix
+  specific
+}
+
+model CourseBlock {
+  id                      Int                    @id @default(autoincrement())
+  type                    CourseBlockType
+  credits                 Int?
+  
+  catalogLanguage         CatalogLanguage?       @relation(fields: [catalogLanguageId], references: [id])
+  catalogLanguageId       Int?
+  
+  catalogSpecialization   CatalogSpecialization? @relation(fields: [catalogSpecializationId], references: [id])
+  catalogSpecializationId Int?
+  
+  catalogProgram          CatalogProgram?        @relation(fields: [catalogProgramId], references: [id])
+  catalogProgramId        Int?
+
+  courseRequirements CourseRequirement[]
+}
+
+model CourseRequirement {
+  id            Int                   @id @default(autoincrement())
+  courseBlock   CourseBlock           @relation(fields: [courseBlockId], references: [id])
+  courseBlockId Int
+  type          CourseRequirementType
+  course        Course?               @relation(fields: [courseId], references: [id])
+  courseId      Int?
+  prefix        Prefixes?             @relation(fields: [prefixId], references: [id])
+  prefixId      Int?
 }
 
 // ----------------------- Timetable Booklet Models ----------------------- //
@@ -134,16 +200,16 @@ model Room {
 }
 
 model Class {
-  id             Int             @id @default(autoincrement())
-  code           String
-  studyPeriod    StudyPeriod     @relation(fields: [studyPeriodId], references: [id])
-  studyPeriodId  Int
-  course         Course          @relation(fields: [courseId], references: [id])
-  courseId       Int
-  reservations   Int[]
+  id            Int         @id @default(autoincrement())
+  code          String
+  studyPeriod   StudyPeriod @relation(fields: [studyPeriodId], references: [id])
+  studyPeriodId Int
+  course        Course      @relation(fields: [courseId], references: [id])
+  courseId      Int
+  reservations  Int[]
 
-  professors     Professor[]
-  classSchedules ClassSchedule[]
+  professors      Professor[]
+  classSchedules  ClassSchedule[]
   periodPlannings PeriodPlanning[]
 }
 
@@ -178,19 +244,19 @@ enum StudentCourseStatus {
 }
 
 model Student {
-  id         Int             @id @default(autoincrement())
-  ra         String          @unique
-  name       String
-  program    Program?         @relation(fields: [programId], references: [id])
-  programId  Int?
-  modality   Modality?        @relation(fields: [modalityId], references: [id])
-  modalityId Int?
-  catalog    Catalog?         @relation(fields: [catalogId], references: [id])
-  catalogId  Int?
+  id               Int             @id @default(autoincrement())
+  ra               String          @unique
+  name             String
+  program          Program?        @relation(fields: [programId], references: [id])
+  programId        Int?
+  specialization   Specialization? @relation(fields: [specializationId], references: [id])
+  specializationId Int?
+  catalog          Catalog?        @relation(fields: [catalogId], references: [id])
+  catalogId        Int?
 
-  courses    StudentCourse[]
-  periodPlannings           PeriodPlanning[]
-  curriculums Curriculum[]
+  courses         StudentCourse[]
+  periodPlannings PeriodPlanning[]
+  curriculums     Curriculum[]
 }
 
 model StudentCourse {
@@ -205,18 +271,19 @@ model StudentCourse {
 }
 
 model Curriculum {
-  id        Int     @id @default(autoincrement())
-  student   Student @relation(fields: [studentId], references: [id])
-  studentId Int
+  id                Int                @id @default(autoincrement())
+  student           Student            @relation(fields: [studentId], references: [id])
+  studentId         Int
   CurriculumCourses CurriculumCourse[]
 }
 
 model CurriculumCourse {
   curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
   curriculumId Int
-  course                     Course                   @relation(fields: [courseId], references: [id])
-  courseId                   Int
-  semester                   Int?
+  course       Course     @relation(fields: [courseId], references: [id])
+  courseId     Int
+  semester     Int?
+
   @@id([curriculumId, courseId])
 }
 
@@ -226,6 +293,6 @@ model PeriodPlanning {
   studyPeriodId Int
   student       Student     @relation(fields: [studentId], references: [id])
   studentId     Int
-  
-  classes       Class[]
+
+  classes Class[]
 }

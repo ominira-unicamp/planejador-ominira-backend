@@ -46,7 +46,7 @@ async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer
 			ra: body.ra,
 			name: body.name,
 			programId: body.programId,
-			modalityId: body.modalityId,
+			specializationId: body.specializationId,
 			catalogId: body.catalogId,
 		},
 	});
@@ -65,7 +65,7 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 			...(body.ra !== undefined && { ra: body.ra }),
 			...(body.name !== undefined && { name: body.name }),
 			...(body.programId !== undefined && { programId: body.programId }),
-			...(body.modalityId !== undefined && { modalityId: body.modalityId }),
+			...(body.specializationId !== undefined && { specializationId: body.specializationId }),
 			...(body.catalogId !== undefined && { catalogId: body.catalogId }),
 		},
 	});

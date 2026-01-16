@@ -1,0 +1,68 @@
+name: Check Migrations
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+  check-migrations:
+    runs-on: ubuntu-latest
+    needs: setup
+    environment: dbclient
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check for pending migrations
+        run: |
+          npx prisma migrate status
+          if [ $? -ne 0 ]; then
+            echo "❌ There are pending migrations or migration issues!"
+            echo "Please run 'npx prisma migrate dev' locally and commit the changes."
+            exit 1
+          fi
+          echo "✅ All migrations are applied"
+
+      - name: Check for schema changes without migration
+        run: |
+          npx prisma migrate diff \
+            --from-schema ./prisma/schema.prisma \
+            --to-config-datasource \
+            --exit-code
+          
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -eq 2 ]; then
+            echo "❌ Schema changes detected without corresponding migration!"
+            exit 1
+          elif [ $EXIT_CODE -eq 1 ]; then
+            echo "❌ Error checking schema differences!"
+            exit 1
+          fi
+          echo "✅ No pending schema changes"

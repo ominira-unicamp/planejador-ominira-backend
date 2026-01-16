@@ -1,0 +1,337 @@
+//// ------------------------------------------------------
+//// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+//// ------------------------------------------------------
+
+Table User {
+  id Int [pk, increment]
+  email String [unique, not null]
+  name String [not null]
+}
+
+Table Institute {
+  id Int [pk, increment]
+  code String [unique, not null]
+  courses Course [not null]
+  prefixes Prefixes [not null]
+  programs Program [not null]
+}
+
+Table Prefixes {
+  id Int [pk, increment]
+  prefix String [unique, not null]
+  institute Institute [not null]
+  instituteId Int [not null]
+  courseRequirements CourseRequirement [not null]
+  courses Course [not null]
+}
+
+Table Course {
+  id Int [pk, increment]
+  code String [unique, not null]
+  name String [not null]
+  credits Int [not null]
+  institute Institute [not null]
+  instituteId Int [not null]
+  prefix Prefixes
+  prefixId Int
+  classes Class [not null]
+  studentCourses StudentCourse [not null]
+  curriculumCourses CurriculumCourse [not null]
+  courseRequirements CourseRequirement [not null]
+}
+
+Table Catalog {
+  id Int [pk, increment]
+  year Int [not null]
+  programs CatalogProgram [not null]
+  students Student [not null]
+}
+
+Table Program {
+  id Int [pk, increment]
+  code Int [unique, not null]
+  name String [not null]
+  institute Institute [not null]
+  instituteId Int [not null]
+  catalogPrograms CatalogProgram [not null]
+  students Student [not null]
+}
+
+Table Specialization {
+  id Int [pk, increment]
+  code String [not null]
+  name String [not null]
+  students Student [not null]
+  catalogSpecializations CatalogSpecialization [not null]
+}
+
+Table Language {
+  id Int [pk, increment]
+  name String [not null]
+  catalogLanguages CatalogLanguage [not null]
+}
+
+Table CatalogProgram {
+  id Int [pk, increment]
+  catalog Catalog [not null]
+  catalogId Int [not null]
+  program Program [not null]
+  programId Int [not null]
+  catalogSpecializations CatalogSpecialization [not null]
+  catalogLanguages CatalogLanguage [not null]
+  courseBlocks CourseBlock [not null]
+
+  indexes {
+    (catalogId, programId) [unique]
+  }
+}
+
+Table CatalogSpecialization {
+  id Int [pk, increment]
+  catalogProgram CatalogProgram [not null]
+  catalogProgramId Int [not null]
+  specialization Specialization [not null]
+  specializationId Int [not null]
+  courseBlocks CourseBlock [not null]
+
+  indexes {
+    (catalogProgramId, specializationId) [unique]
+  }
+}
+
+Table CatalogLanguage {
+  id Int [pk, increment]
+  catalogProgram CatalogProgram [not null]
+  catalogProgramId Int [not null]
+  language Language [not null]
+  languageId Int [not null]
+  courseBlocks CourseBlock [not null]
+}
+
+Table CourseBlock {
+  id Int [pk, increment]
+  type CourseBlockType [not null]
+  credits Int
+  catalogLanguage CatalogLanguage
+  catalogLanguageId Int
+  catalogSpecialization CatalogSpecialization
+  catalogSpecializationId Int
+  catalogProgram CatalogProgram
+  catalogProgramId Int
+  courseRequirements CourseRequirement [not null]
+}
+
+Table CourseRequirement {
+  id Int [pk, increment]
+  courseBlock CourseBlock [not null]
+  courseBlockId Int [not null]
+  type CourseRequirementType [not null]
+  course Course
+  courseId Int
+  prefix Prefixes
+  prefixId Int
+}
+
+Table StudyPeriod {
+  id Int [pk, increment]
+  code String [unique, not null]
+  startDate DateTime [not null]
+  classes Class [not null]
+  periodPlannings PeriodPlanning [not null]
+}
+
+Table Professor {
+  id Int [pk, increment]
+  name String [not null]
+  classes Class [not null]
+}
+
+Table Room {
+  id Int [pk, increment]
+  code String [unique, not null]
+  classSchedules ClassSchedule [not null]
+}
+
+Table Class {
+  id Int [pk, increment]
+  code String [not null]
+  studyPeriod StudyPeriod [not null]
+  studyPeriodId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  reservations Int[] [not null]
+  professors Professor [not null]
+  classSchedules ClassSchedule [not null]
+  periodPlannings PeriodPlanning [not null]
+}
+
+Table ClassSchedule {
+  id Int [pk, increment]
+  dayOfWeek DayOfWeek [not null]
+  start String [not null]
+  end String [not null]
+  room Room [not null]
+  roomId Int [not null]
+  class Class [not null]
+  classId Int [not null]
+}
+
+Table Student {
+  id Int [pk, increment]
+  ra String [unique, not null]
+  name String [not null]
+  program Program
+  programId Int
+  specialization Specialization
+  specializationId Int
+  catalog Catalog
+  catalogId Int
+  courses StudentCourse [not null]
+  periodPlannings PeriodPlanning [not null]
+  curriculums Curriculum [not null]
+}
+
+Table StudentCourse {
+  id Int [pk, increment]
+  student Student [not null]
+  studentId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  status StudentCourseStatus [not null]
+
+  indexes {
+    (studentId, courseId) [unique]
+  }
+}
+
+Table Curriculum {
+  id Int [pk, increment]
+  student Student [not null]
+  studentId Int [not null]
+  CurriculumCourses CurriculumCourse [not null]
+}
+
+Table CurriculumCourse {
+  curriculum Curriculum [not null]
+  curriculumId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  semester Int
+
+  indexes {
+    (curriculumId, courseId) [pk]
+  }
+}
+
+Table PeriodPlanning {
+  id Int [pk, increment]
+  studyPeriod StudyPeriod [not null]
+  studyPeriodId Int [not null]
+  student Student [not null]
+  studentId Int [not null]
+  classes Class [not null]
+}
+
+Table ClassToProfessor {
+  classesId Int [ref: > Class.id]
+  professorsId Int [ref: > Professor.id]
+}
+
+Table ClassToPeriodPlanning {
+  periodplanningsId Int [ref: > PeriodPlanning.id]
+  classesId Int [ref: > Class.id]
+}
+
+Enum YearPeriods {
+  SUMMER
+  FIRST_SEMESTER
+  WINTER
+  SECOND_SEMESTER
+}
+
+Enum CourseBlockType {
+  mandatory
+  elective
+}
+
+Enum CourseRequirementType {
+  any
+  prefix
+  specific
+}
+
+Enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+Enum StudentCourseStatus {
+  ENROLLED
+  COMPLETED
+  DROPPED
+}
+
+Ref: Prefixes.instituteId > Institute.id
+
+Ref: Course.instituteId > Institute.id
+
+Ref: Course.prefixId > Prefixes.id
+
+Ref: Program.instituteId > Institute.id
+
+Ref: CatalogProgram.catalogId > Catalog.id
+
+Ref: CatalogProgram.programId > Program.id
+
+Ref: CatalogSpecialization.catalogProgramId > CatalogProgram.id
+
+Ref: CatalogSpecialization.specializationId > Specialization.id
+
+Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id
+
+Ref: CatalogLanguage.languageId > Language.id
+
+Ref: CourseBlock.catalogLanguageId > CatalogLanguage.id
+
+Ref: CourseBlock.catalogSpecializationId > CatalogSpecialization.id
+
+Ref: CourseBlock.catalogProgramId > CatalogProgram.id
+
+Ref: CourseRequirement.courseBlockId > CourseBlock.id
+
+Ref: CourseRequirement.courseId > Course.id
+
+Ref: CourseRequirement.prefixId > Prefixes.id
+
+Ref: Class.studyPeriodId > StudyPeriod.id
+
+Ref: Class.courseId > Course.id
+
+Ref: ClassSchedule.roomId > Room.id
+
+Ref: ClassSchedule.classId > Class.id
+
+Ref: Student.programId > Program.id
+
+Ref: Student.specializationId > Specialization.id
+
+Ref: Student.catalogId > Catalog.id
+
+Ref: StudentCourse.studentId > Student.id
+
+Ref: StudentCourse.courseId > Course.id
+
+Ref: Curriculum.studentId > Student.id
+
+Ref: CurriculumCourse.curriculumId > Curriculum.id
+
+Ref: CurriculumCourse.courseId > Course.id
+
+Ref: PeriodPlanning.studyPeriodId > StudyPeriod.id
+
+Ref: PeriodPlanning.studentId > Student.id

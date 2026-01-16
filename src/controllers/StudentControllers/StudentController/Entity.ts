@@ -30,7 +30,7 @@ const studentEntity = z.object({
 	ra: z.string(),
 	name: z.string(),
 	programId: z.number().int().nullable(),
-	modalityId: z.number().int().nullable(),
+	specializationId: z.number().int().nullable(),
 	catalogId: z.number().int().nullable(),
 	_paths: z.object({
 		classes: z.string(),

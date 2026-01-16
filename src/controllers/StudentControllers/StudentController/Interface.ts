@@ -10,7 +10,7 @@ const studentBase = z.object({
 	ra: z.string(),
 	name: z.string(),
 	programId: z.number().int().nullable().optional(),
-	modalityId: z.number().int().nullable().optional(),
+	specializationId: z.number().int().nullable().optional(),
 	catalogId: z.number().int().nullable().optional(),
 }).strict();
 
