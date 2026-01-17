@@ -6,6 +6,7 @@ type ValidationErrorField = {
 	message: string
 }
 const ErrorCodeSchema = z.enum([
+	'UNIQUE_VIOLATION',
 	'INVALID_TYPE',
 	'INVALID_VALUE',
 	'REQUIRED',

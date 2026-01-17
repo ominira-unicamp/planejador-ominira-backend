@@ -260,14 +260,13 @@ model Student {
 }
 
 model StudentCourse {
-  id        Int                 @id @default(autoincrement())
   student   Student             @relation(fields: [studentId], references: [id])
   studentId Int
   course    Course              @relation(fields: [courseId], references: [id])
   courseId  Int
   status    StudentCourseStatus
 
-  @@unique([studentId, courseId])
+  @@id([studentId, courseId])
 }
 
 model Curriculum {
