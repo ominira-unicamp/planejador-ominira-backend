@@ -12,6 +12,7 @@ const ErrorCodeSchema = z.enum([
 	'REQUIRED',
 	'REFERENCE_NOT_FOUND',
 	'ALREADY_EXISTS',
+	'REFERENCE_EXISTS'
 ]).openapi('ErrorCode');
 
 
