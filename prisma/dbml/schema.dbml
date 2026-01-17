@@ -192,7 +192,6 @@ Table Student {
 }
 
 Table StudentCourse {
-  id Int [pk, increment]
   student Student [not null]
   studentId Int [not null]
   course Course [not null]
@@ -200,7 +199,7 @@ Table StudentCourse {
   status StudentCourseStatus [not null]
 
   indexes {
-    (studentId, courseId) [unique]
+    (studentId, courseId) [pk]
   }
 }
 

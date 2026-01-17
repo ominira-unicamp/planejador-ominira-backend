@@ -1,25 +1,26 @@
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 import { OutputBuilder } from '../../../BuildHandler.js';
-import periodPlanningEntity from './Entity.js';
+import studentCourseEntity, { statusSchema } from './Entity.js';
+import { StudentCourseStatus } from '../../../../prisma/generated/client.js';
 
 extendZodWithOpenApi(z);
 
-const periodPlanningBase = z.object({
-	id: z.number().int(),
+const studentCourseBase = z.object({
 	studentId: z.number().int(),
-	studyPeriodId: z.number().int(),
+	courseId: z.number().int(),
+	status: z.enum(StudentCourseStatus),
 }).strict();
 
 const get = {
 	input: z.object({
 		path: z.object({
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-			id: z.string().pipe(z.coerce.number()).pipe(z.number()),
+			courseId: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
 	}),
 	output: new OutputBuilder()
-		.ok(periodPlanningEntity.schema, "Period planning retrieved successfully")
+		.ok(studentCourseEntity.schema, "Student course retrieved successfully")
 		.notFound()
 		.build()
 }
@@ -29,9 +30,12 @@ const list = {
 		path: z.object({
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
+		query: z.object({
+			status: statusSchema.optional(),
+		}),
 	}),
 	output: new OutputBuilder()
-		.ok(z.array(periodPlanningEntity.schema), "List of period plannings retrieved successfully")
+		.ok(z.array(studentCourseEntity.schema), "List of student courses retrieved successfully")
 		.build(),
 }
 
@@ -41,12 +45,12 @@ const create = {
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
 		body: z.object({
-			studyPeriodId: z.number().int(),
-			classes: z.array(z.number().int()).transform((arr) => new Set(arr)),
+			courseId: z.number().int(),
+			status: z.enum(StudentCourseStatus).default(StudentCourseStatus.ENROLLED),
 		}).strict(),
 	}),
 	output: new OutputBuilder()
-		.created(periodPlanningEntity.schema, "Period planning created successfully")
+		.created(studentCourseEntity.schema, "Student course created successfully")
 		.badRequest()
 		.build(),
 }
@@ -55,18 +59,14 @@ const patch = {
 	input: z.object({
 		path: z.object({
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-			id: z.string().pipe(z.coerce.number()).pipe(z.number()),
+			courseId: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
 		body: z.object({
-			classes: z.object({
-				set: z.array(z.number().int()).transform((arr) => new Set(arr)),
-				add: z.array(z.number().int()).transform((arr) => new Set(arr)),
-				remove: z.array(z.number().int()).transform((arr) => new Set(arr)),
-			}).partial(),
+			status: statusSchema,
 		}).strict(),
 	}),
 	output: new OutputBuilder()
-		.ok(periodPlanningEntity.schema, "Period planning updated successfully")
+		.ok(studentCourseEntity.schema, "Student course updated successfully")
 		.notFound()
 		.badRequest()
 		.build(),
@@ -76,11 +76,11 @@ const remove = {
 	input: z.object({
 		path: z.object({
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-			id: z.string().pipe(z.coerce.number()).pipe(z.number()),
+			courseId: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
 	}),
 	output: new OutputBuilder()
-		.noContent("Period planning deleted successfully")
+		.noContent("Student course deleted successfully")
 		.notFound()
 		.build(),
 }
