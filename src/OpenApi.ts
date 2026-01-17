@@ -1,5 +1,6 @@
 import { OpenApiGeneratorV3, OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { apiReference } from '@scalar/express-api-reference'
+import swaggerUi from 'swagger-ui-express'
 import { Router } from "express";
 import type { Request, Response } from "express";
 import Controlellers from "./Controllers.js";
@@ -52,6 +53,18 @@ router.use(
 	apiReference({
 		url: '/openapi.json',
 	})
+);
+
+router.use('/api-docs', swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerOptions: {
+      url: '/openapi.json',
+      displayRequestDuration: true,
+      tryItOutEnabled: true,
+      persistAuthorization: true,
+    },
+    customSiteTitle: "My API Docs"
+  })
 );
 
 export default {

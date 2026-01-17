@@ -24,7 +24,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", " https://fonts.scalar.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://fonts.scalar.com"],
       imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
       workerSrc: ["'self'", "blob:"],
       connectSrc: ["'self'"],

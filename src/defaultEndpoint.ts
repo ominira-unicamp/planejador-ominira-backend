@@ -74,6 +74,7 @@ function defaultListHandler<
 	buildClassEntity: (data: any) => any
 ) {
 	return async function defaultListHandler(req: Request, res: Response) {
+
 		const { success, data: query, error } = querySchema.safeParse(req.query);
 		if (!success) {
 			res.status(400).json(ZodToApiError(error, ["query"]));

@@ -132,7 +132,7 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 		}
 	});
 	if (!existing)
-		return { 404: { description: "Curriculum not found" } };
+		return { 404: { description: "Curriculum not found or does not belong to the student" } };
 
 	if (body.courses) {
 		await ctx.prisma.$transaction(async (tx) => {
@@ -154,10 +154,15 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { sid, id } } = input;
-	const existing = await ctx.prisma.curriculum.findUnique({ where: { id } });
+	const existing = await ctx.prisma.curriculum.findUnique({
+		where: {
+			studentId: sid,
+			id
+		}
+	});
 	if (!existing)
-		return { 404: { description: "Curriculum not found" } };
-	await ctx.prisma.curriculum.delete({ where: { id } });
+		return { 404: { description: "Curriculum not found or does not belong to the student" } };
+	await ctx.prisma.curriculum.delete({ where: { studentId: sid, id } });
 	return { 204: null };
 }
 

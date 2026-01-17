@@ -25,7 +25,7 @@ const ApiErrorSchema = z.object({
 	errors: z.array(ErrorFieldSchema),
 }).openapi("ApiError");
 
-type ErrorFieldType = z.infer<typeof ErrorFieldSchema>;
+export type ErrorFieldType = z.infer<typeof ErrorFieldSchema>;
 type ValidationErrorType = z.infer<typeof ApiErrorSchema>;
 type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
