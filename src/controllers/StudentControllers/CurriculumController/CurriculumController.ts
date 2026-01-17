@@ -2,12 +2,11 @@ import { Router } from 'express'
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma, { MyPrisma } from '../../../PrismaClient.js'
 import { AuthRegistry } from '../../../auth.js';
 import { defaultGetHandler } from '../../../defaultEndpoint.js';
 import curriculumEntity from './Entity.js';
 import IO from './Interface.js';
-import { buildHandler } from '../../../BuildHandler.js';
+import { buildHandler, Context, HandlerFn } from '../../../BuildHandler.js'
 import registry from './OpenAPI.js';
 import { PrismaClient } from '../../../../prisma/generated/client.js';
 
@@ -18,9 +17,9 @@ const authRegistry = new AuthRegistry();
 
 authRegistry.addException('GET', '/curricula/:id');
 
-async function listFn(input: z.infer<typeof IO.list.input>): Promise<z.infer<typeof IO.list.output>> {
+const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
 	const { path: { sid } } = input;
-	const curricula = await prisma.curriculum.findMany({
+	const curricula = await ctx.prisma.curriculum.findMany({
 		...curriculumEntity.prismaSelection,
 		where: { studentId: sid }
 	});
@@ -29,15 +28,15 @@ async function listFn(input: z.infer<typeof IO.list.input>): Promise<z.infer<typ
 }
 
 const get = defaultGetHandler(
-	prisma.curriculum,
+	(p) => p.curriculum,
 	curriculumEntity.prismaSelection,
 	curriculumEntity.build,
 	"Curriculum not found"
 );
 
-async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer<typeof IO.create.output>> {
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
 	const { path: { sid } } = input;
-	const curriculum = await prisma.curriculum.create({
+	const curriculum = await ctx.prisma.curriculum.create({
 		...curriculumEntity.prismaSelection,
 		data: {
 			studentId: sid,
@@ -124,9 +123,9 @@ async function patchCourse(tx: TxType, ops: z.infer<typeof IO.patch.input>["body
 	}
 }
 
-async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<typeof IO.patch.output>> {
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 	const { path: { sid, id }, body } = input;
-	const existing = await prisma.curriculum.findUnique({
+	const existing = await ctx.prisma.curriculum.findUnique({
 		where: {
 			studentId: sid,
 			id
@@ -136,11 +135,11 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 		return { 404: { description: "Curriculum not found" } };
 
 	if (body.courses) {
-		await prisma.$transaction(async (tx) => {
+		await ctx.prisma.$transaction(async (tx) => {
 			await patchCourse(tx, body.courses, id);
 		});
 	}
-	const curriculum = await prisma.curriculum.update({
+	const curriculum = await ctx.prisma.curriculum.update({
 		...curriculumEntity.prismaSelection,
 		where: {
 			studentId: sid,
@@ -153,12 +152,12 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 	return { 200: curriculumEntity.build(curriculum) };
 }
 
-async function removeFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer<typeof IO.remove.output>> {
+const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { sid, id } } = input;
-	const existing = await prisma.curriculum.findUnique({ where: { id } });
+	const existing = await ctx.prisma.curriculum.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Curriculum not found" } };
-	await prisma.curriculum.delete({ where: { id } });
+	await ctx.prisma.curriculum.delete({ where: { id } });
 	return { 204: null };
 }
 

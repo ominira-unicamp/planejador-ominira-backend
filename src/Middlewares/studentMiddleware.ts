@@ -1,4 +1,3 @@
-import prisma from "../PrismaClient.js";
 import { NextFunction, Request, Response } from "express";
 
 export default async function studentMiddleware(req : Request, res : Response, next: NextFunction) {
@@ -6,7 +5,7 @@ export default async function studentMiddleware(req : Request, res : Response, n
 		res.status(400).json({ error: "Student ID must be a number" });
 		return;
 	}
-	const student = await prisma.student.findUnique({ where: { id: Number(req.params.sid) } })
+	const student = await req.prisma.student.findUnique({ where: { id: Number(req.params.sid) } })
 	if (!student) {
 		res.status(404).json({ error: "Student not found" });
 		return;
