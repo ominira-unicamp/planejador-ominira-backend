@@ -7,6 +7,10 @@ import classController from './controllers/ClassController/ClassController.js'
 import studyPeriods from './controllers/StudyPeriodsController/StudyPeriodsController.js'
 import classSchedule from './controllers/ClassScheduleController/ClassScheduleController.js'
 import room from './controllers/RoomController/RoomController.js'
+import catalog from './controllers/CatalogController/CatalogController.js'
+import program from './controllers/ProgramController/ProgramController.js'
+import specialization from './controllers/SpecializationController/SpecializationController.js'
+import language from './controllers/LanguageController/LanguageController.js'
 
 import studentController from './controllers/StudentControllers/StudentController/StudentController.js'
 import CurriculumController from './controllers/StudentControllers/CurriculumController/CurriculumController.js'
@@ -34,7 +38,11 @@ const controllers: Controler[] = [
 	studentController,
 	CurriculumController,
 	periodPlan,
-	studentCourse
+	studentCourse,
+	catalog,
+	program,
+	specialization,
+	language
 ] 
 
 const router = Router().use(controllers.filter(c => c.router).map(c => c.router!));
@@ -61,4 +69,9 @@ export const resourcesPaths = {
 	curriculum: CurriculumController.paths,
 	periodPlan: periodPlan.paths,
 	studentCourse: studentCourse.paths,
+
+	catalog: catalog.paths,
+	program: program.paths,
+	specialization: specialization.paths,
+	language: language.paths,
 };
