@@ -1,46 +1,49 @@
 {
-  "name": "pomi-backend",
-  "version": "0.1.0",
-  "license": "AGPL-3.0-only",
-  "type": "module",
-  "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -b",
-    "start": "node dist/src/index.js",
-    "prisma:generate": "npx prisma generate",
-    "prisma:deploy": "npx prisma migrate deploy",
-    "prisma:seed": "npx prisma db seed"
-  },
-  "dependencies": {
-    "@asteasolutions/zod-to-openapi": "^8.2.0",
-    "@prisma/adapter-pg": "7.0.0",
-    "@prisma/client": "^7.2.0",
-    "@scalar/express-api-reference": "^0.8.30",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "5.1.0",
-    "helmet": "^8.1.0",
-    "jose": "^6.1.3",
-    "path-to-regexp": "^8.3.0",
-    "pg": "^8.16.3",
-    "zod": "^4.2.1"
-  },
-  "devDependencies": {
-    "@types/express": "5.0.5",
-    "@types/node": "22.18.12",
-    "@types/pg": "^8.15.6",
-    "eslint": "^9.39.2",
-    "eslint-config-prettier": "^10.1.8",
-    "prettier": "3.8.0",
-    "prisma": "^7.2.0",
-    "prisma-dbml-generator": "^0.12.0",
-    "prisma-zod-generator": "^2.1.2",
-    "tsx": "^4.20.6",
-    "typescript": "5.8.2"
-  },
-  "overrides": {
-    "hono": "^4.11.4",
-    "@prisma/generator-helper": "^7.2.0",
-    "@prisma/internals": "^7.2.0"
-  }
+    "name": "pomi-backend",
+    "version": "0.1.0",
+    "license": "AGPL-3.0-only",
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/index.ts",
+        "build": "tsc -b",
+        "start": "node dist/src/index.js",
+        "prisma:generate": "npx prisma generate",
+        "prisma:deploy": "npx prisma migrate deploy",
+        "prisma:seed": "npx prisma db seed"
+    },
+    "dependencies": {
+        "@asteasolutions/zod-to-openapi": "^8.2.0",
+        "@prisma/adapter-pg": "7.0.0",
+        "@prisma/client": "^7.2.0",
+        "@scalar/express-api-reference": "^0.8.30",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "5.1.0",
+        "helmet": "^8.1.0",
+        "jose": "^6.1.3",
+        "path-to-regexp": "^8.3.0",
+        "pg": "^8.16.3",
+        "zod": "^4.2.1"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.2",
+        "@types/express": "5.0.5",
+        "@types/node": "22.18.12",
+        "@types/pg": "^8.15.6",
+        "eslint": "^9.39.2",
+        "eslint-config-prettier": "^10.1.8",
+        "globals": "^17.0.0",
+        "prettier": "3.8.0",
+        "prisma": "^7.2.0",
+        "prisma-dbml-generator": "^0.12.0",
+        "prisma-zod-generator": "^2.1.2",
+        "tsx": "^4.20.6",
+        "typescript": "5.8.2",
+        "typescript-eslint": "^8.53.0"
+    },
+    "overrides": {
+        "hono": "^4.11.4",
+        "@prisma/generator-helper": "^7.2.0",
+        "@prisma/internals": "^7.2.0"
+    }
 }
