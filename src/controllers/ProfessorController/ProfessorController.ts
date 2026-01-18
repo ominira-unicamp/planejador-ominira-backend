@@ -2,13 +2,11 @@ import { Router } from 'express'
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma from '../../PrismaClient.js'
 import { AuthRegistry } from '../../auth.js';
 import { ValidationError } from '../../Validation.js';
 import { defaultGetHandler, defaultListHandler } from '../../defaultEndpoint.js';
 import professorEntity from './Entity.js';
-import IO, { ListQueryParams } from './Interface.js';
-import { buildHandler } from '../../BuildHandler.js';
+import IO, { ListQueryParams } from './Interface.js';import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
 import registry from './OpenAPI.js';
 
 extendZodWithOpenApi(z);
@@ -20,7 +18,7 @@ authRegistry.addException('GET', '/professors');
 authRegistry.addException('GET', '/professors/:id');
 
 const list = defaultListHandler(
-	prisma.professor,
+	(p) => p.professor,
 	IO.list.input.shape.query,
 	(query) => (query.classId ? { classes: { some: { id: query.classId } } } : {}),
 	listPath,
@@ -31,7 +29,7 @@ const list = defaultListHandler(
 router.get('/professors', list);
 
 const get = defaultGetHandler(
-	prisma.professor,
+	(p) => p.professor,
 	{},
 	professorEntity.build,
 	"Professor not found"
@@ -39,9 +37,9 @@ const get = defaultGetHandler(
 
 router.get('/professors/:id', get);
 
-async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer<typeof IO.create.output>> {
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
 	const { body } = input;
-	const professor = await prisma.professor.create({
+	const professor = await ctx.prisma.professor.create({
 		data: {
 			name: body.name,
 		},
@@ -49,13 +47,13 @@ async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer
 	return { 201: professorEntity.build(professor) };
 }
 
-async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<typeof IO.patch.output>> {
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 	const { path: { id }, body } = input;
-	const existing = await prisma.professor.findUnique({ where: { id } });
+	const existing = await ctx.prisma.professor.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Professor not found" } };
 
-	const professor = await prisma.professor.update({
+	const professor = await ctx.prisma.professor.update({
 		where: { id },
 		data: {
 			...(body.name !== undefined && { name: body.name }),
@@ -64,12 +62,12 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 	return { 200: professorEntity.build(professor) };
 }
 
-async function removeFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer<typeof IO.remove.output>> {
+const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { id } } = input;
-	const existing = await prisma.professor.findUnique({ where: { id } });
+	const existing = await ctx.prisma.professor.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Professor not found" } };
-	await prisma.professor.delete({ where: { id } });
+	await ctx.prisma.professor.delete({ where: { id } });
 	return { 204: null };
 }
 

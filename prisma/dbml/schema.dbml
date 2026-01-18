@@ -106,6 +106,10 @@ Table CatalogLanguage {
   language Language [not null]
   languageId Int [not null]
   courseBlocks CourseBlock [not null]
+
+  indexes {
+    (catalogProgramId, languageId) [unique]
+  }
 }
 
 Table CourseBlock {
@@ -192,7 +196,6 @@ Table Student {
 }
 
 Table StudentCourse {
-  id Int [pk, increment]
   student Student [not null]
   studentId Int [not null]
   course Course [not null]
@@ -200,7 +203,7 @@ Table StudentCourse {
   status StudentCourseStatus [not null]
 
   indexes {
-    (studentId, courseId) [unique]
+    (studentId, courseId) [pk]
   }
 }
 
@@ -288,21 +291,21 @@ Ref: CatalogProgram.catalogId > Catalog.id
 
 Ref: CatalogProgram.programId > Program.id
 
-Ref: CatalogSpecialization.catalogProgramId > CatalogProgram.id
+Ref: CatalogSpecialization.catalogProgramId > CatalogProgram.id [delete: Cascade]
 
-Ref: CatalogSpecialization.specializationId > Specialization.id
+Ref: CatalogSpecialization.specializationId > Specialization.id [delete: Cascade]
 
-Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id
+Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id [delete: Cascade]
 
-Ref: CatalogLanguage.languageId > Language.id
+Ref: CatalogLanguage.languageId > Language.id [delete: Cascade]
 
-Ref: CourseBlock.catalogLanguageId > CatalogLanguage.id
+Ref: CourseBlock.catalogLanguageId > CatalogLanguage.id [delete: Cascade]
 
-Ref: CourseBlock.catalogSpecializationId > CatalogSpecialization.id
+Ref: CourseBlock.catalogSpecializationId > CatalogSpecialization.id [delete: Cascade]
 
-Ref: CourseBlock.catalogProgramId > CatalogProgram.id
+Ref: CourseBlock.catalogProgramId > CatalogProgram.id [delete: Cascade]
 
-Ref: CourseRequirement.courseBlockId > CourseBlock.id
+Ref: CourseRequirement.courseBlockId > CourseBlock.id [delete: Cascade]
 
 Ref: CourseRequirement.courseId > Course.id
 

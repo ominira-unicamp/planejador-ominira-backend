@@ -2,15 +2,15 @@ import { Router } from 'express'
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma, { whereIdCode } from '../../PrismaClient.js'
+import { whereIdCode } from '../../PrismaClient.js'
 import { AuthRegistry } from '../../auth.js';
 import { ValidationError, ZodToApiError } from '../../Validation.js';
 import { defaultGetHandler, defaultListHandler } from '../../defaultEndpoint.js';
 import classScheduleEntity from './Entity.js';
 import IO, { ListQueryParams } from './Interface.js';
-import { buildHandler } from '../../BuildHandler.js';
+import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
 import registry from './OpenAPI.js';
-import { zodIds } from '../../PrismaValidator.js';
+import { PrismaClient } from '../../../prisma/generated/client.js';
 
 extendZodWithOpenApi(z);
 
@@ -21,7 +21,7 @@ authRegistry.addException('GET', '/class-schedules');
 authRegistry.addException('GET', '/class-schedules/:id');
 
 const list = defaultListHandler(
-	prisma.classSchedule,
+	(p) => p.classSchedule,
 	IO.list.input.shape.query,
 	(query) => ({
 		dayOfWeek: query.dayOfWeek,
@@ -43,7 +43,7 @@ const list = defaultListHandler(
 router.get('/class-schedules', list);
 
 const get = defaultGetHandler(
-	prisma.classSchedule,
+	(p) => p.classSchedule,
 	classScheduleEntity.prismaSelection,
 	classScheduleEntity.build,
 	"Class schedule not found"
@@ -51,13 +51,13 @@ const get = defaultGetHandler(
 
 router.get('/class-schedules/:id', get);
 
-async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer<typeof IO.create.output>> {
+const createFn: HandlerFn<typeof IO.create> = async  (ctx, input) => {
 	const { body } = input;
 	
 	// Validate foreign keys
 	const validationSchema = z.object({
-		roomId: zodIds.room.exists,
-		classId: zodIds.class.exists
+		roomId: ctx.zodIds.room.exists,
+		classId: ctx.zodIds.class.exists
 	});
 	
 	const validation = await validationSchema.safeParseAsync(body);
@@ -67,24 +67,24 @@ async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer
 		};
 	}
 	
-	const classSchedule = await prisma.classSchedule.create({
+	const classSchedule = await ctx.prisma.classSchedule.create({
 		data: body,
 		...classScheduleEntity.prismaSelection,
 	});
 	return { 201: classScheduleEntity.build(classSchedule) };
 }
 
-async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<typeof IO.patch.output>> {
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 	const { path: { id }, body } = input;
 	
-	const existing = await prisma.classSchedule.findUnique({ where: { id } });
+	const existing = await ctx.prisma.classSchedule.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Class schedule not found" } };
 
 	// Validate foreign keys if provided
 	const validationSchema = z.object({
-		roomId: zodIds.room.exists.optional(),
-		classId: zodIds.class.exists.optional()
+		roomId: ctx.zodIds.room.exists.optional(),
+		classId: ctx.zodIds.class.exists.optional()
 	});
 	
 	const validation = await validationSchema.safeParseAsync(body);
@@ -94,7 +94,7 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 		};
 	}
 
-	const classSchedule = await prisma.classSchedule.update({
+	const classSchedule = await ctx.prisma.classSchedule.update({
 		where: { id },
 		data: {
 			...(body.dayOfWeek !== undefined && { dayOfWeek: body.dayOfWeek }),
@@ -108,12 +108,12 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 	return { 200: classScheduleEntity.build(classSchedule) };
 }
 
-async function removeFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer<typeof IO.remove.output>> {
+const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { id } } = input;
-	const existing = await prisma.classSchedule.findUnique({ where: { id } });
+	const existing = await ctx.prisma.classSchedule.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Class schedule not found" } };
-	await prisma.classSchedule.delete({ where: { id } });
+	await ctx.prisma.classSchedule.delete({ where: { id } });
 	return { 204: null };
 }
 

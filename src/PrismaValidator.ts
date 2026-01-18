@@ -1,5 +1,5 @@
 import z from "zod";
-import prisma from "./PrismaClient.js";
+import { PrismaClient } from "@prisma/client/extension";
 async function verifyExists(prismaDelegate: DelageteType, id: number) {
 	const entity = await prismaDelegate.findUnique({
 		where: {
@@ -36,7 +36,7 @@ const buildZodSchemas = (prismaDelegate: DelageteType, uniqueMessage: string, ma
 	),
 })
 
-const zodIds = {
+const buildZodIds = (prisma: PrismaClient) => ({
 	course: buildZodSchemas(prisma.course, "Course not found", "One or more courses not found"),
 	studyPeriod: buildZodSchemas(prisma.studyPeriod, "Study period not found", "One or more study periods not found"),
 	professor: buildZodSchemas(prisma.professor, "Professor not found", "One or more professors not found"),
@@ -44,7 +44,7 @@ const zodIds = {
 	class: buildZodSchemas(prisma.class, "Class not found", "One or more classes not found"),
 	classSchedule: buildZodSchemas(prisma.classSchedule, "Class schedule not found", "One or more class schedules not found"),
 	institute: buildZodSchemas(prisma.institute, "Institute not found", "One or more institutes not found"),
-}
+})
 
 type DelageteType = {
 	findUnique(args: { where: { id: number } }): Promise<any | null>,
@@ -52,6 +52,6 @@ type DelageteType = {
 }
 
 export {
-	zodIds,
+	buildZodIds,
 }
 

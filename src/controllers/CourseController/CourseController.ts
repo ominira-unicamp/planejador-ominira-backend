@@ -2,7 +2,6 @@ import { Router } from 'express'
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
 
-import prisma from '../../PrismaClient.js'
 import { AuthRegistry } from '../../auth.js';
 import { ValidationError } from '../../Validation.js';
 import { defaultGetHandler, defaultListHandler } from '../../defaultEndpoint.js';
@@ -10,12 +9,12 @@ import { PaginationQueryType } from '../../pagination.js';
 extendZodWithOpenApi(z);
 import courseEntity from './Entity.js';
 import IO from './Interface.js';
-import { buildHandler } from '../../BuildHandler.js';
+import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
 import registry from './OpenAPI.js';
 
 
 const list = defaultListHandler(
-	prisma.course,
+	(p) => p.course,
 	IO.list.input.shape.query,
 	(query) => ({
 		institute: {
@@ -30,15 +29,16 @@ const list = defaultListHandler(
 
 
 const get = defaultGetHandler(
-	prisma.course,
+	(p) => p.course,
 	courseEntity.selection,
 	courseEntity.build,
 	"Course not found"
 )
 
 
-async function createFn({ body }: z.infer<typeof IO.create.input>): Promise<z.infer<typeof IO.create.output>> {
-	const existing = await prisma.course.findUnique({
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
+	const { body } = input;
+	const existing = await ctx.prisma.course.findUnique({
 		where: { code: body.code }
 	});
 	if (!existing) {
@@ -51,7 +51,7 @@ async function createFn({ body }: z.infer<typeof IO.create.input>): Promise<z.in
 		};
 	}
 
-	const course = await prisma.course.create({
+	const course = await ctx.prisma.course.create({
 		...courseEntity.selection,
 		data: body,
 	});
@@ -60,10 +60,10 @@ async function createFn({ body }: z.infer<typeof IO.create.input>): Promise<z.in
 	return { 201: entity };
 }
 
-async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<typeof IO.patch.output>> {
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 	const { path: { id }, body } = input;
 	if (body.code !== undefined) {
-		const existing = await prisma.course.findUnique({ where: { code: body.code } });
+		const existing = await ctx.prisma.course.findUnique({ where: { code: body.code } });
 		if (existing && existing.id !== id) {
 			return {
 				400: new ValidationError([{
@@ -75,7 +75,7 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 		}
 	}
 
-	const course = await prisma.course.update({
+	const course = await ctx.prisma.course.update({
 		...courseEntity.selection,
 		where: { id: id },
 		data: {
@@ -90,15 +90,15 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 }
 
 
-async function deleteFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer<typeof IO.remove.output>> {
+const deleteFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { id } } = input;
-	const existing = await prisma.course.findUnique({ where: { id: id } });
+	const existing = await ctx.prisma.course.findUnique({ where: { id: id } });
 	if (!existing) {
 		return {
 			404: { description: 'Course not found' }
 		}
 	}
-	await prisma.course.delete({ where: { id: id } });
+	await ctx.prisma.course.delete({ where: { id: id } });
 	return { 200: undefined };
 }
 
