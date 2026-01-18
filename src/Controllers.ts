@@ -8,6 +8,7 @@ import studyPeriods from './controllers/StudyPeriodsController/StudyPeriodsContr
 import classSchedule from './controllers/ClassScheduleController/ClassScheduleController.js'
 import room from './controllers/RoomController/RoomController.js'
 import catalog from './controllers/CatalogController/CatalogController.js'
+import catalogProgram from './controllers/CatalogProgramController/CatalogProgramController.js'
 import program from './controllers/ProgramController/ProgramController.js'
 import specialization from './controllers/SpecializationController/SpecializationController.js'
 import language from './controllers/LanguageController/LanguageController.js'
@@ -40,6 +41,7 @@ const controllers: Controler[] = [
 	periodPlan,
 	studentCourse,
 	catalog,
+	catalogProgram,
 	program,
 	specialization,
 	language
@@ -71,6 +73,7 @@ export const resourcesPaths = {
 	studentCourse: studentCourse.paths,
 
 	catalog: catalog.paths,
+	catalogProgram: catalogProgram.paths,
 	program: program.paths,
 	specialization: specialization.paths,
 	language: language.paths,
