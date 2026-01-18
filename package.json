@@ -34,5 +34,10 @@
     "prisma-zod-generator": "^2.1.2",
     "tsx": "^4.20.6",
     "typescript": "5.8.2"
+  },
+  "overrides": {
+    "hono": "^4.11.4",
+    "@prisma/generator-helper": "^7.2.0",
+    "@prisma/internals": "^7.2.0"
   }
 }
