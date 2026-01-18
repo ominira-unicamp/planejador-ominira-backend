@@ -117,9 +117,9 @@ model CatalogProgram {
 
 model CatalogSpecialization {
   id               Int            @id @default(autoincrement())
-  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id])
+  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
   catalogProgramId Int
-  specialization   Specialization @relation(fields: [specializationId], references: [id])
+  specialization   Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
   specializationId Int
 
   courseBlocks CourseBlock[]
@@ -128,12 +128,12 @@ model CatalogSpecialization {
 
 model CatalogLanguage {
   id               Int            @id @default(autoincrement())
-  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id])
+  catalogProgram   CatalogProgram @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
   catalogProgramId Int
-  language         Language       @relation(fields: [languageId], references: [id])
+  language         Language       @relation(fields: [languageId], references: [id], onDelete: Cascade)
   languageId       Int
   courseBlocks CourseBlock[]
-
+  @@unique([catalogProgramId, languageId])
 }
 
 // ----------------------- Course Requirements Models ----------------------- //
@@ -154,13 +154,13 @@ model CourseBlock {
   type                    CourseBlockType
   credits                 Int?
   
-  catalogLanguage         CatalogLanguage?       @relation(fields: [catalogLanguageId], references: [id])
+  catalogLanguage         CatalogLanguage?       @relation(fields: [catalogLanguageId], references: [id], onDelete: Cascade)
   catalogLanguageId       Int?
   
-  catalogSpecialization   CatalogSpecialization? @relation(fields: [catalogSpecializationId], references: [id])
+  catalogSpecialization   CatalogSpecialization? @relation(fields: [catalogSpecializationId], references: [id], onDelete: Cascade)
   catalogSpecializationId Int?
   
-  catalogProgram          CatalogProgram?        @relation(fields: [catalogProgramId], references: [id])
+  catalogProgram          CatalogProgram?        @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
   catalogProgramId        Int?
 
   courseRequirements CourseRequirement[]
@@ -168,7 +168,7 @@ model CourseBlock {
 
 model CourseRequirement {
   id            Int                   @id @default(autoincrement())
-  courseBlock   CourseBlock           @relation(fields: [courseBlockId], references: [id])
+  courseBlock   CourseBlock           @relation(fields: [courseBlockId], references: [id], onDelete: Cascade)
   courseBlockId Int
   type          CourseRequirementType
   course        Course?               @relation(fields: [courseId], references: [id])
