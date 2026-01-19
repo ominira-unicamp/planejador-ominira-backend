@@ -6,11 +6,13 @@ type ValidationErrorField = {
 	message: string
 }
 const ErrorCodeSchema = z.enum([
+	'UNIQUE_VIOLATION',
 	'INVALID_TYPE',
 	'INVALID_VALUE',
 	'REQUIRED',
 	'REFERENCE_NOT_FOUND',
 	'ALREADY_EXISTS',
+	'REFERENCE_EXISTS'
 ]).openapi('ErrorCode');
 
 
@@ -25,7 +27,7 @@ const ApiErrorSchema = z.object({
 	errors: z.array(ErrorFieldSchema),
 }).openapi("ApiError");
 
-type ErrorFieldType = z.infer<typeof ErrorFieldSchema>;
+export type ErrorFieldType = z.infer<typeof ErrorFieldSchema>;
 type ValidationErrorType = z.infer<typeof ApiErrorSchema>;
 type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 

@@ -7,10 +7,16 @@ import classController from './controllers/ClassController/ClassController.js'
 import studyPeriods from './controllers/StudyPeriodsController/StudyPeriodsController.js'
 import classSchedule from './controllers/ClassScheduleController/ClassScheduleController.js'
 import room from './controllers/RoomController/RoomController.js'
+import catalog from './controllers/CatalogController/CatalogController.js'
+import catalogProgram from './controllers/CatalogProgramController/CatalogProgramController.js'
+import program from './controllers/ProgramController/ProgramController.js'
+import specialization from './controllers/SpecializationController/SpecializationController.js'
+import language from './controllers/LanguageController/LanguageController.js'
 
 import studentController from './controllers/StudentControllers/StudentController/StudentController.js'
 import CurriculumController from './controllers/StudentControllers/CurriculumController/CurriculumController.js'
-import CurriculumCourseController from './controllers/StudentControllers/CurriculumCourseController/CurriculumCourseController.js'
+import periodPlan from './controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js'
+import studentCourse from './controllers/StudentControllers/StudentCourseController/StudentCourseController.js'
 
 import { Router } from 'express'
 import { OpenAPIRegistry } from '@asteasolutions/zod-to-openapi'
@@ -32,7 +38,13 @@ const controllers: Controler[] = [
 	studyPeriods,
 	studentController,
 	CurriculumController,
-	CurriculumCourseController
+	periodPlan,
+	studentCourse,
+	catalog,
+	catalogProgram,
+	program,
+	specialization,
+	language
 ] 
 
 const router = Router().use(controllers.filter(c => c.router).map(c => c.router!));
@@ -54,7 +66,15 @@ export const resourcesPaths = {
 	professor: professor.paths,
 	room: room.paths,
 	studyPeriod: studyPeriods.paths,
+
 	student: studentController.paths,
 	curriculum: CurriculumController.paths,
-	curriculumCourse: CurriculumCourseController.paths,
+	periodPlan: periodPlan.paths,
+	studentCourse: studentCourse.paths,
+
+	catalog: catalog.paths,
+	catalogProgram: catalogProgram.paths,
+	program: program.paths,
+	specialization: specialization.paths,
+	language: language.paths,
 };

@@ -4,6 +4,9 @@ import { ValidationError, ValidationErrorSchema, ZodToApiError } from "./Validat
 import RequestBuilder from "./openapi/RequestBuilder.js";
 import ResponseBuilder from "./openapi/ResponseBuilder.js";
 
+import { PrismaClient } from "../prisma/generated/client.js";
+import { buildZodIds } from "./PrismaValidator.js";
+
 export type InputSchemaTypes<PT extends z.ZodType, Q extends z.ZodType, B extends z.ZodType> = z.ZodObject<{
 	path?: PT,
 	query?: Q,
@@ -15,8 +18,13 @@ export type outputSchemaType = z.ZodObject<{
 	[key: number]: z.ZodOptional<z.ZodType>
 }>;
 
+export type Context = {
+	prisma: PrismaClient,
+	zodIds: ReturnType<typeof buildZodIds>
+}
 
-export function buildHandler<PT extends z.ZodType, Q extends z.ZodType, B extends z.ZodType, I extends InputSchemaTypes<PT, Q, B>, O extends outputSchemaType>(inputSchema : I, outputSchema : O,  fn: (input: z.infer<I>) => Promise<z.infer<O>>) {
+export type HandlerFn<T extends { input: z.ZodType; output: z.ZodType }> = (ctx: Context, input: z.infer<T["input"]>) => Promise<z.infer<T["output"]>>;
+export function buildHandler<PT extends z.ZodType, Q extends z.ZodType, B extends z.ZodType, I extends InputSchemaTypes<PT, Q, B>, O extends outputSchemaType>(inputSchema : I, outputSchema : O,  fn: (ctx: Context, input: z.infer<I>) => Promise<z.infer<O>>) {
 	return async function handler(req: Request, res: Response) {
 		const { data: input, error, success } = inputSchema.safeParse({
 			query: req.query,
@@ -25,15 +33,20 @@ export function buildHandler<PT extends z.ZodType, Q extends z.ZodType, B extend
 		});
 		if (!success)
 			return res.status(400).json(new ValidationError(ZodToApiError(error, [])));
-		const output = await fn(input);
+		const ctx = {
+			prisma: req.prisma,
+			zodIds: buildZodIds(req.prisma)
+		}
+		const output = await fn(ctx, input);
 		const status = Object.keys(outputSchema.shape).map(k => parseInt(k)).find(statusCode => {
-			if (Object.hasOwn(outputSchema.shape, statusCode)) {
+			if (Object.hasOwn(output, statusCode)) {
 				return true;
 			}
 		})
 		if (status == undefined) {
 			throw new Error("No status code defined in output schema");
 		}		
+		res.status(status);
 		return res.json(output[status] );
 	}
 }

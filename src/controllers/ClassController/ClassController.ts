@@ -1,16 +1,15 @@
 import { Router } from 'express'
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import z from 'zod';
-
-import prisma, { whereIdCode, whereIdName } from '../../PrismaClient.js'
+import { globalPrisma, whereIdCode, whereIdName } from '../../PrismaClient.js'
 import { AuthRegistry } from '../../auth.js';
 import { ValidationError, ZodToApiError } from '../../Validation.js';
 import { defaultGetHandler, defaultListHandler } from '../../defaultEndpoint.js';
 import classEntity from './Entity.js';
 import IO, { ListQueryParams } from './Interface.js';
-import { buildHandler } from '../../BuildHandler.js';
+import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
 import registry from './OpenAPI.js';
-import { zodIds } from '../../PrismaValidator.js';
+import { PrismaClient } from '../../../prisma/generated/client.js';
 
 extendZodWithOpenApi(z);
 
@@ -21,7 +20,7 @@ authRegistry.addException('GET', '/classes');
 authRegistry.addException('GET', '/classes/:id');
 
 const list = defaultListHandler(
-	prisma.class,
+	(p) => p.class,
 	IO.list.input.shape.query,
 	(query) => ({
 		course: {
@@ -41,7 +40,7 @@ const list = defaultListHandler(
 router.get('/classes', list);
 
 const get = defaultGetHandler(
-	prisma.class,
+	(p) => p.class,
 	classEntity.prismaSelection,
 	classEntity.build,
 	"Class not found"
@@ -49,14 +48,14 @@ const get = defaultGetHandler(
 
 router.get('/classes/:id', get);
 
-async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer<typeof IO.create.output>> {
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
 	const { body } = input;
 	
 	// Validate foreign keys
 	const validationSchema = z.object({
-		courseId: zodIds.course.exists,
-		studyPeriodId: zodIds.studyPeriod.exists,
-		professorIds: zodIds.professor.existsMany,
+		courseId: ctx.zodIds.course.exists,
+		studyPeriodId: ctx.zodIds.studyPeriod.exists,
+		professorIds: ctx.zodIds.professor.existsMany,
 	});
 	
 	const validation = await validationSchema.safeParseAsync(body);
@@ -66,7 +65,7 @@ async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer
 		};
 	}
 	
-	const classData = await prisma.class.create({
+	const classData = await ctx.prisma.class.create({
 		data: {
 			code: body.code,
 			courseId: body.courseId,
@@ -81,18 +80,18 @@ async function createFn(input: z.infer<typeof IO.create.input>): Promise<z.infer
 	return { 201: classEntity.build(classData) };
 }
 
-async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<typeof IO.patch.output>> {
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 	const { path: { id }, body } = input;
 	
-	const existing = await prisma.class.findUnique({ where: { id } });
+	const existing = await ctx.prisma.class.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Class not found" } };
 
 	// Validate foreign keys if provided
 	const validationSchema = z.object({
-		courseId: zodIds.course.exists.optional(),
-		studyPeriodId: zodIds.studyPeriod.exists.optional(),
-		professorIds: zodIds.professor.existsMany.optional(),
+		courseId: ctx.zodIds.course.exists.optional(),
+		studyPeriodId: ctx.zodIds.studyPeriod.exists.optional(),
+		professorIds: ctx.zodIds.professor.existsMany.optional(),
 	});
 	
 	const validation = await validationSchema.safeParseAsync(body);
@@ -102,7 +101,7 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 		};
 	}
 
-	const classData = await prisma.class.update({
+	const classData = await ctx.prisma.class.update({
 		where: { id },
 		data: {
 			...(body.code !== undefined && { code: body.code }),
@@ -120,12 +119,12 @@ async function patchFn(input: z.infer<typeof IO.patch.input>): Promise<z.infer<t
 	return { 200: classEntity.build(classData) };
 }
 
-async function removeFn(input: z.infer<typeof IO.remove.input>): Promise<z.infer<typeof IO.remove.output>> {
+const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 	const { path: { id } } = input;
-	const existing = await prisma.class.findUnique({ where: { id } });
+	const existing = await ctx.prisma.class.findUnique({ where: { id } });
 	if (!existing)
 		return { 404: { description: "Class not found" } };
-	await prisma.class.delete({ where: { id } });
+	await ctx.prisma.class.delete({ where: { id } });
 	return { 204: null };
 }
 

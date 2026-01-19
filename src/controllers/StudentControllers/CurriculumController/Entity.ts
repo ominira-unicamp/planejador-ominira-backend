@@ -24,9 +24,10 @@ export const prismaCurriculumFieldSelection = {
 
 type PrismaCurriculumPayload = MyPrisma.CurriculumGetPayload<typeof prismaCurriculumFieldSelection>;
 
-function relatedPathsForCurriculum(curriculumId: number) {
+function relatedPathsForCurriculum(curriculumId: number, studentId: number) {
 	return {
-		student: resourcesPaths.student.entity(curriculumId),
+		self: resourcesPaths.curriculum.entity(studentId, curriculumId),
+		student: resourcesPaths.student.entity(studentId),
 	}
 }
 
@@ -40,7 +41,7 @@ function buildCurriculumEntity(curriculum: PrismaCurriculumPayload): z.infer<typ
 			name: course.name,
 			code: course.code,
 		})),
-		_paths: relatedPathsForCurriculum(curriculum.id)
+		_paths: relatedPathsForCurriculum(curriculum.id, curriculum.studentId)
 	};
 }
 

@@ -53,8 +53,8 @@ const selectIdCode = {
 } as const;
 
 
-export default prisma
 export {
+	prisma as globalPrisma,
 	MyPrisma, 
 	models,
 	whereIdCode,

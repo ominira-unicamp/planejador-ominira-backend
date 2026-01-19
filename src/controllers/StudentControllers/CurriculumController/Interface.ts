@@ -45,14 +45,27 @@ const create = {
 		.badRequest()
 		.build(),
 }
-
+const curriculumCourse = z.object({
+	courseId: z.number().int(),
+	semester: z.number().int().nullable(),
+});
 const patch = {
 	input: z.object({
 		path: z.object({
 			sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
 			id: z.string().pipe(z.coerce.number()).pipe(z.number()),
 		}),
-		body: curriculumBase.omit({ id: true }).partial(),
+		body: z.object({
+			id: z.number().int(),
+			studentId: z.number().int(),
+			courses: z.object({
+				update: z.array(curriculumCourse),
+				set: z.array(curriculumCourse),
+				add: z.array(curriculumCourse),
+				upsert: z.array(curriculumCourse),
+				remove: z.array(z.number().int()),
+			}).partial(),
+		}).strict(),
 	}),
 	output: new OutputBuilder()
 		.ok(curriculumEntity.schema, "Curriculum updated successfully")

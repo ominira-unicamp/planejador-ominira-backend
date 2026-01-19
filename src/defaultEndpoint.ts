@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
-import prisma, { MyPrisma } from "./PrismaClient.js";
+import { MyPrisma } from "./PrismaClient.js";
 import { z } from "zod";
 import { ZodToApiError } from "./Validation.js";
 import ResponseBuilder from "./openapi/ResponseBuilder.js";
 import { RouteConfig } from "@asteasolutions/zod-to-openapi";
 import { buildPaginationResponse, PaginatedResult, PaginatedSchemaType, paginationQuerySchema, PaginationQueryType, prismaPaginationParamsFromQuery } from "./pagination.js";
+import { PrismaClient } from "../prisma/generated/client.js";
 function defaultOpenApiGetPath(
 	path: string,
 	tag: string,
@@ -30,10 +31,10 @@ function defaultOpenApiGetPath(
 }
 
 function defaultGetHandler<
-	T extends { findUnique: (a: any) => any }
+	T extends (prisma :  PrismaClient) => { findUnique: (a: any) => any }
 >(
-	delegate: T,
-	prismaClassFieldSelection: Partial<MyPrisma.Args<T, 'findUnique'>>,
+	delegateFn: T,
+	prismaClassFieldSelection: Partial<MyPrisma.Args<ReturnType<T>, 'findUnique'>>,
 	buildClassEntity: (data: any) => any,
 	notFoundMessage = "Not found"
 ): import("express").RequestHandler {
@@ -44,12 +45,12 @@ function defaultGetHandler<
 			return;
 		}
 		const id: number = parsed.data;
-
+		
 		const args = {
 			where: { id },
 			...prismaClassFieldSelection,
-		} as MyPrisma.Args<T, 'findUnique'>;
-
+		} as MyPrisma.Args<ReturnType<T>, 'findUnique'>;
+		const delegate = delegateFn(req.prisma);
 		const data = await delegate.findUnique(args);
 		if (!data) {
 			res.status(404).json({ error: notFoundMessage });
@@ -61,24 +62,26 @@ function defaultGetHandler<
 
 
 function defaultListHandler<
-	T extends { findMany: (a: { where: any }) => any; count: (a: {where: any}) => any },
+	T extends (prisma : PrismaClient) => { findMany: (a: { where: any }) => any; count: (a: {where: any}) => any },
 	D extends z.ZodType,
 	Q extends z.ZodType<PaginationQueryType>,
 > (
-	delegate: T,
+	delegateFn: T,
 	querySchema: Q,
-	whereClauseBuilder: (query: z.infer<Q>) => NonNullable<Parameters<T['findMany']>[0]>['where'],
+	whereClauseBuilder: (query: z.infer<Q>) => NonNullable<Parameters<ReturnType<T>['findMany']>[0]>['where'],
 	listPath: (query : z.infer<Q>) => string,
-	prismaClassFieldSelection: Partial<MyPrisma.Args<T, 'findUnique'>>,
+	prismaClassFieldSelection: Partial<MyPrisma.Args<ReturnType<T>, 'findUnique'>>,
 	buildClassEntity: (data: any) => any
 ) {
 	return async function defaultListHandler(req: Request, res: Response) {
+
 		const { success, data: query, error } = querySchema.safeParse(req.query);
 		if (!success) {
 			res.status(400).json(ZodToApiError(error, ["query"]));
 			return;
 		}
 		const where = whereClauseBuilder(query);
+		const delegate = delegateFn(req.prisma);
 		const total = await delegate.count({ where });
 		const entitiesData = await delegate.findMany({
 			...prismaPaginationParamsFromQuery(query),

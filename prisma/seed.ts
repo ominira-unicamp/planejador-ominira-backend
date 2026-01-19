@@ -60,6 +60,8 @@ async function main() {
   await prisma.professor.deleteMany()
   await prisma.studyPeriod.deleteMany()
   await prisma.studentCourse.deleteMany()
+  await prisma.curriculum.deleteMany()
+  await prisma.curriculumCourse.deleteMany()
   await prisma.student.deleteMany()
   await prisma.catalogProgram.deleteMany()
   await prisma.catalog.deleteMany()

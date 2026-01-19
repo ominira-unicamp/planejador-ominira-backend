@@ -24,8 +24,8 @@ registry.registerPath(defaultOpenApiGetPath(
 ));
 
 registry.registerPath({
-	method: 'patch',
-	path: '/study-periods/{id}',
+	method: 'post',
+	path: '/study-periods/',
 	tags: ['studyPeriod'],
 	...openApiArgsFromIO(IO.create)
 });
