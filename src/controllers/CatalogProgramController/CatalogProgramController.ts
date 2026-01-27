@@ -2,7 +2,10 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
-import { PrismaClient } from "../../../prisma/generated/client.js";
+import {
+    CourseBlockType,
+    PrismaClient
+} from "../../../prisma/generated/client.js";
 import { AuthRegistry } from "../../auth.js";
 import { buildHandler, HandlerFn } from "../../BuildHandler.js";
 import catalogProgramEntity from "./Entity.js";
@@ -230,7 +233,7 @@ async function patchCourseBlocks(
     if (ops.update) {
         for (const block of ops.update) {
             const updateData: {
-                type?: string;
+                type?: CourseBlockType;
                 credits?: number | null;
             } = {};
             if (block.type !== undefined) updateData.type = block.type;
