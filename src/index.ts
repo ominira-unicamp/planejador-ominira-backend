@@ -6,8 +6,10 @@ import Controlellers from "./Controllers.js";
 import errorHandler from "./Middlewares/erroHandler.js";
 import jsonErrorHandler from "./Middlewares/jsonErrorHandler.js";
 import prismaInjectMiddleware from "./Middlewares/prismaInjectMiddleware.js";
+import sizeLimitMiddleware from "./Middlewares/sizeLimitMiddleware.js";
 import studentMiddleware from "./Middlewares/studentMiddleware.js";
 import openapi from "./OpenApi.js";
+
 const app = express();
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(
@@ -53,6 +55,7 @@ app.use(
 app.use(express.json());
 app.use(jsonErrorHandler);
 app.use(prismaInjectMiddleware);
+app.use(sizeLimitMiddleware);
 app.use(Controlellers.authRegistry.middleware());
 app.use("/student/:sid", studentMiddleware);
 app.use(openapi.router);
