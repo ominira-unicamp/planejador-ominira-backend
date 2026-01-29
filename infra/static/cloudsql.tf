@@ -1,7 +1,7 @@
 # Cloud SQL Infrastructure
 resource "google_sql_database_instance" "instance" {
   name                = var.db_instance_name
-  database_version    = "POSTGRES_15"
+  database_version    = "POSTGRES_18"
   deletion_protection = true
 
   settings {
