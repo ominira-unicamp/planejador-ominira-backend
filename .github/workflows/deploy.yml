@@ -27,6 +27,9 @@ jobs:
       attestations: write
       id-token: write
     
+    outputs:
+      container_sha: ${{ steps.push.outputs.digest }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -147,7 +150,8 @@ jobs:
             -var "db_name=${{ vars.TF_VAR_DB_NAME }}" \
             -var "db_user=${{ vars.TF_VAR_DB_USER }}" \
             -var "db_password=${{ secrets.TF_VAR_DB_PASSWORD }}" \
-            -var "jwt_secret=${{ secrets.TF_VAR_JWT_SECRET }}"
+            -var "jwt_secret=${{ secrets.TF_VAR_JWT_SECRET }}" \
+            -var "container_image=gcr.io/${{ vars.TF_VAR_PROJECT_ID }}/${{ vars.TF_VAR_APP_NAME }}@${{ needs.build-and-push-image.outputs.container_sha }}"
       
       # === Get Deployment URL ===
       - name: Get Cloud Run URL

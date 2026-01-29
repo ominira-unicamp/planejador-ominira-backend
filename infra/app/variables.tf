@@ -13,20 +13,29 @@ variable app_name {
   description = "Name of the Cloud Run service"
   default = "pomi-api"
 }
+
+variable container_image {
+  type = string
+  description = "URL of the container image to deploy"
+}
+
 variable db_instance_name {
   type = string
   description = "Name of the Cloud SQL instance"
   default = "pomi-db"
 }
+
 variable db_name {
   type = string
   description = "Name of the Postgres database"
   default = "pomi"
 }
+
 variable "db_user" {
   description = "Database user name"
   type = string
 }
+
 variable "db_password" {
   description = "Database user password"
   type = string
