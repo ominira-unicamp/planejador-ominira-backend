@@ -1,64 +1,71 @@
-import { PrismaPg } from '@prisma/adapter-pg'
-import { PrismaClient,  Prisma as MyPrisma } from '../prisma/generated/client.js'
-import * as models from '../prisma/generated/zod/schemas/models/index.js'
-const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
-const prisma = new PrismaClient({ adapter: pool })
-
+import { PrismaPg } from "@prisma/adapter-pg";
+import {
+    Prisma as MyPrisma,
+    PrismaClient
+} from "../prisma/generated/client.js";
+import * as models from "../prisma/generated/zod/schemas/models/index.js";
+const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter: pool });
 
 type WhereIdNameType = {
-	id?: number | undefined,
-	name?: {
-		equals: string | undefined
-		mode: 'insensitive'
-	},
-}
-function whereIdName(id : number | undefined, name: string | undefined) : WhereIdNameType{
-	return {
-		id: id,
-		name: {
-			equals: name,
-			mode: 'insensitive',
-		}
-	};
+    id?: number | undefined;
+    name?: {
+        equals: string | undefined;
+        mode: "insensitive";
+    };
+};
+function whereIdName(
+    id: number | undefined,
+    name: string | undefined
+): WhereIdNameType {
+    return {
+        id: id,
+        name: {
+            equals: name,
+            mode: "insensitive"
+        }
+    };
 }
 
 type WhereIdCodeType = {
-	id?: number | undefined,
-	code?: {
-		equals: string | undefined
-		mode: 'insensitive'
-	},
-}
-function whereIdCode(id : number | undefined, code: string | undefined) : WhereIdCodeType {
-	return {
-		id: id,
-		code: {
-			equals: code,
-			mode: 'insensitive',
-		}
-	};
+    id?: number | undefined;
+    code?: {
+        equals: string | undefined;
+        mode: "insensitive";
+    };
+};
+function whereIdCode(
+    id: number | undefined,
+    code: string | undefined
+): WhereIdCodeType {
+    return {
+        id: id,
+        code: {
+            equals: code,
+            mode: "insensitive"
+        }
+    };
 }
 
 const selectIdName = {
-	select: {
-		id: true,
-		name: true
-	}
+    select: {
+        id: true,
+        name: true
+    }
 } as const;
 const selectIdCode = {
-	select: {
-		id: true,
-		code: true
-	}
+    select: {
+        id: true,
+        code: true
+    }
 } as const;
 
-
 export {
-	prisma as globalPrisma,
-	MyPrisma, 
-	models,
-	whereIdCode,
-	whereIdName,
-	selectIdCode,
-	selectIdName
-}
+    prisma as globalPrisma,
+    models,
+    MyPrisma,
+    selectIdCode,
+    selectIdName,
+    whereIdCode,
+    whereIdName
+};

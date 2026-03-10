@@ -1,52 +1,70 @@
-import 'dotenv/config'
-import express, { Router } from 'express'
-import helmet from 'helmet'
-import cors from 'cors'
-import openapi from './OpenApi.js'
-import Controlellers from './Controllers.js'
-import errorHandler from './Middlewares/erroHandler.js'
-import jsonErrorHandler from './Middlewares/jsonErrorHandler.js'
-import studentMiddleware from './Middlewares/studentMiddleware.js'
-import prismaInjectMiddleware from './Middlewares/prismaInjectMiddleware.js'
-const app = express()
-const corsOrigin = process.env.CORS_ORIGIN || '*'
-app.use(cors({
-  origin: corsOrigin === '*' ? '*' : corsOrigin.split(','),
-  credentials: true,
-}))
+import cors from "cors";
+import "dotenv/config";
+import express from "express";
+import helmet from "helmet";
+import Controlellers from "./Controllers.js";
+import errorHandler from "./Middlewares/erroHandler.js";
+import jsonErrorHandler from "./Middlewares/jsonErrorHandler.js";
+import prismaInjectMiddleware from "./Middlewares/prismaInjectMiddleware.js";
+import sizeLimitMiddleware from "./Middlewares/sizeLimitMiddleware.js";
+import studentMiddleware from "./Middlewares/studentMiddleware.js";
+import openapi from "./OpenApi.js";
 
-Controlellers.authRegistry.addException('GET', '/openapi.json');
-Controlellers.authRegistry.addException('GET', '/docs');
+const app = express();
+const corsOrigin = process.env.CORS_ORIGIN || "*";
+app.use(
+    cors({
+        origin: corsOrigin === "*" ? "*" : corsOrigin.split(","),
+        credentials: true
+    })
+);
 
-app.use(helmet({
-  crossOriginResourcePolicy: {
-    policy: "cross-origin",
-    
-  },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdn.jsdelivr.net", "https://fonts.scalar.com"],
-      imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-      workerSrc: ["'self'", "blob:"],
-      connectSrc: ["'self'"],
-    },
-  },
-}))
-app.use(express.json())
-app.use(jsonErrorHandler)
-app.use(prismaInjectMiddleware)
-app.use(Controlellers.authRegistry.middleware())
+Controlellers.authRegistry.addException("GET", "/openapi.json");
+Controlellers.authRegistry.addException("GET", "/docs");
+
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: [
+                    "'self'",
+                    "'unsafe-inline'",
+                    "'unsafe-eval'",
+                    "https://cdn.jsdelivr.net"
+                ],
+                styleSrc: [
+                    "'self'",
+                    "'unsafe-inline'",
+                    "https://cdn.jsdelivr.net",
+                    "https://fonts.googleapis.com"
+                ],
+                fontSrc: [
+                    "'self'",
+                    "https://fonts.gstatic.com",
+                    "https://cdn.jsdelivr.net",
+                    "https://fonts.scalar.com"
+                ],
+                imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+                workerSrc: ["'self'", "blob:"],
+                connectSrc: ["'self'"]
+            }
+        }
+    })
+);
+app.use(express.json());
+app.use(jsonErrorHandler);
+app.use(prismaInjectMiddleware);
+app.use(sizeLimitMiddleware);
+app.use(Controlellers.authRegistry.middleware());
 app.use("/student/:sid", studentMiddleware);
-app.use(openapi.router)
-app.use(Controlellers.router)
-app.use(errorHandler)
+app.use(openapi.router);
+app.use(Controlellers.router);
+app.use(errorHandler);
 
-const port = process.env.PORT || 3000
-const server = app.listen(port, () => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Docs: http://localhost:${port}/docs`)
-  }
-})
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+    if (process.env.NODE_ENV !== "production") {
+        console.log(`Docs: http://localhost:${port}/docs`);
+    }
+});

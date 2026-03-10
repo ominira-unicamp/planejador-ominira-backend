@@ -1,160 +1,185 @@
-import { Router } from 'express'
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import z from 'zod';
-import { globalPrisma, whereIdCode, whereIdName } from '../../PrismaClient.js'
-import { AuthRegistry } from '../../auth.js';
-import { ValidationError, ZodToApiError } from '../../Validation.js';
-import { defaultGetHandler, defaultListHandler } from '../../defaultEndpoint.js';
-import classEntity from './Entity.js';
-import IO, { ListQueryParams } from './Interface.js';
-import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
-import registry from './OpenAPI.js';
-import { PrismaClient } from '../../../prisma/generated/client.js';
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { Router } from "express";
+import z from "zod";
+import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import { whereIdCode, whereIdName } from "../../PrismaClient.js";
+import { ValidationError, ZodToApiError } from "../../Validation.js";
+import { AuthRegistry } from "../../auth.js";
+import {
+    defaultGetHandler,
+    defaultListHandler
+} from "../../defaultEndpoint.js";
+import classEntity from "./Entity.js";
+import IO, { ListQueryParams } from "./Interface.js";
+import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
-const router = Router()
+const router = Router();
 const authRegistry = new AuthRegistry();
 
-authRegistry.addException('GET', '/classes');
-authRegistry.addException('GET', '/classes/:id');
+authRegistry.addException("GET", "/classes");
+authRegistry.addException("GET", "/classes/:id");
 
 const list = defaultListHandler(
-	(p) => p.class,
-	IO.list.input.shape.query,
-	(query) => ({
-		course: {
-			...whereIdCode(query.courseId, query.courseCode),
-			institute: whereIdCode(query.instituteId, query.instituteCode),
-		},
-		studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
-		professors: {
-			some: whereIdName(query.professorId, query.professorName)
-		},
-	}),
-	listPath,
-	classEntity.prismaSelection,
-	classEntity.build,
+    (p) => p.class,
+    IO.list.input.shape.query,
+    (query) => ({
+        course: {
+            ...whereIdCode(query.courseId, query.courseCode),
+            institute: whereIdCode(query.instituteId, query.instituteCode)
+        },
+        studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
+        professors: {
+            some: whereIdName(query.professorId, query.professorName)
+        }
+    }),
+    listPath,
+    classEntity.prismaSelection,
+    classEntity.build
 );
 
-router.get('/classes', list);
+router.get("/classes", list);
 
 const get = defaultGetHandler(
-	(p) => p.class,
-	classEntity.prismaSelection,
-	classEntity.build,
-	"Class not found"
+    (p) => p.class,
+    classEntity.prismaSelection,
+    classEntity.build,
+    "Class not found"
 );
 
-router.get('/classes/:id', get);
+router.get("/classes/:id", get);
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-	const { body } = input;
-	
-	// Validate foreign keys
-	const validationSchema = z.object({
-		courseId: ctx.zodIds.course.exists,
-		studyPeriodId: ctx.zodIds.studyPeriod.exists,
-		professorIds: ctx.zodIds.professor.existsMany,
-	});
-	
-	const validation = await validationSchema.safeParseAsync(body);
-	if (!validation.success) {
-		return {
-			400: new ValidationError(ZodToApiError(validation.error, ['body']))
-		};
-	}
-	
-	const classData = await ctx.prisma.class.create({
-		data: {
-			code: body.code,
-			courseId: body.courseId,
-			studyPeriodId: body.studyPeriodId,
-			reservations: body.reservations,
-			professors: {
-				connect: body.professorIds.map(id => ({ id })),
-			},
-		},
-		...classEntity.prismaSelection,
-	});
-	return { 201: classEntity.build(classData) };
-}
+    const { body } = input;
+
+    // Validate foreign keys
+    const validationSchema = z.object({
+        courseId: ctx.zodIds.course.exists,
+        studyPeriodId: ctx.zodIds.studyPeriod.exists,
+        professorIds: ctx.zodIds.professor.existsMany
+    });
+
+    const validation = await validationSchema.safeParseAsync(body);
+    if (!validation.success) {
+        return {
+            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
+        };
+    }
+
+    const classData = await ctx.prisma.class.create({
+        data: {
+            code: body.code,
+            courseId: body.courseId,
+            studyPeriodId: body.studyPeriodId,
+            reservations: body.reservations,
+            professors: {
+                connect: body.professorIds.map((id) => ({ id }))
+            }
+        },
+        ...classEntity.prismaSelection
+    });
+    return { 201: classEntity.build(classData) };
+};
 
 const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-	const { path: { id }, body } = input;
-	
-	const existing = await ctx.prisma.class.findUnique({ where: { id } });
-	if (!existing)
-		return { 404: { description: "Class not found" } };
+    const {
+        path: { id },
+        body
+    } = input;
 
-	// Validate foreign keys if provided
-	const validationSchema = z.object({
-		courseId: ctx.zodIds.course.exists.optional(),
-		studyPeriodId: ctx.zodIds.studyPeriod.exists.optional(),
-		professorIds: ctx.zodIds.professor.existsMany.optional(),
-	});
-	
-	const validation = await validationSchema.safeParseAsync(body);
-	if (!validation.success) {
-		return {
-			400: new ValidationError(ZodToApiError(validation.error, ['body']))
-		};
-	}
+    const existing = await ctx.prisma.class.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Class not found" } };
 
-	const classData = await ctx.prisma.class.update({
-		where: { id },
-		data: {
-			...(body.code !== undefined && { code: body.code }),
-			...(body.courseId !== undefined && { courseId: body.courseId }),
-			...(body.studyPeriodId !== undefined && { studyPeriodId: body.studyPeriodId }),
-			...(body.reservations !== undefined && { reservations: body.reservations }),
-			...(body.professorIds !== undefined && {
-				professors: {
-					set: body.professorIds.map(id => ({ id })),
-				},
-			}),
-		},
-		...classEntity.prismaSelection,
-	});
-	return { 200: classEntity.build(classData) };
-}
+    // Validate foreign keys if provided
+    const validationSchema = z.object({
+        courseId: ctx.zodIds.course.exists.optional(),
+        studyPeriodId: ctx.zodIds.studyPeriod.exists.optional(),
+        professorIds: ctx.zodIds.professor.existsMany.optional()
+    });
+
+    const validation = await validationSchema.safeParseAsync(body);
+    if (!validation.success) {
+        return {
+            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
+        };
+    }
+
+    const classData = await ctx.prisma.class.update({
+        where: { id },
+        data: {
+            ...(body.code !== undefined && { code: body.code }),
+            ...(body.courseId !== undefined && { courseId: body.courseId }),
+            ...(body.studyPeriodId !== undefined && {
+                studyPeriodId: body.studyPeriodId
+            }),
+            ...(body.reservations !== undefined && {
+                reservations: body.reservations
+            }),
+            ...(body.professorIds !== undefined && {
+                professors: {
+                    set: body.professorIds.map((id) => ({ id }))
+                }
+            })
+        },
+        ...classEntity.prismaSelection
+    });
+    return { 200: classEntity.build(classData) };
+};
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-	const { path: { id } } = input;
-	const existing = await ctx.prisma.class.findUnique({ where: { id } });
-	if (!existing)
-		return { 404: { description: "Class not found" } };
-	await ctx.prisma.class.delete({ where: { id } });
-	return { 204: null };
-}
+    const {
+        path: { id }
+    } = input;
+    const existing = await ctx.prisma.class.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Class not found" } };
+    await ctx.prisma.class.delete({ where: { id } });
+    return { 204: null };
+};
 
-router.post('/classes', buildHandler(IO.create.input, IO.create.output, createFn));
+router.post(
+    "/classes",
+    buildHandler(IO.create.input, IO.create.output, createFn)
+);
 
-router.patch('/classes/:id', buildHandler(IO.patch.input, IO.patch.output, patchFn));
+router.patch(
+    "/classes/:id",
+    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+);
 
-router.delete('/classes/:id', buildHandler(IO.remove.input, IO.remove.output, removeFn));
+router.delete(
+    "/classes/:id",
+    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+);
 
 function listPath(query: ListQueryParams) {
-	return `/classes?` + [
-		query.instituteId ? "instituteId=" + query.instituteId : undefined,
-		query.courseId ? "courseId=" + query.courseId : undefined,
-		query.studyPeriodId ? "studyPeriodId=" + query.studyPeriodId : undefined,
-		query.professorId ? "professorId=" + query.professorId : undefined,
-		query.page ? "page=" + query.page : undefined,
-		query.pageSize ? "pageSize=" + query.pageSize : undefined,
-	].filter(Boolean).join('&');
+    return (
+        `/classes?` +
+        [
+            query.instituteId ? "instituteId=" + query.instituteId : undefined,
+            query.courseId ? "courseId=" + query.courseId : undefined,
+            query.studyPeriodId
+                ? "studyPeriodId=" + query.studyPeriodId
+                : undefined,
+            query.professorId ? "professorId=" + query.professorId : undefined,
+            query.page ? "page=" + query.page : undefined,
+            query.pageSize ? "pageSize=" + query.pageSize : undefined
+        ]
+            .filter(Boolean)
+            .join("&")
+    );
 }
 
 function entityPath(id: number) {
-	return `/classes/${id}`;
+    return `/classes/${id}`;
 }
 
 export default {
-	router,
-	registry,
-	authRegistry,
-	paths: {
-		list: listPath,
-		entity: entityPath,
-	}
-}
+    router,
+    registry,
+    authRegistry,
+    paths: {
+        list: listPath,
+        entity: entityPath
+    }
+};

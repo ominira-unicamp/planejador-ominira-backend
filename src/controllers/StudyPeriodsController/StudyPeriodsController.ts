@@ -1,107 +1,118 @@
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { Router } from "express";
+import z from "zod";
 
-
-import { Router } from 'express'
-import { extendZodWithOpenApi, OpenAPIRegistry } from '@asteasolutions/zod-to-openapi';
-import z, { success, ZodAny, ZodType } from 'zod';
-
-import { AuthRegistry } from '../../auth.js';
-import { resourcesPaths } from '../../Controllers.js';
-import ResponseBuilder from '../../openapi/ResponseBuilder.js';
-import { ValidationError, ValidationErrorField, ValidationErrorType, ZodToApiError } from '../../Validation.js';
-import RequestBuilder from '../../openapi/RequestBuilder.js';
-import { ParamsDictionary } from 'express-serve-static-core';
-import { defaultGetHandler, defaultOpenApiGetPath } from '../../defaultEndpoint.js';
-import studyPeriodEntity from './Entity.js';
-import IO  from './Interface.js';
-import { buildHandler, Context, HandlerFn } from '../../BuildHandler.js';
-import registry from './OpenAPI.js';
+import { AuthRegistry } from "../../auth.js";
+import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import { defaultGetHandler } from "../../defaultEndpoint.js";
+import { ValidationError } from "../../Validation.js";
+import studyPeriodEntity from "./Entity.js";
+import IO from "./Interface.js";
+import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
-const router = Router()
+const router = Router();
 const authRegistry = new AuthRegistry();
 
-authRegistry.addException('GET', '/study-periods');
-const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
-	const studyPeriods = await ctx.prisma.studyPeriod.findMany();
-	const entities = studyPeriods.map(studyPeriodEntity.build);
-	return { 200: entities };
-}
+authRegistry.addException("GET", "/study-periods");
+const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
+    const studyPeriods = await ctx.prisma.studyPeriod.findMany();
+    const entities = studyPeriods.map(studyPeriodEntity.build);
+    return { 200: entities };
+};
 
 const get = defaultGetHandler(
-	(p) => p.studyPeriod,
-	{},
-	studyPeriodEntity.build,
-	"Study period not found"
+    (p) => p.studyPeriod,
+    {},
+    studyPeriodEntity.build,
+    "Study period not found"
 );
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-	const { body } = input;
-	const existing = await ctx.prisma.studyPeriod.findFirst({ where: { code: body.code } });
-	if (existing) {
-		return {
-			400: new ValidationError([{
-				code: "ALREADY_EXISTS",
-				path: ["body", "code"],
-				message: "A study period with this code already exists"
-			}])
-		};
-	}
-	const studyPeriod = await ctx.prisma.studyPeriod.create({
-		data: {
-			code: body.code,
-			startDate: body.startDate,
-		},
-	});
-	return { 201: studyPeriodEntity.build(studyPeriod) };
-}
+    const { body } = input;
+    const existing = await ctx.prisma.studyPeriod.findFirst({
+        where: { code: body.code }
+    });
+    if (existing) {
+        return {
+            400: new ValidationError([
+                {
+                    code: "ALREADY_EXISTS",
+                    path: ["body", "code"],
+                    message: "A study period with this code already exists"
+                }
+            ])
+        };
+    }
+    const studyPeriod = await ctx.prisma.studyPeriod.create({
+        data: {
+            code: body.code,
+            startDate: body.startDate
+        }
+    });
+    return { 201: studyPeriodEntity.build(studyPeriod) };
+};
 
 const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-	const { path: { id }, body } = input;
-	const existing = await ctx.prisma.studyPeriod.findUnique({ where: { id } });
-	if (!existing) 
-		return { 404: { description: "Study period not found" } };
-    
-	const studyPeriod = await ctx.prisma.studyPeriod.update({
-		where: { id },
-		data: {
-			...(body.code !== undefined && { code: body.code }),
-			...(body.startDate !== undefined && { startDate: body.startDate }),
-		},
-	});
-	return { 200: studyPeriodEntity.build(studyPeriod) };
-}
+    const {
+        path: { id },
+        body
+    } = input;
+    const existing = await ctx.prisma.studyPeriod.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Study period not found" } };
 
+    const studyPeriod = await ctx.prisma.studyPeriod.update({
+        where: { id },
+        data: {
+            ...(body.code !== undefined && { code: body.code }),
+            ...(body.startDate !== undefined && { startDate: body.startDate })
+        }
+    });
+    return { 200: studyPeriodEntity.build(studyPeriod) };
+};
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-	const { path: { id } } = input;
-	const existing = await ctx.prisma.studyPeriod.findUnique({ where: { id } });
-	if (!existing) 
-		return { 404: { description: "Study period not found" } };
-	await ctx.prisma.studyPeriod.delete({ where: { id } });
-	return { 204: null };
-}
+    const {
+        path: { id }
+    } = input;
+    const existing = await ctx.prisma.studyPeriod.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Study period not found" } };
+    await ctx.prisma.studyPeriod.delete({ where: { id } });
+    return { 204: null };
+};
 
-router.get('/study-periods/:id', get)
+router.get("/study-periods/:id", get);
 
-router.get('/study-periods', buildHandler(IO.list.input, IO.list.output, listFn));
+router.get(
+    "/study-periods",
+    buildHandler(IO.list.input, IO.list.output, listFn)
+);
 
-router.post('/study-periods', buildHandler(IO.create.input, IO.create.output, createFn));
+router.post(
+    "/study-periods",
+    buildHandler(IO.create.input, IO.create.output, createFn)
+);
 
-router.patch('/study-periods/:id', buildHandler(IO.patch.input, IO.patch.output, patchFn));
+router.patch(
+    "/study-periods/:id",
+    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+);
 
-router.delete('/study-periods/:id', buildHandler(IO.remove.input, IO.remove.output, removeFn));
-
+router.delete(
+    "/study-periods/:id",
+    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+);
 
 function entityPath(studyPeriodId: number) {
-	return `/study-periods/${studyPeriodId}`;
+    return `/study-periods/${studyPeriodId}`;
 }
 
 export default {
-	router,
-	registry,
-	authRegistry,
-	paths: {
-		entity: entityPath,
-	},
-}
+    router,
+    registry,
+    authRegistry,
+    paths: {
+        entity: entityPath
+    }
+};

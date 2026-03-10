@@ -1,29 +1,35 @@
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import z from 'zod';
-import { MyPrisma } from '../../PrismaClient.js'
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import z from "zod";
+import { MyPrisma } from "../../PrismaClient.js";
 
 extendZodWithOpenApi(z);
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaProfessorPayload = MyPrisma.ProfessorGetPayload<{}>;
 
-function buildProfessorEntity(professor: PrismaProfessorPayload): z.infer<typeof professorEntity> {
-	return {
-		...professor,
-		_paths: {
-			entity: `/professors/${professor.id}`,
-		}
-	};
+function buildProfessorEntity(
+    professor: PrismaProfessorPayload
+): z.infer<typeof professorEntity> {
+    return {
+        ...professor,
+        _paths: {
+            entity: `/professors/${professor.id}`
+        }
+    };
 }
 
-const professorEntity = z.object({
-	id: z.number().int(),
-	name: z.string(),
-	_paths: z.object({
-		entity: z.string(),
-	})
-}).strict().openapi('ProfessorEntity');
+const professorEntity = z
+    .object({
+        id: z.number().int(),
+        name: z.string(),
+        _paths: z.object({
+            entity: z.string()
+        })
+    })
+    .strict()
+    .openapi("ProfessorEntity");
 
 export default {
-	schema: professorEntity,
-	build: buildProfessorEntity
-}
+    schema: professorEntity,
+    build: buildProfessorEntity
+};

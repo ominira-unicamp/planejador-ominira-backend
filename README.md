@@ -1,4 +1,8 @@
 # POMI Backend - Planejador Ominira
+[![Lint and Format](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml/badge.svg?branch=main)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml)
+[![Deploy to GCP](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml/badge.svg)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml)
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/ominira-unicamp/pomi-backend/main)
+![GitHub contributors](https://img.shields.io/github/contributors/ominira-unicamp/pomi-backend)
 
 Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, que tem uma função dupla, ser uma fonte de dados academicos da unicamp para quem quiser, e ser o backend do planejador academico da ominira, feito de aluno para alunos.
 
@@ -84,7 +88,7 @@ Após iniciar o servidor, acesse a documentação interativa da API:
 - **Swagger UI:** http://localhost:3000/docs
 - **OpenAPI JSON:** http://localhost:3000/openapi.json
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 pomi-backend/

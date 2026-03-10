@@ -1,43 +1,47 @@
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
-import z, {  } from 'zod';
-import { MyPrisma } from '../../PrismaClient.js'
-import { resourcesPaths } from '../../Controllers.js';
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import z from "zod";
+import { resourcesPaths } from "../../Controllers.js";
+import { MyPrisma } from "../../PrismaClient.js";
 
 extendZodWithOpenApi(z);
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaStudyPeriodPayload = MyPrisma.StudyPeriodGetPayload<{}>;
 
-
 const relatedPathsForStudyPeriod = (studyPeriodId: number) => {
-	return {
-		classes: resourcesPaths.class.list({
-			studyPeriodId: studyPeriodId
-		}),
-		classSchedules: resourcesPaths.classSchedule.list({
-			studyPeriodId: studyPeriodId
-		}),
-	}
+    return {
+        classes: resourcesPaths.class.list({
+            studyPeriodId: studyPeriodId
+        }),
+        classSchedules: resourcesPaths.classSchedule.list({
+            studyPeriodId: studyPeriodId
+        })
+    };
+};
+
+function buildStudyPeriodEntity(
+    studyPeriod: PrismaStudyPeriodPayload
+): z.infer<typeof studyPeriodEntity> {
+    return {
+        ...studyPeriod,
+        _paths: relatedPathsForStudyPeriod(studyPeriod.id)
+    };
 }
 
-function buildStudyPeriodEntity(studyPeriod: PrismaStudyPeriodPayload): z.infer<typeof studyPeriodEntity> {
-	return {
-		...studyPeriod,
-		_paths: relatedPathsForStudyPeriod(studyPeriod.id)
-	};
-}
-
-const studyPeriodEntity = z.object({
-	id: z.number().int(),
-	code: z.string(),
-	startDate: z.union([z.string(), z.date()]).pipe(z.coerce.date()),
-	_paths: z.object({
-		classes: z.string(),
-		classSchedules: z.string(),
-	})
-}).strict().openapi('StudyPeriodEntity');
+const studyPeriodEntity = z
+    .object({
+        id: z.number().int(),
+        code: z.string(),
+        startDate: z.union([z.string(), z.date()]).pipe(z.coerce.date()),
+        _paths: z.object({
+            classes: z.string(),
+            classSchedules: z.string()
+        })
+    })
+    .strict()
+    .openapi("StudyPeriodEntity");
 
 export default {
-	schema: studyPeriodEntity,
-	build: buildStudyPeriodEntity
-}
-
+    schema: studyPeriodEntity,
+    build: buildStudyPeriodEntity
+};
