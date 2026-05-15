@@ -45,6 +45,22 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "secretKey"
         value = var.jwt_secret
       }
+
+      # Keycloak configuration
+      env {
+        name  = "KEYCLOAK_URL"
+        value = var.keycloak_url
+      }
+
+      env {
+        name  = "KEYCLOAK_REALM"
+        value = "pomi"
+      }
+
+      env {
+        name  = "KEYCLOAK_CLIENT_ID"
+        value = "pomi-backend"
+      }
       
       startup_probe {
         initial_delay_seconds = 0

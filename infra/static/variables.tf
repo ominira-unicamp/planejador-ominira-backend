@@ -48,3 +48,34 @@ variable "jwt_secret" {
   type = string
   sensitive = true
 }
+
+# Keycloak variables
+variable "keycloak_db_instance_name" {
+  type        = string
+  description = "Name of the Cloud SQL instance for Keycloak"
+  default     = "keycloak-db"
+}
+
+variable "keycloak_db_user" {
+  type        = string
+  description = "Keycloak database user"
+  default     = "keycloak"
+}
+
+variable "keycloak_db_password" {
+  type        = string
+  description = "Keycloak database password"
+  sensitive   = true
+}
+
+variable "keycloak_admin_user" {
+  type        = string
+  description = "Keycloak admin username"
+  default     = "admin"
+}
+
+variable "keycloak_admin_password" {
+  type        = string
+  description = "Keycloak admin password"
+  sensitive   = true
+}

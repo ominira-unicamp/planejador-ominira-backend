@@ -121,3 +121,24 @@ output "sensitive_outputs" {
     ]
   }
 }
+
+# Keycloak outputs
+output "keycloak_database_instance_name" {
+  description = "Nome da instância Cloud SQL do Keycloak"
+  value       = google_sql_database_instance.keycloak.name
+}
+
+output "keycloak_database_connection_name" {
+  description = "Nome de conexão da instância Cloud SQL do Keycloak"
+  value       = google_sql_database_instance.keycloak.connection_name
+}
+
+output "keycloak_database_public_ip" {
+  description = "IP público do banco de dados do Keycloak"
+  value       = google_sql_database_instance.keycloak.public_ip_address
+}
+
+output "keycloak_url" {
+  description = "URL of the Keycloak service"
+  value       = google_cloud_run_v2_service.keycloak.uri
+}

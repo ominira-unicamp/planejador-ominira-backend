@@ -24,4 +24,24 @@ registry.registerPath({
     ...openApiArgsFromIO(IO.google)
 });
 
+registry.registerPath({
+    method: "post",
+    path: "/auth/keycloak",
+    tags: ["auth"],
+    summary: "Exchange Keycloak authorization code for access token",
+    description:
+        "Exchanges an authorization code obtained from Keycloak for an access token",
+    ...openApiArgsFromIO(IO.keycloak)
+});
+
+registry.registerPath({
+    method: "get",
+    path: "/auth/keycloak/config",
+    tags: ["auth"],
+    summary: "Get Keycloak configuration",
+    description:
+        "Returns the Keycloak configuration needed for client-side authentication",
+    ...openApiArgsFromIO(IO.keycloakConfig)
+});
+
 export default registry;

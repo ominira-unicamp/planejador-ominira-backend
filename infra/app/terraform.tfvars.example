@@ -9,3 +9,6 @@ db_user         = "pomi_user"
 db_password     = "sua-senha-segura-aqui"
 jwt_secret      = "seu-jwt-secret-aqui"
 container_image = "gcr.io/seu-projeto-gcp/pomi-backend:latest"
+
+# Keycloak URL (obtido do output de infra/static: keycloak_url)
+keycloak_url    = "https://keycloak-xxx.run.app"

@@ -9,3 +9,10 @@ db_user         = "pomi_user"
 db_password     = "sua-senha-segura-aqui"
 jwt_secret      = "seu-jwt-secret-aqui" # Secret should be at least 256-bit long for current algorithm. See RFC 8725.
 container_image = "gcr.io/seu-projeto-gcp/pomi-backend:latest"
+
+# Keycloak configuration
+keycloak_db_instance_name = "keycloak-db"
+keycloak_db_user          = "keycloak"
+keycloak_db_password      = "sua-senha-keycloak-db-aqui"
+keycloak_admin_user       = "admin"
+keycloak_admin_password   = "sua-senha-admin-keycloak-aqui"
