@@ -121,7 +121,15 @@ const get = {
 };
 
 const list = {
-    input: z.object({}),
+    input: z.object({
+        query: z
+            .object({
+                catalogId: z.string().pipe(z.coerce.number()).pipe(z.number()),
+                programId: z.string().pipe(z.coerce.number()).pipe(z.number()),
+                programCode: z.string().pipe(z.coerce.number()).pipe(z.number())
+            })
+            .partial()
+    }),
     output: new OutputBuilder()
         .ok(
             z.array(catalogProgramEntity.schema),

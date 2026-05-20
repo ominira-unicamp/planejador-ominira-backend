@@ -32,11 +32,17 @@ type TxType = Omit<
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
     const {
-        path: { catalogId }
+        query: { catalogId, programId, programCode }
     } = input;
     const catalogPrograms = await ctx.prisma.catalogProgram.findMany({
         ...catalogProgramEntity.prismaSelection,
-        where: { catalogId }
+        where: {
+            ...(catalogId ? { catalogId } : {}),
+            program: {
+                id: programId,
+                code: programCode
+            }
+        }
     });
     const entities = catalogPrograms.map(catalogProgramEntity.build);
     return { 200: entities };

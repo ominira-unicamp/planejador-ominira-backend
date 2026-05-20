@@ -12,7 +12,7 @@ const registry = new OpenAPIRegistry();
 
 registry.registerPath({
     method: "get",
-    path: "/catalog/{catalogId}/program/{programId}",
+    path: "/catalog-program/",
     tags: ["CatalogProgram"],
     summary: "Get a catalog program by ID",
     description:
@@ -22,7 +22,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "get",
-    path: "/catalog/{catalogId}/programs",
+    path: "/catalog-program/{catalogProgramId}",
     tags: ["CatalogProgram"],
     summary: "List all programs in a catalog",
     description: "Retrieves all programs associated with a specific catalog",
@@ -31,7 +31,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "post",
-    path: "/catalog/{catalogId}/programs",
+    path: "/catalog-program",
     tags: ["CatalogProgram"],
     summary: "Create a new catalog program",
     description:
@@ -41,7 +41,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "patch",
-    path: "/catalog/{catalogId}/program/{programId}",
+    path: "/catalog-program/{catalogProgramId}",
     tags: ["CatalogProgram"],
     summary: "Update a catalog program",
     description:
@@ -51,7 +51,7 @@ registry.registerPath({
 
 registry.registerPath({
     method: "delete",
-    path: "/catalog/{catalogId}/program/{programId}",
+    path: "/catalog-program/{catalogProgramId}",
     tags: ["CatalogProgram"],
     summary: "Delete a catalog program",
     description: "Deletes a catalog program and all its associated data",
