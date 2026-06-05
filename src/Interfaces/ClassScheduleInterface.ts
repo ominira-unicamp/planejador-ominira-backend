@@ -1,14 +1,56 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import { OutputBuilder } from "../../BuildHandler.js";
+import { type IO, OutputBuilder } from "../BuildHandler.js";
 import {
     getPaginatedSchema,
     paginationQuerySchema,
     PaginationQueryType
-} from "../../pagination.js";
-import classScheduleEntity from "./Entity.js";
+} from "../pagination.js";
+import { pathSeg } from "../PathSegment.js";
+import { SpecBuilder } from "../SpecBuilder.js";
 
 extendZodWithOpenApi(z);
+
+const basePath = [pathSeg.literal("class-schedules")];
+const tags = ["class-schedules"];
+const specsBuilder = new SpecBuilder(basePath, tags, "id");
+
+const classScheduleEntity = z
+    .object({
+        id: z.number().int(),
+        dayOfWeek: z.enum([
+            "MONDAY",
+            "TUESDAY",
+            "WEDNESDAY",
+            "THURSDAY",
+            "FRIDAY",
+            "SATURDAY",
+            "SUNDAY"
+        ]),
+        start: z.string(),
+        end: z.string(),
+        roomId: z.number().int(),
+        classId: z.number().int(),
+        roomCode: z.string(),
+        classCode: z.string(),
+        instituteId: z.number().int(),
+        instituteCode: z.string(),
+        courseId: z.number().int(),
+        courseCode: z.string(),
+        studyPeriodId: z.number().int(),
+        studyPeriodCode: z.string(),
+        _paths: z
+            .object({
+                entity: z.string(),
+                studyPeriod: z.string(),
+                institute: z.string(),
+                course: z.string(),
+                class: z.string()
+            })
+            .strict()
+    })
+    .strict()
+    .openapi("ClassScheduleEntity");
 
 const daysOfWeekEnum = z
     .enum([
@@ -56,23 +98,24 @@ const getClassSchedulesQuery = paginationQuerySchema
     })
     .openapi("GetClassSchedulesQuery");
 
-const ClassSchedulePageSchema = getPaginatedSchema(
-    classScheduleEntity.schema
-).openapi("PageClassSchedules");
+const ClassSchedulePageSchema =
+    getPaginatedSchema(classScheduleEntity).openapi("PageClassSchedules");
 
 const get = {
+    specs: specsBuilder.get(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .ok(classScheduleEntity.schema, "Class schedule retrieved successfully")
+        .ok(classScheduleEntity, "Class schedule retrieved successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 const list = {
+    specs: specsBuilder.list(),
     input: z.object({
         query: getClassSchedulesQuery
     }),
@@ -83,22 +126,21 @@ const list = {
         )
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const create = {
+    specs: specsBuilder.create(),
     input: z.object({
         body: createClassScheduleBody
     }),
     output: new OutputBuilder()
-        .created(
-            classScheduleEntity.schema,
-            "Class schedule created successfully"
-        )
+        .created(classScheduleEntity, "Class schedule created successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const patch = {
+    specs: specsBuilder.patch(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -106,13 +148,14 @@ const patch = {
         body: patchClassScheduleBody
     }),
     output: new OutputBuilder()
-        .ok(classScheduleEntity.schema, "Class schedule updated successfully")
+        .ok(classScheduleEntity, "Class schedule updated successfully")
         .notFound()
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const remove = {
+    specs: specsBuilder.remove(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -122,9 +165,10 @@ const remove = {
         .noContent("Class schedule deleted successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 export default {
+    schema: classScheduleEntity,
     get,
     list,
     create,

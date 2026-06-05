@@ -9,8 +9,15 @@ import RequestBuilder from "./openapi/RequestBuilder.js";
 import ResponseBuilder from "./openapi/ResponseBuilder.js";
 
 import { PrismaClient } from "../prisma/generated/client.js";
+import { PathSegment, pathSegmentToOpenApiPath } from "./PathSegment.js";
 import { buildZodIds } from "./PrismaValidator.js";
 
+export const Methods = {
+    GET: "get",
+    POST: "post",
+    PATCH: "patch",
+    DELETE: "delete"
+} as const;
 export type InputSchemaTypes<
     PT extends z.ZodType,
     Q extends z.ZodType,
@@ -185,7 +192,12 @@ export class OutputBuilder<
         >;
     }
 }
-type IO = {
+export type IO = {
+    specs: {
+        method: "get" | "post" | "patch" | "delete";
+        path: PathSegment[];
+        tags: string[];
+    };
     input: InputSchemaTypes<
         ZodObject<ZodRawShape>,
         ZodObject<ZodRawShape>,
@@ -195,6 +207,7 @@ type IO = {
 };
 export function openApiArgsFromIO(io: IO) {
     let request = new RequestBuilder();
+
     if (io.input.shape.path) {
         request = request.params(io.input.shape.path);
     }
@@ -243,6 +256,9 @@ export function openApiArgsFromIO(io: IO) {
     }
     return {
         request: request.build(),
-        responses: response.build()
+        responses: response.build(),
+        method: io.specs.method,
+        path: pathSegmentToOpenApiPath(io.specs.path),
+        tags: io.specs.tags
     };
 }

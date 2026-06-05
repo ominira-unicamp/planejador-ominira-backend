@@ -1,33 +1,12 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import {
-    CourseBlockType,
-    CourseRequirementType
-} from "../../../prisma/generated/client.js";
+import { CourseBlockType } from "../../../prisma/generated/client.js";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/CatalogProgramInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
 
 extendZodWithOpenApi(z);
 
-const courseRequirementSchema = z.object({
-    id: z.number().int(),
-    type: z.enum(CourseRequirementType),
-    courseId: z.number().int().nullable(),
-    courseCode: z.string().nullable(),
-    courseName: z.string().nullable(),
-    prefixId: z.number().int().nullable(),
-    prefix: z.string().nullable()
-});
-
-const electiveBlockSchema = z.object({
-    credits: z.number().int(),
-    courses: z.array(courseRequirementSchema)
-});
-
-const courseBlockSetSchema = z.object({
-    mandatory: z.array(courseRequirementSchema),
-    electives: z.array(electiveBlockSchema)
-});
 export const prismaBlockSetSelection = {
     include: {
         courseRequirements: {
@@ -110,9 +89,9 @@ function relatedPathsForCatalogProgram(
 
 function transformCourseBlocks(
     courseBlocks: PrismaCatalogProgramPayload["courseBlocks"]
-): z.infer<typeof courseBlockSetSchema> {
-    const mandatory: z.infer<typeof courseRequirementSchema>[] = [];
-    const electives: z.infer<typeof electiveBlockSchema>[] = [];
+): z.infer<typeof IO.schemas.courseBlockSetSchema> {
+    const mandatory: z.infer<typeof IO.schemas.courseRequirementSchema>[] = [];
+    const electives: z.infer<typeof IO.schemas.electiveBlockSchema>[] = [];
 
     const mandatoryBlocks = courseBlocks.filter(
         (block) => block.type === CourseBlockType.mandatory
@@ -157,7 +136,7 @@ function transformCourseBlocks(
 
 function buildCatalogProgramEntity(
     catalogProgram: PrismaCatalogProgramPayload
-): z.infer<typeof catalogProgramEntity> {
+): z.infer<typeof IO.schemas.catalogProgramEntity> {
     const { catalogSpecializations, catalogLanguages, courseBlocks, ...rest } =
         catalogProgram;
 
@@ -193,45 +172,7 @@ function buildCatalogProgramEntity(
     };
 }
 
-const catalogProgramEntity = z
-    .object({
-        id: z.number().int(),
-        catalogId: z.number().int(),
-        programId: z.number().int(),
-        title: z.string(),
-        catalogYear: z.number().int(),
-        programCode: z.number().int(),
-        programName: z.string(),
-        base: courseBlockSetSchema,
-        modalities: z.array(
-            z.object({
-                specializationId: z.number().int(),
-                code: z.string(),
-                name: z.string(),
-                blocks: courseBlockSetSchema
-            })
-        ),
-        languages: z.array(
-            z.object({
-                languageId: z.number().int(),
-                name: z.string(),
-                blocks: courseBlockSetSchema
-            })
-        ),
-        _paths: z.object({
-            self: z.string(),
-            catalog: z.string(),
-            program: z.string()
-        })
-    })
-    .strict()
-    .openapi("CatalogProgramEntity");
-
 export default {
-    schema: catalogProgramEntity,
     build: buildCatalogProgramEntity,
-    prismaSelection: prismaCatalogProgramFieldSelection,
-    courseRequirementSchema,
-    creditSumSchema: electiveBlockSchema,
-    courseBlockSetSchema
+    prismaSelection: prismaCatalogProgramFieldSelection
 };

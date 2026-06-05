@@ -1,26 +1,8 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/CourseInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-extendZodWithOpenApi(z);
-
-const courseEntity = z
-    .object({
-        id: z.number().int(),
-        code: z.string().min(1),
-        name: z.string().min(1),
-        credits: z.number().int().min(0),
-        instituteId: z.number().int(),
-        instituteCode: z.string().min(1),
-        _paths: z
-            .object({
-                classes: z.string()
-            })
-            .strict()
-    })
-    .strict()
-    .openapi("CourseEntity");
 
 const prismaCourseFieldSelection = {
     include: {
@@ -45,7 +27,7 @@ function relatedPathsForCourse(courseId: number, instituteId: number) {
 
 function buildCourseEntity(
     course: PrismaCoursePayload
-): z.infer<typeof courseEntity> {
+): z.infer<typeof IO.schema> {
     const { institute, ...rest } = course;
     return {
         ...rest,
@@ -56,6 +38,5 @@ function buildCourseEntity(
 
 export default {
     selection: prismaCourseFieldSelection,
-    schema: courseEntity,
     build: buildCourseEntity
 };

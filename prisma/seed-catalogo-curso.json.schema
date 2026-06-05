@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Catálogo de Cursos",
+  "description": "Schema para o arquivo JSON de saída do catálogo de cursos DAC Unicamp 2026",
+  "type": "object",
+  "properties": {
+    "cursos": {
+      "type": "array",
+      "description": "Lista de todos os cursos disponíveis",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "description": "Número/código do curso",
+            "example": 22
+          },
+          "name": {
+            "type": "string",
+            "description": "Nome do curso",
+            "example": "Música"
+          },
+          "maxcred": {
+            "type": "integer",
+            "description": "Máximo de créditos do curso",
+            "example": 0
+          },
+          "obrigarorias": {
+            "type": "array",
+            "description": "Lista de disciplinas obrigatórias",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Código da disciplina",
+                  "example": "MU049"
+                },
+                "carga": {
+                  "type": "string",
+                  "description": "Carga horária em horas",
+                  "example": "30"
+                },
+                "cred": {
+                  "type": "string",
+                  "description": "Número de créditos",
+                  "example": "2"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Nome da disciplina",
+                  "example": "Introdução à Pesquisa"
+                }
+              },
+              "required": ["id", "carga", "cred", "name"]
+            }
+          },
+          "lingua": {
+            "type": "array",
+            "description": "Lista de disciplinas de língua/idioma",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "description": "Título da seção de língua",
+                  "example": "Línguas Estrangeiras"
+                },
+                "data": {
+                  "type": "array",
+                  "description": "Disciplinas relacionadas a língua",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "carga": {
+                        "type": "string"
+                      },
+                      "cred": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id", "carga", "cred", "name"]
+                  }
+                }
+              },
+              "required": ["title", "data"]
+            }
+          },
+          "modalidades": {
+            "type": "array",
+            "description": "Lista de modalidades/especializações do curso",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string",
+                  "description": "Código da modalidade",
+                  "example": "CB"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Nome da modalidade",
+                  "example": "Contrabaixo"
+                },
+                "data": {
+                  "type": "array",
+                  "description": "Disciplinas da modalidade",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "Código da disciplina"
+                      },
+                      "carga": {
+                        "type": "string",
+                        "description": "Carga horária"
+                      },
+                      "cred": {
+                        "type": "string",
+                        "description": "Créditos"
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Nome da disciplina"
+                      }
+                    },
+                    "required": ["id", "carga", "cred", "name"]
+                  }
+                },
+                "eletivas": {
+                  "type": "array",
+                  "description": "Lista de disciplinas eletivas",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "description": "Título do grupo de eletivas"
+                      },
+                      "cred": {
+                        "type": "string",
+                        "description": "Créditos do grupo"
+                      },
+                      "data": {
+                        "type": "array",
+                        "description": "Disciplinas eletivas",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "carga": {
+                              "type": "string"
+                            },
+                            "cred": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": ["id", "carga", "cred", "name"]
+                        }
+                      }
+                    },
+                    "required": ["title", "cred", "data"]
+                  }
+                }
+              },
+              "required": ["codigo", "title", "data", "eletivas"]
+            }
+          }
+        },
+        "required": ["numero", "name", "maxcred", "obrigarorias", "lingua", "modalidades"]
+      }
+    }
+  },
+  "required": ["cursos"]
+}

@@ -1,15 +1,13 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
+import IO from "../../Interfaces/ProfessorInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaProfessorPayload = MyPrisma.ProfessorGetPayload<{}>;
 
 function buildProfessorEntity(
     professor: PrismaProfessorPayload
-): z.infer<typeof professorEntity> {
+): z.infer<typeof IO.schema> {
     return {
         ...professor,
         _paths: {
@@ -18,18 +16,6 @@ function buildProfessorEntity(
     };
 }
 
-const professorEntity = z
-    .object({
-        id: z.number().int(),
-        name: z.string(),
-        _paths: z.object({
-            entity: z.string()
-        })
-    })
-    .strict()
-    .openapi("ProfessorEntity");
-
 export default {
-    schema: professorEntity,
     build: buildProfessorEntity
 };

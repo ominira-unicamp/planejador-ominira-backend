@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/StudyPeriodsInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaStudyPeriodPayload = MyPrisma.StudyPeriodGetPayload<{}>;
@@ -21,27 +19,13 @@ const relatedPathsForStudyPeriod = (studyPeriodId: number) => {
 
 function buildStudyPeriodEntity(
     studyPeriod: PrismaStudyPeriodPayload
-): z.infer<typeof studyPeriodEntity> {
+): z.infer<typeof IO.schema> {
     return {
         ...studyPeriod,
         _paths: relatedPathsForStudyPeriod(studyPeriod.id)
     };
 }
 
-const studyPeriodEntity = z
-    .object({
-        id: z.number().int(),
-        code: z.string(),
-        startDate: z.union([z.string(), z.date()]).pipe(z.coerce.date()),
-        _paths: z.object({
-            classes: z.string(),
-            classSchedules: z.string()
-        })
-    })
-    .strict()
-    .openapi("StudyPeriodEntity");
-
 export default {
-    schema: studyPeriodEntity,
     build: buildStudyPeriodEntity
 };

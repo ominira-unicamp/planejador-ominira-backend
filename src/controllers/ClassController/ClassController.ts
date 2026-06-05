@@ -1,7 +1,15 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
+import IO, { ListQueryParams } from "../../Interfaces/ClassInterface.js";
 import { whereIdCode, whereIdName } from "../../PrismaClient.js";
 import { ValidationError, ZodToApiError } from "../../Validation.js";
 import { AuthRegistry } from "../../auth.js";
@@ -10,8 +18,6 @@ import {
     defaultListHandler
 } from "../../defaultEndpoint.js";
 import classEntity from "./Entity.js";
-import IO, { ListQueryParams } from "./Interface.js";
-import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
@@ -173,6 +179,13 @@ function listPath(query: ListQueryParams) {
 function entityPath(id: number) {
     return `/classes/${id}`;
 }
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,

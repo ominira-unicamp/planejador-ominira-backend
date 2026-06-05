@@ -1,14 +1,53 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import { OutputBuilder } from "../../BuildHandler.js";
+import { type IO, OutputBuilder } from "../BuildHandler.js";
 import {
     getPaginatedSchema,
     paginationQuerySchema,
     PaginationQueryType
-} from "../../pagination.js";
-import classEntity from "./Entity.js";
+} from "../pagination.js";
+import { pathSeg } from "../PathSegment.js";
+import { SpecBuilder } from "../SpecBuilder.js";
 
 extendZodWithOpenApi(z);
+
+const basePath = [pathSeg.literal("classes")];
+const tags = ["classes"];
+const specsBuilder = new SpecBuilder(basePath, tags, "id");
+
+const classEntity = z
+    .object({
+        id: z.number().int(),
+        code: z.string(),
+        reservations: z.array(z.number().int()),
+        courseId: z.number().int(),
+        studyPeriodId: z.number().int(),
+        professorIds: z.array(z.number().int()),
+        studyPeriodCode: z.string(),
+        courseCode: z.string(),
+        instituteId: z.number().int(),
+        instituteCode: z.string(),
+        professors: z.array(
+            z
+                .object({
+                    id: z.number().int(),
+                    name: z.string()
+                })
+                .strict()
+        ),
+        _paths: z
+            .object({
+                studyPeriod: z.string(),
+                institute: z.string(),
+                course: z.string(),
+                class: z.string(),
+                classSchedules: z.string(),
+                professors: z.string()
+            })
+            .strict()
+    })
+    .strict()
+    .openapi("ClassEntity");
 
 const classBaseSchema = z
     .object({
@@ -40,21 +79,23 @@ const listClassesQuery = paginationQuerySchema
     })
     .openapi("GetClassesQuery");
 
-const PageClassesSchema = getPaginatedSchema(classEntity.schema);
+const PageClassesSchema = getPaginatedSchema(classEntity);
 
 const get = {
+    specs: specsBuilder.get(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .ok(classEntity.schema, "Class retrieved successfully")
+        .ok(classEntity, "Class retrieved successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 const list = {
+    specs: specsBuilder.list(),
     input: z.object({
         query: listClassesQuery
     }),
@@ -62,19 +103,21 @@ const list = {
         .ok(PageClassesSchema, "List of classes retrieved successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const create = {
+    specs: specsBuilder.create(),
     input: z.object({
         body: createClassBody.strict()
     }),
     output: new OutputBuilder()
-        .created(classEntity.schema, "Class created successfully")
+        .created(classEntity, "Class created successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const patch = {
+    specs: specsBuilder.patch(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -82,13 +125,14 @@ const patch = {
         body: patchClassBody
     }),
     output: new OutputBuilder()
-        .ok(classEntity.schema, "Class updated successfully")
+        .ok(classEntity, "Class updated successfully")
         .notFound()
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const remove = {
+    specs: specsBuilder.remove(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -98,9 +142,10 @@ const remove = {
         .noContent("Class deleted successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 export default {
+    schema: classEntity,
     get,
     list,
     create,
