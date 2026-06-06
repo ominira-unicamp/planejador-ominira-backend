@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../../Controllers.js";
+import IO from "../../../Interfaces/students/CurriculumInterface.js";
 import { MyPrisma } from "../../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaCurriculumFieldSelection = {
     include: {
@@ -35,7 +33,7 @@ function relatedPathsForCurriculum(curriculumId: number, studentId: number) {
 
 function buildCurriculumEntity(
     curriculum: PrismaCurriculumPayload
-): z.infer<typeof curriculumEntity> {
+): z.infer<typeof IO.schema> {
     const { CurriculumCourses, ...rest } = curriculum;
     return {
         ...rest,
@@ -49,27 +47,7 @@ function buildCurriculumEntity(
     };
 }
 
-const curriculumEntity = z
-    .object({
-        id: z.number().int(),
-        studentId: z.number().int(),
-        courses: z.array(
-            z.object({
-                courseId: z.number().int(),
-                semester: z.number().int().nullable(),
-                name: z.string(),
-                code: z.string()
-            })
-        ),
-        _paths: z.object({
-            student: z.string()
-        })
-    })
-    .strict()
-    .openapi("CurriculumEntity");
-
 export default {
-    schema: curriculumEntity,
     build: buildCurriculumEntity,
     prismaSelection: prismaCurriculumFieldSelection
 };

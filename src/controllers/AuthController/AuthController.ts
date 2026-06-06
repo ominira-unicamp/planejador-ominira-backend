@@ -1,10 +1,16 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 import { AuthRegistry, generateToken } from "../../auth.js";
-import { buildHandler, Context } from "../../BuildHandler.js";
-import IO from "./Interface.js";
-import registry from "./OpenAPI.js";
+import {
+    buildHandler,
+    Context,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
+import IO from "../../Interfaces/AuthInterface.js";
 
 extendZodWithOpenApi(z);
 
@@ -22,6 +28,9 @@ async function loginFn(
 }
 
 router.post("/login", buildHandler(IO.login.input, IO.login.output, loginFn));
+
+const registry = new OpenAPIRegistry();
+registry.registerPath(openApiArgsFromIO(IO.login));
 
 export default {
     router,

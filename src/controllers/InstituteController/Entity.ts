@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/InstituteInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaInstitutePayload = MyPrisma.InstituteGetPayload<{}>;
@@ -19,28 +17,13 @@ function relatedPathsForInstitute(instituteId: number) {
 
 function buildInstituteEntity(
     institute: PrismaInstitutePayload
-): z.infer<typeof instituteEntity> {
+): z.infer<typeof IO.schema> {
     return {
         ...institute,
         _paths: relatedPathsForInstitute(institute.id)
     };
 }
 
-const instituteEntity = z
-    .object({
-        id: z.number().int(),
-        code: z.string(),
-        _paths: z
-            .object({
-                classes: z.string(),
-                courses: z.string()
-            })
-            .strict()
-    })
-    .strict()
-    .openapi("InstituteEntity");
-
 export default {
-    schema: instituteEntity,
     build: buildInstituteEntity
 };

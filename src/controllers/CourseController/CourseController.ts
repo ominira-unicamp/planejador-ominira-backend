@@ -1,24 +1,35 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
 import { AuthRegistry } from "../../auth.js";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
 import {
     defaultGetHandler,
     defaultListHandler
 } from "../../defaultEndpoint.js";
+import IO from "../../Interfaces/CourseInterface.js";
 import { PaginationQueryType } from "../../pagination.js";
 import { ValidationError } from "../../Validation.js";
 import courseEntity from "./Entity.js";
-import IO from "./Interface.js";
-import registry from "./OpenAPI.js";
+
 extendZodWithOpenApi(z);
 
 const list = defaultListHandler(
     (p) => p.course,
     IO.list.input.shape.query,
     (query) => ({
+        code: {
+            contains: query.courseCode,
+            mode: "insensitive" as const
+        },
         institute: {
             ...(query.instituteId ? { id: query.instituteId } : {}),
             ...(query.instituteCode ? { code: query.instituteCode } : {})
@@ -41,7 +52,7 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const existing = await ctx.prisma.course.findUnique({
         where: { code: body.code }
     });
-    if (!existing) {
+    if (existing) {
         return {
             400: new ValidationError([
                 {
@@ -157,6 +168,14 @@ function listPath(query: ListQueryParams) {
 }
 
 authRegistry.addException("GET", "/courses/:id");
+
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,
