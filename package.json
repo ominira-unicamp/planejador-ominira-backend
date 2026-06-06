@@ -56,5 +56,12 @@
     },
     "lint-staged": {
         "*.{ts,js}": ["eslint --cache", "prettier --write"]
+    },
+    "allowScripts": {
+        "@prisma/engines@7.8.0": true,
+        "@scarf/scarf@1.4.0": true,
+        "esbuild@0.28.0": true,
+        "prisma@7.8.0": true,
+        "prisma-zod-generator@2.1.4": true
     }
 }

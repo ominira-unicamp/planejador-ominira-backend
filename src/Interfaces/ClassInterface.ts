@@ -68,6 +68,7 @@ const patchClassBody = classBaseSchema.partial().openapi("PatchClassBody");
 
 const listClassesQuery = paginationQuerySchema
     .extend({
+        classCode: z.string().optional(),
         instituteId: z.coerce.number().int().optional(),
         instituteCode: z.string().optional(),
         courseId: z.coerce.number().int().optional(),

@@ -39,7 +39,8 @@ const courseBase = z.object({
 const listCourseQuery = paginationQuerySchema
     .extend({
         instituteId: z.coerce.number().int().optional(),
-        instituteCode: z.string().min(1).optional()
+        instituteCode: z.string().min(1).optional(),
+        courseCode: z.string().min(1).optional()
     })
     .openapi("ListCoursesQuery");
 

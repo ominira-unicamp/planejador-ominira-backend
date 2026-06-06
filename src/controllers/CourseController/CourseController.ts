@@ -26,6 +26,10 @@ const list = defaultListHandler(
     (p) => p.course,
     IO.list.input.shape.query,
     (query) => ({
+        code: {
+            contains: query.courseCode,
+            mode: "insensitive" as const
+        },
         institute: {
             ...(query.instituteId ? { id: query.instituteId } : {}),
             ...(query.instituteCode ? { code: query.instituteCode } : {})
@@ -48,7 +52,7 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const existing = await ctx.prisma.course.findUnique({
         where: { code: body.code }
     });
-    if (!existing) {
+    if (existing) {
         return {
             400: new ValidationError([
                 {

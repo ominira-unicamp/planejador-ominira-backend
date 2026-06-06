@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { PrismaClient } from "../prisma/generated/client.js";
 import { MyPrisma } from "./PrismaClient.js";
-import { ZodToApiError } from "./Validation.js";
+import { ValidationError, ZodToApiError } from "./Validation.js";
 import ResponseBuilder from "./openapi/ResponseBuilder.js";
 import {
     buildPaginationResponse,
@@ -96,7 +96,9 @@ function defaultListHandler<
             error
         } = querySchema.safeParse(req.query);
         if (!success) {
-            res.status(400).json(ZodToApiError(error, ["query"]));
+            res.status(400).json(
+                new ValidationError(ZodToApiError(error, ["query"]))
+            );
             return;
         }
         const where = whereClauseBuilder(query);
