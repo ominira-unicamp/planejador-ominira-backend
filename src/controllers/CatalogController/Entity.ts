@@ -1,6 +1,7 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/CatalogInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
 
 extendZodWithOpenApi(z);
@@ -34,7 +35,7 @@ function relatedPathsForCatalog(catalog: PrismaCatalogPayload) {
 
 function buildCatalogEntity(
     catalog: PrismaCatalogPayload
-): z.infer<typeof schema> {
+): z.infer<typeof IO.schemas.catalogEntitySchema> {
     const { programs, _count, ...rest } = catalog;
     return {
         ...rest,
@@ -45,22 +46,9 @@ function buildCatalogEntity(
     };
 }
 
-const schema = z
-    .object({
-        id: z.number().int().openapi({ example: 1 }),
-        year: z.number().int().openapi({ example: 2024 }),
-        programsCount: z.number().int().openapi({ example: 5 }),
-        studentsCount: z.number().int().openapi({ example: 150 }),
-        programIds: z.array(z.number().int()).openapi({ example: [1, 2, 3] }),
-        links: z.object({
-            self: z.string().openapi({ example: "/catalogs/1" })
-        })
-    })
-    .openapi("Catalog");
 const catalogEntity = {
     build: buildCatalogEntity,
-    prismaSelection: prismaCatalogFieldSelection,
-    schema: schema
+    prismaSelection: prismaCatalogFieldSelection
 };
 
 export default catalogEntity;

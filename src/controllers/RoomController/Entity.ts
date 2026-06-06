@@ -1,13 +1,11 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
+import IO from "../../Interfaces/RoomInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PrismaRoomPayload = MyPrisma.RoomGetPayload<{}>;
 
-function buildRoomEntity(room: PrismaRoomPayload): z.infer<typeof roomEntity> {
+function buildRoomEntity(room: PrismaRoomPayload): z.infer<typeof IO.schema> {
     return {
         ...room,
         _paths: {
@@ -16,18 +14,6 @@ function buildRoomEntity(room: PrismaRoomPayload): z.infer<typeof roomEntity> {
     };
 }
 
-const roomEntity = z
-    .object({
-        id: z.number().int(),
-        code: z.string(),
-        _paths: z.object({
-            entity: z.string()
-        })
-    })
-    .strict()
-    .openapi("RoomEntity");
-
 export default {
-    schema: roomEntity,
     build: buildRoomEntity
 };

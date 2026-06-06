@@ -1,16 +1,22 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
 import { AuthRegistry } from "../../auth.js";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
 import {
     defaultGetHandler,
     defaultListHandler
 } from "../../defaultEndpoint.js";
+import IO, { ListQueryParams } from "../../Interfaces/ProfessorInterface.js";
 import professorEntity from "./Entity.js";
-import IO, { ListQueryParams } from "./Interface.js";
-import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
@@ -109,6 +115,14 @@ function listPath({ classId, page, pageSize }: ListQueryParams) {
 function entityPath(professorId: number) {
     return `/professors/${professorId}`;
 }
+
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,

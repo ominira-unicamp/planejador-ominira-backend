@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/SpecializationInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaSpecializationFieldSelection = {
     include: {
@@ -30,7 +28,7 @@ function relatedPathsForSpecialization(
 
 function buildSpecializationEntity(
     specialization: PrismaSpecializationPayload
-): z.infer<typeof schema> {
+): z.infer<typeof IO.schema> {
     const { _count, ...rest } = specialization;
     return {
         ...rest,
@@ -40,23 +38,7 @@ function buildSpecializationEntity(
     };
 }
 
-const schema = z
-    .object({
-        id: z.number().int(),
-        code: z.string(),
-        name: z.string(),
-        catalogSpecializationsCount: z.number().int(),
-        studentsCount: z.number().int(),
-        _paths: z.object({
-            self: z.string()
-        })
-    })
-    .openapi("Specialization");
-
-const specializationEntity = {
+export default {
     build: buildSpecializationEntity,
-    prismaSelection: prismaSpecializationFieldSelection,
-    schema: schema
+    prismaSelection: prismaSpecializationFieldSelection
 };
-
-export default specializationEntity;

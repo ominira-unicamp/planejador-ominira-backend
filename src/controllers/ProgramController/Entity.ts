@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/ProgramInterface.js";
 import { MyPrisma, selectIdCode } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaProgramFieldSelection = {
     include: {
@@ -30,7 +28,7 @@ function relatedPathsForProgram(program: PrismaProgramPayload) {
 
 function buildProgramEntity(
     program: PrismaProgramPayload
-): z.infer<typeof schema> {
+): z.infer<typeof IO.schema> {
     const { institute, _count, ...rest } = program;
     return {
         ...rest,
@@ -41,29 +39,7 @@ function buildProgramEntity(
     };
 }
 
-const schema = z
-    .object({
-        id: z.number().int(),
-        code: z.number().int(),
-        name: z.string(),
-        instituteId: z.number().int(),
-        institute: z.object({
-            id: z.number().int(),
-            code: z.string()
-        }),
-        catalogProgramsCount: z.number().int(),
-        studentsCount: z.number().int(),
-        _paths: z.object({
-            self: z.string(),
-            institute: z.string()
-        })
-    })
-    .openapi("Program");
-
-const programEntity = {
+export default {
     build: buildProgramEntity,
-    prismaSelection: prismaProgramFieldSelection,
-    schema: schema
+    prismaSelection: prismaProgramFieldSelection
 };
-
-export default programEntity;

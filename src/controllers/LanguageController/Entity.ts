@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/LanguageInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaLanguageFieldSelection = {
     include: {
@@ -27,7 +25,7 @@ function relatedPathsForLanguage(language: PrismaLanguagePayload) {
 
 function buildLanguageEntity(
     language: PrismaLanguagePayload
-): z.infer<typeof schema> {
+): z.infer<typeof IO.schema> {
     const { _count, ...rest } = language;
     return {
         ...rest,
@@ -36,21 +34,7 @@ function buildLanguageEntity(
     };
 }
 
-const schema = z
-    .object({
-        id: z.number().int(),
-        name: z.string(),
-        catalogLanguagesCount: z.number().int(),
-        _paths: z.object({
-            self: z.string()
-        })
-    })
-    .openapi("Language");
-
-const languageEntity = {
+export default {
     build: buildLanguageEntity,
-    prismaSelection: prismaLanguageFieldSelection,
-    schema: schema
+    prismaSelection: prismaLanguageFieldSelection
 };
-
-export default languageEntity;

@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../../Controllers.js";
+import IO from "../../../Interfaces/students/PeriodPlanInterface.js";
 import { MyPrisma, selectIdCode, selectIdName } from "../../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaPeriodPlanningFieldSelection = {
     include: {
@@ -54,7 +52,7 @@ function relatedPathsForPeriodPlanning(
 
 function buildPeriodPlanningEntity(
     periodPlanning: PrismaPeriodPlanningPayload
-): z.infer<typeof periodPlanningEntity> {
+): z.infer<typeof IO.schema> {
     const { studyPeriod, classes, ...rest } = periodPlanning;
     return {
         ...rest,
@@ -82,63 +80,7 @@ function buildPeriodPlanningEntity(
     };
 }
 
-const periodPlanningEntity = z
-    .object({
-        id: z.number().int(),
-        studentId: z.number().int(),
-        studyPeriodId: z.number().int(),
-        studyPeriodCode: z.string(),
-        classes: z.array(
-            z
-                .object({
-                    id: z.number().int(),
-                    code: z.string(),
-                    reservations: z.array(z.number().int()),
-                    courseId: z.number().int(),
-                    professors: z.array(
-                        z
-                            .object({
-                                id: z.number().int(),
-                                name: z.string()
-                            })
-                            .strict()
-                    ),
-                    classSchedules: z.array(
-                        z
-                            .object({
-                                id: z.number().int(),
-                                dayOfWeek: z.enum([
-                                    "MONDAY",
-                                    "TUESDAY",
-                                    "WEDNESDAY",
-                                    "THURSDAY",
-                                    "FRIDAY",
-                                    "SATURDAY",
-                                    "SUNDAY"
-                                ]),
-                                start: z.string(),
-                                end: z.string(),
-                                roomId: z.number().int(),
-                                roomCode: z.string()
-                            })
-                            .strict()
-                    )
-                })
-                .strict()
-        ),
-        _paths: z
-            .object({
-                self: z.string(),
-                student: z.string(),
-                studyPeriod: z.string()
-            })
-            .strict()
-    })
-    .strict()
-    .openapi("PeriodPlanningEntity");
-
 export default {
-    schema: periodPlanningEntity,
     build: buildPeriodPlanningEntity,
     prismaSelection: prismaPeriodPlanningFieldSelection
 };

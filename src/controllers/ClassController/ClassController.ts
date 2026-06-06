@@ -1,7 +1,15 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
+import IO, { ListQueryParams } from "../../Interfaces/ClassInterface.js";
 import { whereIdCode, whereIdName } from "../../PrismaClient.js";
 import { ValidationError, ZodToApiError } from "../../Validation.js";
 import { AuthRegistry } from "../../auth.js";
@@ -10,8 +18,6 @@ import {
     defaultListHandler
 } from "../../defaultEndpoint.js";
 import classEntity from "./Entity.js";
-import IO, { ListQueryParams } from "./Interface.js";
-import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
@@ -25,14 +31,28 @@ const list = defaultListHandler(
     (p) => p.class,
     IO.list.input.shape.query,
     (query) => ({
+        ...(query.classCode
+            ? {
+                  code: {
+                      contains: query.classCode,
+                      mode: "insensitive" as const
+                  }
+              }
+            : {}),
         course: {
             ...whereIdCode(query.courseId, query.courseCode),
             institute: whereIdCode(query.instituteId, query.instituteCode)
         },
         studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
-        professors: {
-            some: whereIdName(query.professorId, query.professorName)
-        }
+        ...(query.professorId || query.professorName
+            ? {
+                  professors: {
+                      some: {
+                          ...whereIdName(query.professorId, query.professorName)
+                      }
+                  }
+              }
+            : {})
     }),
     listPath,
     classEntity.prismaSelection,
@@ -53,6 +73,9 @@ router.get("/classes/:id", get);
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const { body } = input;
 
+    // Remove duplicate professor IDs
+    body.professorIds = [...new Set(body.professorIds)];
+
     // Validate foreign keys
     const validationSchema = z.object({
         courseId: ctx.zodIds.course.exists,
@@ -64,6 +87,26 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     if (!validation.success) {
         return {
             400: new ValidationError(ZodToApiError(validation.error, ["body"]))
+        };
+    }
+
+    const existing = await ctx.prisma.class.findFirst({
+        where: {
+            code: body.code,
+            courseId: body.courseId,
+            studyPeriodId: body.studyPeriodId
+        }
+    });
+    if (existing) {
+        return {
+            400: new ValidationError([
+                {
+                    code: "ALREADY_EXISTS",
+                    path: ["body", "code"],
+                    message:
+                        "A class with the same code, course, and study period already exists"
+                }
+            ])
         };
     }
 
@@ -173,6 +216,13 @@ function listPath(query: ListQueryParams) {
 function entityPath(id: number) {
     return `/classes/${id}`;
 }
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,

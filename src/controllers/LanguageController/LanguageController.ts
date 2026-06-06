@@ -1,15 +1,20 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
 import { AuthRegistry } from "../../auth.js";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
 import { defaultGetHandler } from "../../defaultEndpoint.js";
+import IO from "../../Interfaces/LanguageInterface.js";
 import { ValidationError } from "../../Validation.js";
 import languageEntity from "./Entity.js";
-import IO from "./Interface.js";
-import registry from "./OpenAPI.js";
-
 extendZodWithOpenApi(z);
 
 const router = Router();
@@ -129,6 +134,14 @@ router.delete(
 function entityPath(languageId: number) {
     return `/languages/${languageId}`;
 }
+
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,

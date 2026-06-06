@@ -2,13 +2,17 @@ import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
+import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { AuthRegistry } from "../../../auth.js";
-import { buildHandler, HandlerFn } from "../../../BuildHandler.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../../BuildHandler.js";
 import { defaultGetHandler } from "../../../defaultEndpoint.js";
+import IO from "../../../Interfaces/students/StudentCourseInterface.js";
 import { ValidationError } from "../../../Validation.js";
 import studentCourseEntity from "./Entity.js";
-import IO from "./Interface.js";
-import registry from "./OpenAPI.js";
 
 extendZodWithOpenApi(z);
 
@@ -162,6 +166,13 @@ router.delete(
     "/student/:sid/courses/:courseId",
     buildHandler(IO.remove.input, IO.remove.output, removeFn)
 );
+
+const registry = new OpenAPIRegistry();
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 function entityPath(studentId: number, studentCourseId: number) {
     return `/student/${studentId}/courses/${studentCourseId}`;

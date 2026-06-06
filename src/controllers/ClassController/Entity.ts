@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/ClassInterface.js";
 import { MyPrisma, selectIdCode, selectIdName } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaClassFieldSelection = {
     include: {
@@ -44,7 +42,7 @@ function relatedPathsForClass(classPayload: PrismaClassPayload) {
 
 function buildClassEntity(
     classData: PrismaClassPayload
-): z.infer<typeof classEntity> {
+): z.infer<typeof IO.schema> {
     const { course, studyPeriod, ...rest } = classData;
     return {
         ...rest,
@@ -59,42 +57,7 @@ function buildClassEntity(
     };
 }
 
-const classEntity = z
-    .object({
-        id: z.number().int(),
-        code: z.string(),
-        reservations: z.array(z.number().int()),
-        courseId: z.number().int(),
-        studyPeriodId: z.number().int(),
-        professorIds: z.array(z.number().int()),
-        studyPeriodCode: z.string(),
-        courseCode: z.string(),
-        instituteId: z.number().int(),
-        instituteCode: z.string(),
-        professors: z.array(
-            z
-                .object({
-                    id: z.number().int(),
-                    name: z.string()
-                })
-                .strict()
-        ),
-        _paths: z
-            .object({
-                studyPeriod: z.string(),
-                institute: z.string(),
-                course: z.string(),
-                class: z.string(),
-                classSchedules: z.string(),
-                professors: z.string()
-            })
-            .strict()
-    })
-    .strict()
-    .openapi("ClassEntity");
-
 export default {
-    schema: classEntity,
     build: buildClassEntity,
     prismaSelection: prismaClassFieldSelection
 };

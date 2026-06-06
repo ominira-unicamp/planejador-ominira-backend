@@ -1,85 +1,98 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import { OutputBuilder } from "../../BuildHandler.js";
-import catalogEntity from "./Entity.js";
+import { type IO, OutputBuilder } from "../BuildHandler.js";
+import { pathSeg } from "../PathSegment.js";
+import { SpecBuilder } from "../SpecBuilder.js";
 
 extendZodWithOpenApi(z);
 
+const basePath = [pathSeg.literal("languages")];
+const tags = ["languages"];
+const specsBuilder = new SpecBuilder(basePath, tags, "id");
+
+const schema = z
+    .object({
+        id: z.number().int(),
+        name: z.string(),
+        catalogLanguagesCount: z.number().int(),
+        _paths: z.object({
+            self: z.string()
+        })
+    })
+    .openapi("Language");
+
 const get = {
+    specs: specsBuilder.get(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .ok(catalogEntity.schema, "Catalog retrieved successfully")
+        .ok(schema, "Language retrieved successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 const list = {
+    specs: specsBuilder.list(),
     input: z.object({
-        query: z.object({
-            year: z
-                .string()
-                .pipe(z.coerce.number())
-                .pipe(z.number().int())
-                .optional()
-        })
+        query: z.object({})
     }),
     output: new OutputBuilder()
-        .ok(
-            z.array(catalogEntity.schema),
-            "List of catalogs retrieved successfully"
-        )
+        .ok(z.array(schema), "List of languages retrieved successfully")
         .build()
-};
+} satisfies IO;
 
 const create = {
+    specs: specsBuilder.create(),
     input: z.object({
         body: z
             .object({
-                year: z.number().int().min(1900).max(2100)
+                name: z.string().min(1)
             })
             .strict()
     }),
     output: new OutputBuilder()
-        .created(catalogEntity.schema, "Catalog created successfully")
+        .created(schema, "Language created successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const patch = {
+    specs: specsBuilder.patch(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: z
             .object({
-                year: z.number().int().min(1900).max(2100)
+                name: z.string().min(1)
             })
             .strict()
     }),
     output: new OutputBuilder()
-        .ok(catalogEntity.schema, "Catalog updated successfully")
+        .ok(schema, "Language updated successfully")
         .notFound()
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const remove = {
+    specs: specsBuilder.remove(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .noContent("Catalog deleted successfully")
+        .noContent("Language deleted successfully")
         .notFound()
         .build()
 };
 
 export default {
+    schema,
     get,
     list,
     create,

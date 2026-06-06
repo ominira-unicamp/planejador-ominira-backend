@@ -1,14 +1,30 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import { OutputBuilder } from "../../BuildHandler.js";
+import { type IO, OutputBuilder } from "../BuildHandler.js";
 import {
     getPaginatedSchema,
     paginationQuerySchema,
     PaginationQueryType
-} from "../../pagination.js";
-import professorEntity from "./Entity.js";
+} from "../pagination.js";
+import { pathSeg } from "../PathSegment.js";
+import { SpecBuilder } from "../SpecBuilder.js";
 
 extendZodWithOpenApi(z);
+
+const basePath = [pathSeg.literal("professors")];
+const tags = ["professors"];
+const specsBuilder = new SpecBuilder(basePath, tags, "id");
+
+const professorEntity = z
+    .object({
+        id: z.number().int(),
+        name: z.string(),
+        _paths: z.object({
+            entity: z.string()
+        })
+    })
+    .strict()
+    .openapi("ProfessorEntity");
 
 const professorBase = z
     .object({
@@ -33,23 +49,24 @@ const listProfessorsQuery = paginationQuerySchema
     })
     .openapi("ListProfessorsQuery");
 
-const PageProfessorsSchema = getPaginatedSchema(professorEntity.schema).openapi(
-    "PageProfessors"
-);
+const PageProfessorsSchema =
+    getPaginatedSchema(professorEntity).openapi("PageProfessors");
 
 const get = {
+    specs: specsBuilder.get(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .ok(professorEntity.schema, "Professor retrieved successfully")
+        .ok(professorEntity, "Professor retrieved successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 const list = {
+    specs: specsBuilder.list(),
     input: z.object({
         query: listProfessorsQuery
     }),
@@ -57,19 +74,21 @@ const list = {
         .ok(PageProfessorsSchema, "List of professors retrieved successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const create = {
+    specs: specsBuilder.create(),
     input: z.object({
         body: createProfessorBody.strict()
     }),
     output: new OutputBuilder()
-        .created(professorEntity.schema, "Professor created successfully")
+        .created(professorEntity, "Professor created successfully")
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const patch = {
+    specs: specsBuilder.patch(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -77,13 +96,14 @@ const patch = {
         body: patchProfessorBody
     }),
     output: new OutputBuilder()
-        .ok(professorEntity.schema, "Professor updated successfully")
+        .ok(professorEntity, "Professor updated successfully")
         .notFound()
         .badRequest()
         .build()
-};
+} satisfies IO;
 
 const remove = {
+    specs: specsBuilder.remove(),
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -93,9 +113,10 @@ const remove = {
         .noContent("Professor deleted successfully")
         .notFound()
         .build()
-};
+} satisfies IO;
 
 export default {
+    schema: professorEntity,
     get,
     list,
     create,

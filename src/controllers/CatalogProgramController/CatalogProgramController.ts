@@ -1,4 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
@@ -7,15 +10,18 @@ import {
     PrismaClient
 } from "../../../prisma/generated/client.js";
 import { AuthRegistry } from "../../auth.js";
-import { buildHandler, HandlerFn } from "../../BuildHandler.js";
-import catalogProgramEntity from "./Entity.js";
+import {
+    buildHandler,
+    HandlerFn,
+    openApiArgsFromIO
+} from "../../BuildHandler.js";
 import IO, {
     CatalogLanguageOperations,
     CatalogSpecializationOperations,
     CourseBlockInput,
     CourseBlockOperations
-} from "./Interface.js";
-import registry from "./OpenAPI.js";
+} from "../../Interfaces/CatalogProgramInterface.js";
+import catalogProgramEntity from "./Entity.js";
 
 extendZodWithOpenApi(z);
 
@@ -32,11 +38,17 @@ type TxType = Omit<
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
     const {
-        path: { catalogId }
+        query: { catalogId, programId, programCode }
     } = input;
     const catalogPrograms = await ctx.prisma.catalogProgram.findMany({
         ...catalogProgramEntity.prismaSelection,
-        where: { catalogId }
+        where: {
+            ...(catalogId ? { catalogId } : {}),
+            program: {
+                id: programId,
+                code: programCode
+            }
+        }
     });
     const entities = catalogPrograms.map(catalogProgramEntity.build);
     return { 200: entities };
@@ -560,6 +572,14 @@ function entityPath(programId: number) {
 function listPath() {
     return `/catalog-programs`;
 }
+
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     router,

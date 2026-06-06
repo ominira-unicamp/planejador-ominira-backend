@@ -1,9 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { resourcesPaths } from "../../Controllers.js";
+import IO from "../../Interfaces/ClassScheduleInterface.js";
 import { MyPrisma, selectIdCode } from "../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaClassScheduleFieldSelection = {
     include: {
@@ -49,7 +47,7 @@ function relatedPathsForClassSchedule(
 
 function buildClassScheduleEntity(
     classSchedule: PrismaClassSchedulePayload
-): z.infer<typeof classScheduleEntity> {
+): z.infer<typeof IO.schema> {
     const { room, class: classObj, ...rest } = classSchedule;
     return {
         ...rest,
@@ -72,45 +70,7 @@ function buildClassScheduleEntity(
     };
 }
 
-const classScheduleEntity = z
-    .object({
-        id: z.number().int(),
-        dayOfWeek: z.enum([
-            "MONDAY",
-            "TUESDAY",
-            "WEDNESDAY",
-            "THURSDAY",
-            "FRIDAY",
-            "SATURDAY",
-            "SUNDAY"
-        ]),
-        start: z.string(),
-        end: z.string(),
-        roomId: z.number().int(),
-        classId: z.number().int(),
-        roomCode: z.string(),
-        classCode: z.string(),
-        instituteId: z.number().int(),
-        instituteCode: z.string(),
-        courseId: z.number().int(),
-        courseCode: z.string(),
-        studyPeriodId: z.number().int(),
-        studyPeriodCode: z.string(),
-        _paths: z
-            .object({
-                entity: z.string(),
-                studyPeriod: z.string(),
-                institute: z.string(),
-                course: z.string(),
-                class: z.string()
-            })
-            .strict()
-    })
-    .strict()
-    .openapi("ClassScheduleEntity");
-
 export default {
-    schema: classScheduleEntity,
     build: buildClassScheduleEntity,
     prismaSelection: prismaClassScheduleFieldSelection
 };

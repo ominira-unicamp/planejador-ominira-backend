@@ -1,10 +1,7 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
-import { StudentCourseStatus } from "../../../../prisma/generated/client.js";
 import { resourcesPaths } from "../../../Controllers.js";
+import IO from "../../../Interfaces/students/StudentCourseInterface.js";
 import { MyPrisma, selectIdCode } from "../../../PrismaClient.js";
-
-extendZodWithOpenApi(z);
 
 export const prismaStudentCourseFieldSelection = {
     include: {
@@ -39,7 +36,7 @@ function relatedPathsForStudentCourse(
 
 function buildStudentCourseEntity(
     studentCourse: PrismaStudentCoursePayload
-): z.infer<typeof schema> {
+): z.infer<typeof IO.schema> {
     const { course, ...rest } = studentCourse;
     return {
         ...rest,
@@ -53,36 +50,7 @@ function buildStudentCourseEntity(
         _paths: relatedPathsForStudentCourse(studentCourse)
     };
 }
-const res = Object.keys(StudentCourseStatus) as [
-    keyof typeof StudentCourseStatus
-];
-export const statusSchema = z.enum(res);
-const schema = z
-    .object({
-        studentId: z.number().int(),
-        courseId: z.number().int(),
-        status: statusSchema,
-        course: z.object({
-            id: z.number().int(),
-            code: z.string(),
-            name: z.string(),
-            credits: z.number().int(),
-            institute: z.object({
-                id: z.number().int(),
-                code: z.string()
-            })
-        }),
-        _paths: z.object({
-            self: z.string(),
-            student: z.string(),
-            course: z.string()
-        })
-    })
-    .openapi("StudentCourse");
-const studentCourseEntity = {
+export default {
     build: buildStudentCourseEntity,
-    prismaSelection: prismaStudentCourseFieldSelection,
-    schema: schema
+    prismaSelection: prismaStudentCourseFieldSelection
 };
-
-export default studentCourseEntity;
