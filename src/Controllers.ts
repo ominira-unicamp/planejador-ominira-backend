@@ -5,13 +5,13 @@ import catalogProgram from "./controllers/CatalogProgramController/CatalogProgra
 import classController from "./controllers/ClassController/ClassController.js";
 import classSchedule from "./controllers/ClassScheduleController/ClassScheduleController.js";
 import course from "./controllers/CourseController/CourseController.js";
-import institute from "./controllers/InstituteController/InstituteController.js";
 import language from "./controllers/LanguageController/LanguageController.js";
 import professor from "./controllers/ProfessorController/ProfessorController.js";
 import program from "./controllers/ProgramController/ProgramController.js";
 import room from "./controllers/RoomController/RoomController.js";
 import specialization from "./controllers/SpecializationController/SpecializationController.js";
 import studyPeriods from "./controllers/StudyPeriodsController/StudyPeriodsController.js";
+import unit from "./controllers/UnitController/UnitController.js";
 
 import CurriculumController from "./controllers/StudentControllers/CurriculumController/CurriculumController.js";
 import periodPlan from "./controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js";
@@ -30,7 +30,7 @@ type Controler = {
 const controllers: Controler[] = [
     auth,
     professor,
-    institute,
+    unit,
     course,
     classController,
     classSchedule,
@@ -71,7 +71,7 @@ export const resourcesPaths = {
     class: classController.paths,
     classSchedule: classSchedule.paths,
     course: course.paths,
-    institute: institute.paths,
+    unit: unit.paths,
     professor: professor.paths,
     room: room.paths,
     studyPeriod: studyPeriods.paths,

@@ -23,7 +23,7 @@ export const prismaPeriodPlanningFieldSelection = {
                     select: {
                         id: true,
                         code: true,
-                        institute: selectIdCode
+                        unit: selectIdCode
                     }
                 }
             }

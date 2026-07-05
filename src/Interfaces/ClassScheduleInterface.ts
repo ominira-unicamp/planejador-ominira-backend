@@ -33,8 +33,8 @@ const classScheduleEntity = z
         classId: z.number().int(),
         roomCode: z.string(),
         classCode: z.string(),
-        instituteId: z.number().int(),
-        instituteCode: z.string(),
+        unitId: z.number().int(),
+        unitCode: z.string(),
         courseId: z.number().int(),
         courseCode: z.string(),
         studyPeriodId: z.number().int(),
@@ -43,7 +43,7 @@ const classScheduleEntity = z
             .object({
                 entity: z.string(),
                 studyPeriod: z.string(),
-                institute: z.string(),
+                unit: z.string(),
                 course: z.string(),
                 class: z.string()
             })
@@ -87,8 +87,8 @@ const getClassSchedulesQuery = paginationQuerySchema
     .extend({
         studyPeriodId: z.coerce.number().int().optional(),
         studyPeriodCode: z.string().optional(),
-        instituteId: z.coerce.number().int().optional(),
-        instituteCode: z.string().optional(),
+        unitId: z.coerce.number().int().optional(),
+        unitCode: z.string().optional(),
         courseId: z.coerce.number().int().optional(),
         courseCode: z.string().optional(),
         roomId: z.coerce.number().int().optional(),
@@ -177,7 +177,7 @@ export default {
 };
 
 export type ListQueryParams = {
-    instituteId?: number;
+    unitId?: number;
     courseId?: number;
     studyPeriodId?: number;
     classId?: number;

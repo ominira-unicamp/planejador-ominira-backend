@@ -8,7 +8,7 @@ Table User {
   name String [not null]
 }
 
-Table Institute {
+Table Unit {
   id Int [pk, increment]
   code String [unique, not null]
   courses Course [not null]
@@ -19,8 +19,8 @@ Table Institute {
 Table Prefixes {
   id Int [pk, increment]
   prefix String [unique, not null]
-  institute Institute [not null]
-  instituteId Int [not null]
+  unit Unit [not null]
+  unitId Int [not null]
   courseRequirements CourseRequirement [not null]
   courses Course [not null]
 }
@@ -30,8 +30,8 @@ Table Course {
   code String [unique, not null]
   name String [not null]
   credits Int [not null]
-  institute Institute [not null]
-  instituteId Int [not null]
+  unit Unit [not null]
+  unitId Int [not null]
   prefix Prefixes
   prefixId Int
   classes Class [not null]
@@ -51,8 +51,8 @@ Table Program {
   id Int [pk, increment]
   code Int [unique, not null]
   name String [not null]
-  institute Institute [not null]
-  instituteId Int [not null]
+  unit Unit [not null]
+  unitId Int [not null]
   catalogPrograms CatalogProgram [not null]
   students Student [not null]
 }
@@ -279,13 +279,13 @@ Enum StudentCourseStatus {
   DROPPED
 }
 
-Ref: Prefixes.instituteId > Institute.id
+Ref: Prefixes.unitId > Unit.id
 
-Ref: Course.instituteId > Institute.id
+Ref: Course.unitId > Unit.id
 
 Ref: Course.prefixId > Prefixes.id
 
-Ref: Program.instituteId > Institute.id
+Ref: Program.unitId > Unit.id
 
 Ref: CatalogProgram.catalogId > Catalog.id
 

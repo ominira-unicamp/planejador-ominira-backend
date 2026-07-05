@@ -25,8 +25,8 @@ const classEntity = z
         professorIds: z.array(z.number().int()),
         studyPeriodCode: z.string(),
         courseCode: z.string(),
-        instituteId: z.number().int(),
-        instituteCode: z.string(),
+        unitId: z.number().int(),
+        unitCode: z.string(),
         professors: z.array(
             z
                 .object({
@@ -38,7 +38,7 @@ const classEntity = z
         _paths: z
             .object({
                 studyPeriod: z.string(),
-                institute: z.string(),
+                unit: z.string(),
                 course: z.string(),
                 class: z.string(),
                 classSchedules: z.string(),
@@ -69,8 +69,8 @@ const patchClassBody = classBaseSchema.partial().openapi("PatchClassBody");
 const listClassesQuery = paginationQuerySchema
     .extend({
         classCode: z.string().optional(),
-        instituteId: z.coerce.number().int().optional(),
-        instituteCode: z.string().optional(),
+        unitId: z.coerce.number().int().optional(),
+        unitCode: z.string().optional(),
         courseId: z.coerce.number().int().optional(),
         courseCode: z.string().optional(),
         studyPeriodId: z.coerce.number().int().optional(),
@@ -155,7 +155,7 @@ export default {
 };
 
 export type ListQueryParams = {
-    instituteId?: number | undefined;
+    unitId?: number | undefined;
     courseId?: number | undefined;
     studyPeriodId?: number | undefined;
     professorId?: number | undefined;

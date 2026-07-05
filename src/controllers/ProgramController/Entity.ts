@@ -5,7 +5,7 @@ import { MyPrisma, selectIdCode } from "../../PrismaClient.js";
 
 export const prismaProgramFieldSelection = {
     include: {
-        institute: selectIdCode,
+        unit: selectIdCode,
         _count: {
             select: {
                 catalogPrograms: true,
@@ -22,17 +22,17 @@ type PrismaProgramPayload = MyPrisma.ProgramGetPayload<
 function relatedPathsForProgram(program: PrismaProgramPayload) {
     return {
         self: resourcesPaths.program.entity(program.id),
-        institute: resourcesPaths.institute.entity(program.institute.id)
+        unit: resourcesPaths.unit.entity(program.unit.id)
     };
 }
 
 function buildProgramEntity(
     program: PrismaProgramPayload
 ): z.infer<typeof IO.schema> {
-    const { institute, _count, ...rest } = program;
+    const { unit, _count, ...rest } = program;
     return {
         ...rest,
-        institute,
+        unit,
         catalogProgramsCount: _count.catalogPrograms,
         studentsCount: _count.students,
         _paths: relatedPathsForProgram(program)

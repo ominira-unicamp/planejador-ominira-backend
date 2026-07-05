@@ -11,7 +11,7 @@ export const prismaStudentCourseFieldSelection = {
                 code: true,
                 name: true,
                 credits: true,
-                institute: selectIdCode
+                unit: selectIdCode
             }
         }
     }
@@ -45,7 +45,7 @@ function buildStudentCourseEntity(
             code: course.code,
             name: course.name,
             credits: course.credits,
-            institute: course.institute
+            unit: course.unit
         },
         _paths: relatedPathsForStudentCourse(studentCourse)
     };

@@ -17,8 +17,8 @@ const courseEntity = z
         code: z.string().min(1),
         name: z.string().min(1),
         credits: z.number().int().min(0),
-        instituteId: z.number().int(),
-        instituteCode: z.string().min(1),
+        unitId: z.number().int(),
+        unitCode: z.string().min(1),
         _paths: z
             .object({
                 classes: z.string()
@@ -33,13 +33,13 @@ const courseBase = z.object({
     code: z.string().min(1),
     name: z.string().min(1),
     credits: z.number().int().min(0),
-    instituteId: z.number().int()
+    unitId: z.number().int()
 });
 
 const listCourseQuery = paginationQuerySchema
     .extend({
-        instituteId: z.coerce.number().int().optional(),
-        instituteCode: z.string().min(1).optional(),
+        unitId: z.coerce.number().int().optional(),
+        unitCode: z.string().min(1).optional(),
         courseCode: z.string().min(1).optional()
     })
     .openapi("ListCoursesQuery");
