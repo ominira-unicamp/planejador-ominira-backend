@@ -66,6 +66,68 @@ model Course {
   studentCourses     StudentCourse[]
   curriculumCourses  CurriculumCourse[]
   courseRequirements CourseRequirement[]
+
+  courseGroupMembers CourseGroupMember[]
+  preRequisites      PreRequisite[]
+}
+
+model CourseGroupMember {
+  id            Int         @id @default(autoincrement())
+  courseGroup   CourseGroup @relation(fields: [courseGroupId], references: [id])
+  courseGroupId Int
+  course        Course      @relation(fields: [courseId], references: [id])
+  courseId      Int
+
+  @@unique([courseGroupId, courseId])
+}
+
+model CourseGroup {
+  id                 Int                 @id @default(autoincrement())
+  members            CourseGroupMember[]
+  equivalenceClass   EquivalenceClass    @relation(fields: [equivalenceClassId], references: [id])
+  equivalenceClassId Int
+  equivalenceMembers EquivalenceMember[]
+
+  preRequisites PreRequisite[]
+}
+
+model PreRequisite {
+  id            Int         @id @default(autoincrement())
+  course        Course      @relation(fields: [courseId], references: [id])
+  courseId      Int
+  courseGroup   CourseGroup @relation(fields: [courseGroupId], references: [id])
+  courseGroupId Int
+  startYear     Int
+}
+
+model EquivalenceMember {
+  id                 Int              @id @default(autoincrement())
+  equivalenceClass   EquivalenceClass @relation(fields: [equivalenceClassId], references: [id])
+  equivalenceClassId Int
+  courseGroup        CourseGroup      @relation(fields: [courseGroupId], references: [id])
+  courseGroupId      Int
+
+  @@unique([equivalenceClassId, courseGroupId])
+}
+
+model EquivalenceClass {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  equivalenceMembers EquivalenceMember[]
+  courseGroups       CourseGroup[]
+
+  containerCompositions CourseComposition[] @relation("ContainerEquivalence")
+  containedCompositions CourseComposition[] @relation("ContainedEquivalence")
+}
+
+model CourseComposition {
+  id Int @id @default(autoincrement())
+
+  containerEquivalence   EquivalenceClass @relation("ContainerEquivalence", fields: [containerEquivalenceId], references: [id])
+  containerEquivalenceId Int
+
+  containedEquivalence   EquivalenceClass @relation("ContainedEquivalence", fields: [containedEquivalenceId], references: [id])
+  containedEquivalenceId Int
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
