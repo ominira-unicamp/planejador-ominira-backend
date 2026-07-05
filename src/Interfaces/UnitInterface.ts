@@ -6,11 +6,11 @@ import { SpecBuilder } from "../SpecBuilder.js";
 
 extendZodWithOpenApi(z);
 
-const basePath = [pathSeg.literal("institutes")];
-const tags = ["institutes"];
+const basePath = [pathSeg.literal("units")];
+const tags = ["units"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
-const instituteEntity = z
+const unitEntity = z
     .object({
         id: z.number().int(),
         code: z.string(),
@@ -22,24 +22,22 @@ const instituteEntity = z
             .strict()
     })
     .strict()
-    .openapi("InstituteEntity");
+    .openapi("UnitEntity");
 
-const instituteBase = z
+const unitBase = z
     .object({
         id: z.number().int(),
         code: z.string().min(1)
     })
     .strict();
 
-const createInstituteBody = instituteBase
-    .omit({ id: true })
-    .openapi("CreateInstituteBody");
+const createUnitBody = unitBase.omit({ id: true }).openapi("CreateUnitBody");
 
-const patchInstituteBody = instituteBase
+const patchUnitBody = unitBase
     .omit({ id: true })
     .partial()
     .strict()
-    .openapi("PatchInstituteBody");
+    .openapi("PatchUnitBody");
 const get = {
     specs: specsBuilder.get(),
     input: z.object({
@@ -48,7 +46,7 @@ const get = {
         })
     }),
     output: new OutputBuilder()
-        .ok(instituteEntity, "Institute retrieved successfully")
+        .ok(unitEntity, "Unit retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
@@ -57,20 +55,17 @@ const list = {
     specs: specsBuilder.list(),
     input: z.object({}),
     output: new OutputBuilder()
-        .ok(
-            z.array(instituteEntity),
-            "List of institutes retrieved successfully"
-        )
+        .ok(z.array(unitEntity), "List of units retrieved successfully")
         .build()
 } satisfies IO;
 
 const create = {
     specs: specsBuilder.create(),
     input: z.object({
-        body: createInstituteBody.strict()
+        body: createUnitBody.strict()
     }),
     output: new OutputBuilder()
-        .created(instituteEntity, "Institute created successfully")
+        .created(unitEntity, "Unit created successfully")
         .badRequest()
         .build()
 } satisfies IO;
@@ -81,10 +76,10 @@ const patch = {
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
-        body: patchInstituteBody
+        body: patchUnitBody
     }),
     output: new OutputBuilder()
-        .ok(instituteEntity, "Institute updated successfully")
+        .ok(unitEntity, "Unit updated successfully")
         .notFound()
         .badRequest()
         .build()
@@ -98,13 +93,13 @@ const remove = {
         })
     }),
     output: new OutputBuilder()
-        .noContent("Institute deleted successfully")
+        .noContent("Unit deleted successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 export default {
-    schema: instituteEntity,
+    schema: unitEntity,
     get,
     list,
     create,

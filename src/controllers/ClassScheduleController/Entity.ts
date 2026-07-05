@@ -17,7 +17,7 @@ export const prismaClassScheduleFieldSelection = {
                     select: {
                         id: true,
                         code: true,
-                        institute: selectIdCode
+                        unit: selectIdCode
                     }
                 }
             }
@@ -32,13 +32,13 @@ type PrismaClassSchedulePayload = MyPrisma.ClassScheduleGetPayload<
 function relatedPathsForClassSchedule(
     classScheduleId: number,
     studyPeriodId: number,
-    instituteId: number,
+    unitId: number,
     courseId: number,
     classId: number
 ) {
     return {
         studyPeriod: resourcesPaths.studyPeriod.entity(studyPeriodId),
-        institute: resourcesPaths.institute.entity(instituteId),
+        unit: resourcesPaths.unit.entity(unitId),
         course: resourcesPaths.course.entity(courseId),
         class: resourcesPaths.class.entity(classId),
         entity: `/class-schedules/${classScheduleId}`
@@ -54,8 +54,8 @@ function buildClassScheduleEntity(
         roomCode: room.code,
         classCode: classObj.code,
         classId: classObj.id,
-        instituteId: classObj.course.institute.id,
-        instituteCode: classObj.course.institute.code,
+        unitId: classObj.course.unit.id,
+        unitCode: classObj.course.unit.code,
         courseId: classObj.course.id,
         courseCode: classObj.course.code,
         studyPeriodId: classObj.studyPeriod.id,
@@ -63,7 +63,7 @@ function buildClassScheduleEntity(
         _paths: relatedPathsForClassSchedule(
             classSchedule.id,
             classObj.studyPeriod.id,
-            classObj.course.institute.id,
+            classObj.course.unit.id,
             classObj.course.id,
             classObj.id
         )

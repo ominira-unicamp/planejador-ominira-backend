@@ -6,7 +6,7 @@ import { MyPrisma } from "../../PrismaClient.js";
 
 const prismaCourseFieldSelection = {
     include: {
-        institute: {
+        unit: {
             select: {
                 code: true
             }
@@ -18,21 +18,21 @@ type PrismaCoursePayload = MyPrisma.CourseGetPayload<
     typeof prismaCourseFieldSelection
 >;
 
-function relatedPathsForCourse(courseId: number, instituteId: number) {
+function relatedPathsForCourse(courseId: number, unitId: number) {
     return {
         classes: resourcesPaths.class.list({ courseId }),
-        institute: resourcesPaths.institute.entity(instituteId)
+        unit: resourcesPaths.unit.entity(unitId)
     };
 }
 
 function buildCourseEntity(
     course: PrismaCoursePayload
 ): z.infer<typeof IO.schema> {
-    const { institute, ...rest } = course;
+    const { unit, ...rest } = course;
     return {
         ...rest,
-        instituteCode: institute.code,
-        _paths: relatedPathsForCourse(course.id, course.instituteId)
+        unitCode: unit.code,
+        _paths: relatedPathsForCourse(course.id, course.unitId)
     };
 }
 

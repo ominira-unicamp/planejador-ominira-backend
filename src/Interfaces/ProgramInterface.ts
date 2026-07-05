@@ -15,8 +15,8 @@ const schema = z
         id: z.number().int(),
         code: z.number().int(),
         name: z.string(),
-        instituteId: z.number().int(),
-        institute: z.object({
+        unitId: z.number().int(),
+        unit: z.object({
             id: z.number().int(),
             code: z.string()
         }),
@@ -24,7 +24,7 @@ const schema = z
         studentsCount: z.number().int(),
         _paths: z.object({
             self: z.string(),
-            institute: z.string()
+            unit: z.string()
         })
     })
     .openapi("Program");
@@ -46,7 +46,7 @@ const list = {
     specs: specsBuilder.list(),
     input: z.object({
         query: z.object({
-            instituteId: z
+            unitId: z
                 .string()
                 .pipe(z.coerce.number())
                 .pipe(z.number().int())
@@ -65,7 +65,7 @@ const create = {
             .object({
                 code: z.number().int().positive(),
                 name: z.string().min(1),
-                instituteId: z.number().int()
+                unitId: z.number().int()
             })
             .strict()
     }),
@@ -85,7 +85,7 @@ const patch = {
             .object({
                 code: z.number().int().positive().optional(),
                 name: z.string().min(1).optional(),
-                instituteId: z.number().int().optional()
+                unitId: z.number().int().optional()
             })
             .strict()
     }),

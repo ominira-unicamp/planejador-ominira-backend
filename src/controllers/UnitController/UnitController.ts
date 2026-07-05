@@ -12,34 +12,34 @@ import {
     openApiArgsFromIO
 } from "../../BuildHandler.js";
 import { defaultGetHandler } from "../../defaultEndpoint.js";
-import IO from "../../Interfaces/InstituteInterface.js";
+import IO from "../../Interfaces/UnitInterface.js";
 import { ValidationError } from "../../Validation.js";
-import instituteEntity from "./Entity.js";
+import unitEntity from "./Entity.js";
 
 extendZodWithOpenApi(z);
 
 const router = Router();
 const authRegistry = new AuthRegistry();
 
-authRegistry.addException("GET", "/institutes");
-authRegistry.addException("GET", "/institutes/:id");
+authRegistry.addException("GET", "/units");
+authRegistry.addException("GET", "/units/:id");
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
-    const institutes = await ctx.prisma.institute.findMany();
-    const entities = institutes.map(instituteEntity.build);
+    const units = await ctx.prisma.unit.findMany();
+    const entities = units.map(unitEntity.build);
     return { 200: entities };
 };
 
 const get = defaultGetHandler(
-    (p) => p.institute,
+    (p) => p.unit,
     {},
-    instituteEntity.build,
-    "Institute not found"
+    unitEntity.build,
+    "Unit not found"
 );
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const { body } = input;
-    const existing = await ctx.prisma.institute.findUnique({
+    const existing = await ctx.prisma.unit.findUnique({
         where: { code: body.code }
     });
     if (existing) {
@@ -48,17 +48,17 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
                 {
                     code: "ALREADY_EXISTS",
                     path: ["body", "code"],
-                    message: "An institute with this code already exists"
+                    message: "An unit with this code already exists"
                 }
             ])
         };
     }
-    const institute = await ctx.prisma.institute.create({
+    const unit = await ctx.prisma.unit.create({
         data: {
             code: body.code
         }
     });
-    return { 201: instituteEntity.build(institute) };
+    return { 201: unitEntity.build(unit) };
 };
 
 const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
@@ -66,11 +66,11 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
         path: { id },
         body
     } = input;
-    const existing = await ctx.prisma.institute.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Institute not found" } };
+    const existing = await ctx.prisma.unit.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Unit not found" } };
 
     if (body.code !== undefined) {
-        const codeExists = await ctx.prisma.institute.findUnique({
+        const codeExists = await ctx.prisma.unit.findUnique({
             where: { code: body.code }
         });
         if (codeExists && codeExists.id !== id) {
@@ -79,53 +79,53 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
                     {
                         code: "ALREADY_EXISTS",
                         path: ["body", "code"],
-                        message: "An institute with this code already exists"
+                        message: "An unit with this code already exists"
                     }
                 ])
             };
         }
     }
 
-    const institute = await ctx.prisma.institute.update({
+    const unit = await ctx.prisma.unit.update({
         where: { id },
         data: {
             ...(body.code !== undefined && { code: body.code })
         }
     });
-    return { 200: instituteEntity.build(institute) };
+    return { 200: unitEntity.build(unit) };
 };
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
     const {
         path: { id }
     } = input;
-    const existing = await ctx.prisma.institute.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Institute not found" } };
-    await ctx.prisma.institute.delete({ where: { id } });
+    const existing = await ctx.prisma.unit.findUnique({ where: { id } });
+    if (!existing) return { 404: { description: "Unit not found" } };
+    await ctx.prisma.unit.delete({ where: { id } });
     return { 204: null };
 };
 
-router.get("/institutes/:id", get);
+router.get("/units/:id", get);
 
-router.get("/institutes", buildHandler(IO.list.input, IO.list.output, listFn));
+router.get("/units", buildHandler(IO.list.input, IO.list.output, listFn));
 
 router.post(
-    "/institutes",
+    "/units",
     buildHandler(IO.create.input, IO.create.output, createFn)
 );
 
 router.patch(
-    "/institutes/:id",
+    "/units/:id",
     buildHandler(IO.patch.input, IO.patch.output, patchFn)
 );
 
 router.delete(
-    "/institutes/:id",
+    "/units/:id",
     buildHandler(IO.remove.input, IO.remove.output, removeFn)
 );
 
-function entityPath(instituteId: number) {
-    return `/institutes/${instituteId}`;
+function entityPath(unitId: number) {
+    return `/units/${unitId}`;
 }
 
 const registry = new OpenAPIRegistry();

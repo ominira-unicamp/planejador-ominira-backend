@@ -30,9 +30,9 @@ const list = defaultListHandler(
             contains: query.courseCode,
             mode: "insensitive" as const
         },
-        institute: {
-            ...(query.instituteId ? { id: query.instituteId } : {}),
-            ...(query.instituteCode ? { code: query.instituteCode } : {})
+        unit: {
+            ...(query.unitId ? { id: query.unitId } : {}),
+            ...(query.unitCode ? { code: query.unitCode } : {})
         }
     }),
     listPath,
@@ -151,14 +151,14 @@ function entityPath(courseId: number) {
 }
 
 type ListQueryParams = {
-    instituteId?: number;
+    unitId?: number;
 } & Partial<PaginationQueryType>;
 
 function listPath(query: ListQueryParams) {
     return (
         `/courses?` +
         [
-            query.instituteId ? "instituteId=" + query.instituteId : undefined,
+            query.unitId ? "unitId=" + query.unitId : undefined,
             query.page ? "page=" + query.page : undefined,
             query.pageSize ? "pageSize=" + query.pageSize : undefined
         ]

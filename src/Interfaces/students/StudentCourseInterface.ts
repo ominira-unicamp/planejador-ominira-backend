@@ -35,7 +35,7 @@ const schema = z
             code: z.string(),
             name: z.string(),
             credits: z.number().int(),
-            institute: z.object({
+            unit: z.object({
                 id: z.number().int(),
                 code: z.string()
             })

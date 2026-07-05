@@ -40,7 +40,7 @@ const list = defaultListHandler(
             ...whereIdCode(query.classId, undefined),
             course: {
                 ...whereIdCode(query.courseId, query.courseCode),
-                institute: whereIdCode(query.instituteId, query.instituteCode)
+                unit: whereIdCode(query.unitId, query.unitCode)
             },
             studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode)
         }
@@ -150,7 +150,7 @@ router.delete(
 );
 
 function listPath({
-    instituteId,
+    unitId,
     courseId,
     studyPeriodId,
     classId,
@@ -160,7 +160,7 @@ function listPath({
     return (
         `/class-schedules?` +
         [
-            instituteId ? "instituteId=" + instituteId : undefined,
+            unitId ? "unitId=" + unitId : undefined,
             courseId ? "courseId=" + courseId : undefined,
             studyPeriodId ? "studyPeriodId=" + studyPeriodId : undefined,
             classId ? "classId=" + classId : undefined,

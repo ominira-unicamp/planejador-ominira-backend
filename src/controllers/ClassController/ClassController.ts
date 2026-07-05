@@ -41,7 +41,7 @@ const list = defaultListHandler(
             : {}),
         course: {
             ...whereIdCode(query.courseId, query.courseCode),
-            institute: whereIdCode(query.instituteId, query.instituteCode)
+            unit: whereIdCode(query.unitId, query.unitCode)
         },
         studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
         ...(query.professorId || query.professorName
@@ -199,7 +199,7 @@ function listPath(query: ListQueryParams) {
     return (
         `/classes?` +
         [
-            query.instituteId ? "instituteId=" + query.instituteId : undefined,
+            query.unitId ? "unitId=" + query.unitId : undefined,
             query.courseId ? "courseId=" + query.courseId : undefined,
             query.studyPeriodId
                 ? "studyPeriodId=" + query.studyPeriodId

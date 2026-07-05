@@ -29,7 +29,7 @@ const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
     const programs = await ctx.prisma.program.findMany({
         ...programEntity.prismaSelection,
         where: {
-            ...(query?.instituteId && { instituteId: query.instituteId })
+            ...(query?.unitId && { unitId: query.unitId })
         },
         orderBy: {
             name: "asc"
@@ -48,18 +48,18 @@ const get = defaultGetHandler(
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const {
-        body: { code, name, instituteId }
+        body: { code, name, unitId }
     } = input;
 
-    const institute = await ctx.prisma.institute.findUnique({
-        where: { id: instituteId }
+    const unit = await ctx.prisma.unit.findUnique({
+        where: { id: unitId }
     });
-    if (!institute) {
+    if (!unit) {
         const error = new ValidationError();
         error.addError({
-            path: ["body", "instituteId"],
+            path: ["body", "unitId"],
             code: "REFERENCE_NOT_FOUND",
-            message: `Institute with id ${instituteId} not found`
+            message: `Unit with id ${unitId} not found`
         });
         return { 400: error };
     }
@@ -83,7 +83,7 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
         data: {
             code,
             name,
-            instituteId
+            unitId
         }
     });
     return { 201: programEntity.build(program) };
@@ -103,16 +103,16 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
         return { 404: { description: "Program not found" } };
     }
 
-    if (body.instituteId) {
-        const institute = await ctx.prisma.institute.findUnique({
-            where: { id: body.instituteId }
+    if (body.unitId) {
+        const unit = await ctx.prisma.unit.findUnique({
+            where: { id: body.unitId }
         });
-        if (!institute) {
+        if (!unit) {
             const error = new ValidationError();
             error.addError({
-                path: ["body", "instituteId"],
+                path: ["body", "unitId"],
                 code: "REFERENCE_NOT_FOUND",
-                message: `Institute with id ${body.instituteId} not found`
+                message: `Unit with id ${body.unitId} not found`
             });
             return { 400: error };
         }

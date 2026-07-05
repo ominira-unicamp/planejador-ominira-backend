@@ -73,10 +73,10 @@ const buildZodIds = (prisma: PrismaClient) => ({
         "Class schedule not found",
         "One or more class schedules not found"
     ),
-    institute: buildZodSchemas(
-        prisma.institute,
-        "Institute not found",
-        "One or more institutes not found"
+    unit: buildZodSchemas(
+        prisma.unit,
+        "Unit not found",
+        "One or more units not found"
     )
 });
 
