@@ -77,6 +77,11 @@ const buildZodIds = (prisma: PrismaClient) => ({
         prisma.unit,
         "Unit not found",
         "One or more units not found"
+    ),
+    building: buildZodSchemas(
+        prisma.building,
+        "Building not found",
+        "One or more buildings not found"
     )
 });
 

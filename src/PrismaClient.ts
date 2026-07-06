@@ -28,22 +28,25 @@ function whereIdName(
 }
 
 type WhereIdCodeType = {
-    id?: number | undefined;
+    id?: number;
     code?: {
-        equals: string | undefined;
+        equals: string;
         mode: "insensitive";
     };
 };
+
 function whereIdCode(
     id: number | undefined,
     code: string | undefined
 ): WhereIdCodeType {
     return {
-        id: id,
-        code: {
-            equals: code,
-            mode: "insensitive"
-        }
+        ...(id !== undefined && { id }),
+        ...(code !== undefined && {
+            code: {
+                equals: code,
+                mode: "insensitive"
+            }
+        })
     };
 }
 

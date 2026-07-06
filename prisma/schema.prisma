@@ -35,11 +35,13 @@ model User {
 // ----------------------- Academic Models ----------------------- //
 
 model Unit {
-  id       Int        @id @default(autoincrement())
-  code     String     @unique
-  courses  Course[]
-  prefixes Prefixes[]
-  programs Program[]
+  id   Int    @id @default(autoincrement())
+  code String @unique
+
+  courses   Course[]
+  prefixes  Prefixes[]
+  programs  Program[]
+  buildings Building[]
 }
 
 model Prefixes {
@@ -196,9 +198,28 @@ model Professor {
   classes Class[]
 }
 
+model Building {
+  id        Int    @id @default(autoincrement())
+  code      String
+  name      String
+  latitude  Float?
+  longitude Float?
+  unit      Unit?  @relation(fields: [unitId], references: [id])
+  unitId    Int?
+
+  rooms     Room[]
+
+  @@unique([unitId, code])
+}
+
 model Room {
   id             Int             @id @default(autoincrement())
   code           String          @unique
+  details        String?
+  atlasId        Int?
+  building       Building?       @relation(fields: [buildingId], references: [id])
+  buildingId     Int?
+  
   classSchedules ClassSchedule[]
 }
 
@@ -211,9 +232,9 @@ model Class {
   courseId      Int
   reservations  Int[]
 
-  professors      Professor[]
-  classSchedules  ClassSchedule[]
-  periodPlannings PeriodPlanning[]
+  professors         Professor[]
+  classSchedules     ClassSchedule[]
+  periodPlannings    PeriodPlanning[]
 }
 
 //  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 
