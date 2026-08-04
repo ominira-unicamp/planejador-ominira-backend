@@ -14,6 +14,7 @@ Table Unit {
   courses Course [not null]
   prefixes Prefixes [not null]
   programs Program [not null]
+  buildings Building [not null]
 }
 
 Table Prefixes {
@@ -150,9 +151,28 @@ Table Professor {
   classes Class [not null]
 }
 
+Table Building {
+  id Int [pk, increment]
+  code String [not null]
+  name String [not null]
+  latitude Float
+  longitude Float
+  unit Unit
+  unitId Int
+  rooms Room [not null]
+
+  indexes {
+    (unitId, code) [unique]
+  }
+}
+
 Table Room {
   id Int [pk, increment]
   code String [unique, not null]
+  details String
+  atlasId Int
+  building Building
+  buildingId Int
   classSchedules ClassSchedule [not null]
 }
 
@@ -310,6 +330,10 @@ Ref: CourseRequirement.courseBlockId > CourseBlock.id [delete: Cascade]
 Ref: CourseRequirement.courseId > Course.id
 
 Ref: CourseRequirement.prefixId > Prefixes.id
+
+Ref: Building.unitId > Unit.id
+
+Ref: Room.buildingId > Building.id
 
 Ref: Class.studyPeriodId > StudyPeriod.id
 

@@ -23,7 +23,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 prisma/generated
 prisma/seed.json
-
+prisma/seed-data
 data/
 
 bun.lock

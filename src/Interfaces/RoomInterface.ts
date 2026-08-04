@@ -14,8 +14,16 @@ const roomEntity = z
     .object({
         id: z.number().int(),
         code: z.string(),
+        details: z.string().nullable(),
+        atlasId: z.number().nullable(),
+        buildingId: z.number().int().nullable(),
+        buildingCode: z.string().nullable(),
+        unitId: z.number().int().nullable(),
+        unitCode: z.string().nullable(),
         _paths: z.object({
-            entity: z.string()
+            entity: z.string(),
+            building: z.string().nullable(),
+            unit: z.string().nullable()
         })
     })
     .strict()
@@ -24,7 +32,10 @@ const roomEntity = z
 const roomBase = z
     .object({
         id: z.number().int(),
-        code: z.string().min(1)
+        code: z.string().min(1),
+        details: z.string().nullable(),
+        atlasId: z.number().nullable(),
+        buildingId: z.number().int().nullable()
     })
     .strict();
 
@@ -49,9 +60,20 @@ const get = {
         .build()
 } satisfies IO;
 
+const listQuerySchema = z
+    .object({
+        buildingId: z.coerce.number().int(),
+        buildingCode: z.string(),
+        unitId: z.coerce.number().int(),
+        unitCode: z.string()
+    })
+    .partial();
+
 const list = {
     specs: specsBuilder.list(),
-    input: z.object({}),
+    input: z.object({
+        query: listQuerySchema
+    }),
     output: new OutputBuilder()
         .ok(z.array(roomEntity), "List of rooms retrieved successfully")
         .build()
@@ -95,6 +117,8 @@ const remove = {
         .notFound()
         .build()
 } satisfies IO;
+
+export type RoomListQueryParams = z.infer<typeof listQuerySchema>;
 
 export default {
     schema: roomEntity,

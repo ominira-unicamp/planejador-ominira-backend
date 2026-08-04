@@ -1,5 +1,5 @@
 import auth from "./controllers/AuthController/AuthController.js";
-
+import building from "./controllers/BuildingController/BuildingController.js";
 import catalog from "./controllers/CatalogController/CatalogController.js";
 import catalogProgram from "./controllers/CatalogProgramController/CatalogProgramController.js";
 import classController from "./controllers/ClassController/ClassController.js";
@@ -34,6 +34,7 @@ const controllers: Controler[] = [
     course,
     classController,
     classSchedule,
+    building,
     room,
     studyPeriods,
     studentController,
@@ -73,6 +74,7 @@ export const resourcesPaths = {
     course: course.paths,
     unit: unit.paths,
     professor: professor.paths,
+    building: building.paths,
     room: room.paths,
     studyPeriod: studyPeriods.paths,
 
