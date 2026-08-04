@@ -2,7 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { join } from "path";
-import { PrismaClient } from "./generated/client.js";
+import { PrismaClient } from "../prisma/generated/client.js";
 
 dotenv.config();
 
