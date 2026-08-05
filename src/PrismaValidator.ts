@@ -77,6 +77,11 @@ const buildZodIds = (prisma: PrismaClient) => ({
         prisma.unit,
         "Unit not found",
         "One or more units not found"
+    ),
+    calendarTag: buildZodSchemas(
+        prisma.calendarTag,
+        "Calendar tag not found",
+        "One or more calendar tags not found"
     )
 });
 

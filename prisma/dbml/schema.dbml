@@ -235,6 +235,20 @@ Table PeriodPlanning {
   classes Class [not null]
 }
 
+Table CalendarEvent {
+  id Int [pk, increment]
+  startDate DateTime [not null]
+  endDate DateTime
+  description String [not null]
+  tags CalendarTag [not null]
+}
+
+Table CalendarTag {
+  id Int [pk, increment]
+  name String [unique, not null]
+  events CalendarEvent [not null]
+}
+
 Table ClassToProfessor {
   classesId Int [ref: > Class.id]
   professorsId Int [ref: > Professor.id]
@@ -243,6 +257,11 @@ Table ClassToProfessor {
 Table ClassToPeriodPlanning {
   periodplanningsId Int [ref: > PeriodPlanning.id]
   classesId Int [ref: > Class.id]
+}
+
+Table CalendarEventToCalendarTag {
+  tagsId Int [ref: > CalendarTag.id]
+  eventsId Int [ref: > CalendarEvent.id]
 }
 
 Enum YearPeriods {

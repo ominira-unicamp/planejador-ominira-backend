@@ -1,4 +1,7 @@
 import auth from "./controllers/AuthController/AuthController.js";
+import calendar from "./controllers/CalendarController/CalendarController.js";
+import calendarEvent from "./controllers/CalendarEventController/CalendarEventController.js";
+import calendarTag from "./controllers/CalendarTagController/CalendarTagController.js";
 
 import catalog from "./controllers/CatalogController/CatalogController.js";
 import catalogProgram from "./controllers/CatalogProgramController/CatalogProgramController.js";
@@ -29,6 +32,9 @@ type Controler = {
 };
 const controllers: Controler[] = [
     auth,
+    calendar,
+    calendarEvent,
+    calendarTag,
     professor,
     unit,
     course,
@@ -68,6 +74,8 @@ export default {
 
 export const resourcesPaths = {
     auth: auth.paths,
+    calendarEvent: calendarEvent.paths,
+    calendarTag: calendarTag.paths,
     class: classController.paths,
     classSchedule: classSchedule.paths,
     course: course.paths,

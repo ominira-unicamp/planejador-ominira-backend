@@ -298,3 +298,19 @@ model PeriodPlanning {
 
   classes Class[]
 }
+
+model CalendarEvent {
+  id          Int      @id @default(autoincrement())
+  startDate   DateTime
+  endDate     DateTime?
+  description String
+  tags        CalendarTag[]
+
+  @@index([startDate, endDate])
+}
+
+model CalendarTag {
+  id     Int            @id @default(autoincrement())
+  name   String         @unique
+  events CalendarEvent[]
+}
