@@ -9,15 +9,28 @@ const dateInput = z
     .union([z.iso.date(), z.iso.datetime({ offset: true })])
     .pipe(z.coerce.date());
 
+const tagIdsInput = z
+    .union([z.string(), z.array(z.string())])
+    .transform((tagIds) => (Array.isArray(tagIds) ? tagIds : [tagIds]))
+    .pipe(
+        z
+            .array(
+                z
+                    .string()
+                    .pipe(z.coerce.number())
+                    .pipe(z.number().int().positive())
+            )
+            .min(1)
+            .refine((tagIds) => new Set(tagIds).size === tagIds.length, {
+                message: "tagId must not contain duplicates"
+            })
+    );
+
 export const calendarQuerySchema = z
     .object({
         startDate: dateInput.optional(),
         endDate: dateInput.optional(),
-        tagId: z
-            .string()
-            .pipe(z.coerce.number())
-            .pipe(z.number().int().positive())
-            .optional()
+        tagId: tagIdsInput.optional()
     })
     .strict()
     .superRefine((query, context) => {

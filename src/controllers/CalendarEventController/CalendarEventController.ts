@@ -60,7 +60,7 @@ const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
             ? {
                   tags: {
                       some: {
-                          id: tagId
+                          id: { in: tagId }
                       }
                   }
               }

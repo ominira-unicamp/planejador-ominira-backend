@@ -44,7 +44,7 @@ async function getCalendar(req: Request, res: Response) {
                 ? {
                       tags: {
                           some: {
-                              id: tagId
+                              id: { in: tagId }
                           }
                       }
                   }

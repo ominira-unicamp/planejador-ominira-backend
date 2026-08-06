@@ -51,16 +51,55 @@ function formatDateTime(date: Date) {
     return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
 }
 
+function formatDate(date: Date) {
+    const year = date.getUTCFullYear().toString().padStart(4, "0");
+    const month = (date.getUTCMonth() + 1).toString().padStart(2, "0");
+    const day = date.getUTCDate().toString().padStart(2, "0");
+
+    return `${year}${month}${day}`;
+}
+
+function isUtcMidnight(date: Date) {
+    return (
+        date.getUTCHours() === 0 &&
+        date.getUTCMinutes() === 0 &&
+        date.getUTCSeconds() === 0 &&
+        date.getUTCMilliseconds() === 0
+    );
+}
+
+function isAllDayEvent(event: CalendarFeedEvent) {
+    return (
+        isUtcMidnight(event.startDate) &&
+        (!event.endDate || isUtcMidnight(event.endDate))
+    );
+}
+
+function addUtcDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setUTCDate(result.getUTCDate() + days);
+    return result;
+}
+
 function buildEventLines(event: CalendarFeedEvent, generatedAt: Date) {
+    const allDay = isAllDayEvent(event);
     const lines = [
         "BEGIN:VEVENT",
         `UID:calendar-event-${event.id}@pomi`,
         `DTSTAMP:${formatDateTime(generatedAt)}`,
-        `DTSTART:${formatDateTime(event.startDate)}`,
+        allDay
+            ? `DTSTART;VALUE=DATE:${formatDate(event.startDate)}`
+            : `DTSTART:${formatDateTime(event.startDate)}`,
         `SUMMARY:${escapeText(event.description)}`
     ];
 
-    if (event.endDate) {
+    if (allDay) {
+        lines.splice(
+            4,
+            0,
+            `DTEND;VALUE=DATE:${formatDate(addUtcDays(event.endDate ?? event.startDate, 1))}`
+        );
+    } else if (event.endDate) {
         lines.splice(4, 0, `DTEND:${formatDateTime(event.endDate)}`);
     }
 

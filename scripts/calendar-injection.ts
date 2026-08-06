@@ -15,6 +15,11 @@ interface CalendarJsonEvent {
     dataFim: string | null;
     categoria: string;
     descricao: string;
+    tags?: string[];
+}
+
+interface ParsedCalendarJsonEvent extends CalendarJsonEvent {
+    tags: string[];
 }
 
 function parseDate(value: string, field: string, index: number) {
@@ -40,7 +45,7 @@ function parseDate(value: string, field: string, index: number) {
     return date;
 }
 
-function readCalendarEvents() {
+function readCalendarEvents(): ParsedCalendarJsonEvent[] {
     const raw = readFileSync(calendarJsonPath, "utf-8");
     const parsed: unknown = JSON.parse(raw);
 
@@ -48,7 +53,7 @@ function readCalendarEvents() {
         throw new Error("O arquivo de calendário deve conter uma lista");
     }
 
-    return parsed.map((value, index): CalendarJsonEvent => {
+    return parsed.map((value, index): ParsedCalendarJsonEvent => {
         if (!value || typeof value !== "object") {
             throw new Error(`Registro de calendário inválido: ${index + 1}`);
         }
@@ -59,6 +64,11 @@ function readCalendarEvents() {
             (event.dataFim !== null && typeof event.dataFim !== "string") ||
             typeof event.categoria !== "string" ||
             typeof event.descricao !== "string" ||
+            (event.tags !== undefined &&
+                (!Array.isArray(event.tags) ||
+                    event.tags.some(
+                        (tag) => typeof tag !== "string" || tag.trim() === ""
+                    ))) ||
             event.categoria.trim() === "" ||
             event.descricao.trim() === ""
         ) {
@@ -79,52 +89,129 @@ function readCalendarEvents() {
             dataInicio: event.dataInicio,
             dataFim: event.dataFim,
             categoria: event.categoria.trim(),
-            descricao: event.descricao.trim()
+            descricao: event.descricao.trim(),
+            tags: Array.from(
+                new Set(event.tags?.map((tag) => tag.trim()) ?? [])
+            )
         };
     });
 }
 
 async function main() {
     const calendarEvents = readCalendarEvents();
-    const categories = new Set(
-        calendarEvents.map((calendarEvent) => calendarEvent.categoria)
+    const tagNames = new Set(
+        calendarEvents.flatMap((calendarEvent) => [
+            calendarEvent.categoria,
+            ...calendarEvent.tags
+        ])
     );
 
     console.log(
-        `📅 Injetando ${calendarEvents.length} eventos e ${categories.size} categorias...`
+        `📅 Sincronizando ${calendarEvents.length} eventos e ${tagNames.size} tags...`
     );
 
-    await prisma.$transaction(async (transaction) => {
-        await transaction.calendarEvent.deleteMany();
-        await transaction.calendarTag.deleteMany();
+    await prisma.$transaction(
+        async (transaction) => {
+            await transaction.calendarTag.createMany({
+                data: Array.from(tagNames, (name) => ({ name })),
+                skipDuplicates: true
+            });
 
-        for (const [index, calendarEvent] of calendarEvents.entries()) {
-            const startDate = parseDate(
-                calendarEvent.dataInicio,
-                "dataInicio",
-                index
+            const calendarTags = await transaction.calendarTag.findMany({
+                select: { id: true, name: true }
+            });
+            const tagIdByName = new Map(
+                calendarTags.map((calendarTag) => [
+                    calendarTag.name,
+                    calendarTag.id
+                ])
             );
-            const endDate = calendarEvent.dataFim
-                ? parseDate(calendarEvent.dataFim, "dataFim", index)
-                : null;
 
-            await transaction.calendarEvent.create({
-                data: {
-                    startDate,
-                    endDate,
-                    description: calendarEvent.descricao,
-                    tags: {
-                        connectOrCreate: {
-                            where: { name: calendarEvent.categoria },
-                            create: { name: calendarEvent.categoria }
+            let createdEvents = 0;
+            let updatedEvents = 0;
+
+            for (const [index, calendarEvent] of calendarEvents.entries()) {
+                const startDate = parseDate(
+                    calendarEvent.dataInicio,
+                    "dataInicio",
+                    index
+                );
+                const endDate = calendarEvent.dataFim
+                    ? parseDate(calendarEvent.dataFim, "dataFim", index)
+                    : null;
+                const eventTagNames = [
+                    calendarEvent.categoria,
+                    ...calendarEvent.tags
+                ];
+                const tagIds = eventTagNames.map((tagName) => {
+                    const tagId = tagIdByName.get(tagName);
+
+                    if (tagId === undefined) {
+                        throw new Error(
+                            `Tag não encontrada no registro ${index + 1}: ${tagName}`
+                        );
+                    }
+
+                    return tagId;
+                });
+                const existingEvent = await transaction.calendarEvent.findFirst(
+                    {
+                        where: {
+                            startDate,
+                            description: calendarEvent.descricao,
+                            OR: endDate
+                                ? [{ endDate }]
+                                : [{ endDate: null }, { endDate: startDate }]
+                        },
+                        select: {
+                            id: true,
+                            tags: { select: { id: true } }
                         }
                     }
-                }
-            });
-        }
-    });
+                );
 
-    console.log("✨ Calendário injetado com sucesso!");
+                if (existingEvent) {
+                    const existingTagIds = new Set(
+                        existingEvent.tags.map((tag) => tag.id)
+                    );
+                    const missingTagIds = tagIds.filter(
+                        (tagId) => !existingTagIds.has(tagId)
+                    );
+
+                    if (missingTagIds.length > 0) {
+                        await transaction.calendarEvent.update({
+                            where: { id: existingEvent.id },
+                            data: {
+                                tags: {
+                                    connect: missingTagIds.map((id) => ({ id }))
+                                }
+                            }
+                        });
+                        updatedEvents += 1;
+                    }
+                } else {
+                    await transaction.calendarEvent.create({
+                        data: {
+                            startDate,
+                            endDate,
+                            description: calendarEvent.descricao,
+                            tags: {
+                                connect: tagIds.map((id) => ({ id }))
+                            }
+                        }
+                    });
+                    createdEvents += 1;
+                }
+            }
+
+            console.log(
+                `✨ Calendário sincronizado: ${createdEvents} eventos criados, ${updatedEvents} eventos enriquecidos.`
+            );
+        },
+        { timeout: 60_000 }
+    );
+
+    console.log("✨ Injeção incremental concluída com sucesso!");
 }
 
 main()
