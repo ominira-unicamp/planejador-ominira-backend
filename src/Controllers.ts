@@ -1,4 +1,3 @@
-import auth from "./controllers/AuthController/AuthController.js";
 import calendar from "./controllers/CalendarController/CalendarController.js";
 import calendarEvent from "./controllers/CalendarEventController/CalendarEventController.js";
 import calendarTag from "./controllers/CalendarTagController/CalendarTagController.js";
@@ -31,7 +30,6 @@ type Controler = {
     authRegistry?: AuthRegistry;
 };
 const controllers: Controler[] = [
-    auth,
     calendar,
     calendarEvent,
     calendarTag,
@@ -73,7 +71,6 @@ export default {
 };
 
 export const resourcesPaths = {
-    auth: auth.paths,
     calendarEvent: calendarEvent.paths,
     calendarTag: calendarTag.paths,
     class: classController.paths,

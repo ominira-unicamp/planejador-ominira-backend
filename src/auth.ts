@@ -4,36 +4,41 @@ import { match } from "path-to-regexp";
 
 const disabled = process.env.DISABLED_AUTH === "true";
 const isProduction = process.env.NODE_ENV === "production";
+const issuer = process.env.KEYCLOAK_ISSUER?.replace(/\/$/, "");
+const audience = process.env.KEYCLOAK_AUDIENCE;
 
-if (!process.env.secretKey && !disabled) {
+if (isProduction && disabled) {
+    throw new Error("DISABLED_AUTH cannot be enabled in production.");
+}
+
+if ((!issuer || !audience) && !disabled) {
     throw new Error(
-        "secretKey environment variable is required when authentication is enabled. Set DISABLED_AUTH=true for development or provide a secretKey."
+        "KEYCLOAK_ISSUER and KEYCLOAK_AUDIENCE are required when authentication is enabled."
     );
 }
 
-const secretKey = process.env.secretKey ?? "default";
+const keySet = issuer
+    ? jose.createRemoteJWKSet(
+          new URL(`${issuer}/protocol/openid-connect/certs`)
+      )
+    : undefined;
 
-// In production, enforce minimum secret key length
-if (isProduction && !disabled && secretKey.length < 32) {
-    throw new Error(
-        "secretKey must be at least 32 characters in production environment."
-    );
-}
+async function verifyAccessToken(token: string): Promise<jose.JWTPayload> {
+    if (!keySet || !issuer || !audience) {
+        throw new Error("Authentication is not configured.");
+    }
 
-const secret = new TextEncoder().encode(secretKey);
-const alg = "HS256";
+    const { payload } = await jose.jwtVerify(token, keySet, {
+        issuer,
+        audience,
+        algorithms: ["RS256"]
+    });
 
-async function generateToken(
-    payload: { userId: number; [key: string]: unknown },
-    expiresIn: string = "2h"
-): Promise<string> {
-    const jwt = await new jose.SignJWT(payload)
-        .setProtectedHeader({ alg })
-        .setSubject(String(payload.userId))
-        .setIssuedAt()
-        .setExpirationTime(expiresIn)
-        .sign(secret);
-    return jwt;
+    if (!payload.sub) {
+        throw new Error("The access token has no subject.");
+    }
+
+    return payload;
 }
 
 type Methods = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
@@ -77,9 +82,8 @@ class AuthRegistry {
                 return res.status(401).json({ error: "Unauthorized" });
             }
             try {
-                const { payload } = await jose.jwtVerify(
-                    authHeader.substring(7),
-                    secret
+                const payload = await verifyAccessToken(
+                    authHeader.substring(7)
                 );
                 req.user = payload;
                 next();
@@ -90,4 +94,4 @@ class AuthRegistry {
     }
 }
 
-export { AuthRegistry, generateToken };
+export { AuthRegistry, verifyAccessToken };

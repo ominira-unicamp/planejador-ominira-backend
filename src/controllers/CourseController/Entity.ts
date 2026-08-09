@@ -31,6 +31,7 @@ function buildCourseEntity(
     const { unit, ...rest } = course;
     return {
         ...rest,
+        prefix: rest.code.slice(0, 2).toUpperCase(),
         unitCode: unit.code,
         _paths: relatedPathsForCourse(course.id, course.unitId)
     };

@@ -17,6 +17,7 @@ const courseEntity = z
         code: z.string().min(1),
         name: z.string().min(1),
         credits: z.number().int().min(0),
+        prefix: z.string().min(1),
         unitId: z.number().int(),
         unitCode: z.string().min(1),
         _paths: z

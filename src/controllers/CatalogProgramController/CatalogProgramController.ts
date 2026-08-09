@@ -28,8 +28,8 @@ extendZodWithOpenApi(z);
 const router = Router();
 const authRegistry = new AuthRegistry();
 
-authRegistry.addException("GET", "/catalog/:catalogId/program/:programId");
-authRegistry.addException("GET", "/catalog/:catalogId/programs");
+authRegistry.addException("GET", "/catalog-program");
+authRegistry.addException("GET", "/catalog-program/:id");
 
 type TxType = Omit<
     PrismaClient,

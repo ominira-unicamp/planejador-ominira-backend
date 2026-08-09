@@ -6,7 +6,10 @@
     "scripts": {
         "dev": "tsx watch src/index.ts",
         "build": "tsc -b",
+        "test": "tsx --test test/**/*.test.ts",
         "inject:calendar": "tsx scripts/calendar-injection.ts",
+        "inject:catalogs": "tsx scripts/catalog-injection.ts",
+        "inject:catalog-22g": "tsx scripts/catalog-22g-injection.ts",
         "start": "node dist/src/index.js",
         "lint": "eslint src/ --ext .ts && prettier --write src/",
         "prisma:generate": "npx prisma generate",

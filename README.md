@@ -27,7 +27,7 @@ Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, qu
 - **Banco de Dados:** PostgreSQL
 - **Validação:** Zod
 - **Documentação:** OpenAPI/Swagger (Scalar)
-- **Autenticação:** JWT (jose)
+- **Autenticação:** OpenID Connect com Keycloak e validação JWT via JWKS (`jose`)
 - **Segurança:** Helmet, CORS
 - **Containerização:** Docker & Docker Compose
 
@@ -59,6 +59,10 @@ npm install
 
 Crie um arquivo `.env`, ou `.docker.env` caso utilize o docker, na raiz do projeto conforme o `.env.template`.
 
+Com autenticação habilitada, configure `KEYCLOAK_ISSUER` e
+`KEYCLOAK_AUDIENCE=pomi-api`. `DISABLED_AUTH=true` é aceito somente fora de
+produção.
+
 ## Executando o Projeto
 
 Para iniciar o ambiente de desenvolvimento em um ambiente com docker:
@@ -76,6 +80,13 @@ npx prisma generate
 # Inicie o servidor em modo desenvolvimento
 npm run dev
 ```
+
+Para executar PostgreSQL, Keycloak e API juntos, preencha `.docker.env` a partir
+de `.env.template` e execute `docker compose up --build`. Esse Compose usa a
+configuração declarativa em `../pomi-infra/slices/pomi/keycloak`; portanto, os
+dois repositórios devem estar lado a lado. O realm `pomi`, o client público
+`pomi-frontend` e a audiência `pomi-api` são reconciliados pelo serviço
+transitório `keycloak-config`. O console local fica em `http://localhost:8080`.
 
 ### Seed 
 

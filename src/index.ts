@@ -11,10 +11,17 @@ import studentMiddleware from "./Middlewares/studentMiddleware.js";
 import openapi from "./OpenApi.js";
 
 const app = express();
-const corsOrigin = process.env.CORS_ORIGIN || "*";
+const configuredCorsOrigins =
+    process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? "*";
+const corsOrigins = configuredCorsOrigins
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+const corsOrigin = corsOrigins.length === 0 ? "*" : corsOrigins;
 app.use(
     cors({
-        origin: corsOrigin === "*" ? "*" : corsOrigin.split(","),
+        origin:
+            corsOrigin.length === 1 && corsOrigin[0] === "*" ? "*" : corsOrigin,
         credentials: true
     })
 );

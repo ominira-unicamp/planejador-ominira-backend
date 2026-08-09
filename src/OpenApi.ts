@@ -16,7 +16,7 @@ registry.registerComponent("securitySchemes", "BearerAuth", {
     type: "http",
     scheme: "bearer",
     bearerFormat: "JWT",
-    description: "JWT authorization using the Bearer scheme"
+    description: "Keycloak access token using the Bearer scheme"
 });
 
 registry.definitions.forEach((r) => {
