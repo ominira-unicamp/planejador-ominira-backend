@@ -24,12 +24,26 @@ const authRegistry = new AuthRegistry();
 authRegistry.addException("GET", "/specializations/:id");
 authRegistry.addException("GET", "/specializations");
 
-const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
+function validationError(
+    path: string[],
+    code: "REFERENCE_NOT_FOUND" | "ALREADY_EXISTS",
+    message: string
+) {
+    return new ValidationError([{ path, code, message }]);
+}
+
+export const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
+    const { programId, programCode, code } = input.query;
     const specializations = await ctx.prisma.specialization.findMany({
         ...specializationEntity.prismaSelection,
-        orderBy: {
-            name: "asc"
-        }
+        where: {
+            program: {
+                id: programId,
+                code: programCode
+            },
+            code
+        },
+        orderBy: [{ program: { code: "asc" } }, { name: "asc" }]
     });
     const entities = specializations.map(specializationEntity.build);
     return { 200: entities };
@@ -42,14 +56,41 @@ const get = defaultGetHandler(
     "Specialization not found"
 );
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
+export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const {
-        body: { code, name }
+        body: { programId, code, name }
     } = input;
+
+    const program = await ctx.prisma.program.findUnique({
+        where: { id: programId },
+        select: { id: true }
+    });
+    if (!program)
+        return {
+            400: validationError(
+                ["body", "programId"],
+                "REFERENCE_NOT_FOUND",
+                `Program with id ${programId} not found`
+            )
+        };
+
+    const duplicate = await ctx.prisma.specialization.findUnique({
+        where: { programId_code: { programId, code } },
+        select: { id: true }
+    });
+    if (duplicate)
+        return {
+            400: validationError(
+                ["body", "code"],
+                "ALREADY_EXISTS",
+                `Specialization with code ${code} already exists for program ${programId}`
+            )
+        };
 
     const specialization = await ctx.prisma.specialization.create({
         ...specializationEntity.prismaSelection,
         data: {
+            programId,
             code,
             name
         }
@@ -57,7 +98,7 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     return { 201: specializationEntity.build(specialization) };
 };
 
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
+export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
     const {
         path: { id },
         body
@@ -69,6 +110,26 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 
     if (!existing) {
         return { 404: { description: "Specialization not found" } };
+    }
+
+    if (body.code) {
+        const duplicate = await ctx.prisma.specialization.findUnique({
+            where: {
+                programId_code: {
+                    programId: existing.programId,
+                    code: body.code
+                }
+            },
+            select: { id: true }
+        });
+        if (duplicate && duplicate.id !== id)
+            return {
+                400: validationError(
+                    ["body", "code"],
+                    "ALREADY_EXISTS",
+                    `Specialization with code ${body.code} already exists for program ${existing.programId}`
+                )
+            };
     }
 
     const specialization = await ctx.prisma.specialization.update({

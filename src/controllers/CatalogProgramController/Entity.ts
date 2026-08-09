@@ -1,7 +1,6 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import z from "zod";
 import { CourseBlockType } from "../../../prisma/generated/client.js";
-import { resourcesPaths } from "../../Controllers.js";
 import IO from "../../Interfaces/CatalogProgramInterface.js";
 import { MyPrisma } from "../../PrismaClient.js";
 
@@ -46,6 +45,7 @@ export const prismaCatalogProgramFieldSelection = {
         },
         catalogSpecializations: {
             include: {
+                curriculumSuggestion: { select: { id: true } },
                 specialization: {
                     select: {
                         id: true,
@@ -81,9 +81,10 @@ function relatedPathsForCatalogProgram(
     programId: number
 ) {
     return {
-        self: resourcesPaths.catalogProgram.entity(catalogProgramId),
-        catalog: resourcesPaths.catalog.entity(catalogId),
-        program: resourcesPaths.program.entity(programId)
+        self: `/catalog-program/${catalogProgramId}`,
+        catalog: `/catalogs/${catalogId}`,
+        program: `/programs/${programId}`,
+        curriculumSuggestions: `/curriculum-suggestions?catalogProgramId=${catalogProgramId}`
     };
 }
 
@@ -144,6 +145,7 @@ function buildCatalogProgramEntity(
 
     const modalities = catalogSpecializations.map((spec) => ({
         specializationId: spec.specializationId,
+        curriculumSuggestionId: spec.curriculumSuggestion?.id ?? null,
         code: spec.specialization.code,
         name: spec.specialization.name,
         blocks: transformCourseBlocks(spec.courseBlocks)

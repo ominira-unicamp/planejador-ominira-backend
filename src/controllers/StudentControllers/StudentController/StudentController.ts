@@ -9,6 +9,7 @@ import { AuthRegistry } from "../../../auth.js";
 import {
     buildHandler,
     openApiArgsFromIO,
+    type Context,
     type HandlerFn
 } from "../../../BuildHandler.js";
 import { defaultGetHandler } from "../../../defaultEndpoint.js";
@@ -20,6 +21,48 @@ extendZodWithOpenApi(z);
 
 const router = Router();
 const authRegistry = new AuthRegistry();
+
+async function validateProgramSpecialization(
+    prisma: Context["prisma"],
+    programId: number | null | undefined,
+    specializationId: number | null | undefined
+) {
+    if (specializationId == null) return null;
+
+    if (programId == null)
+        return new ValidationError([
+            {
+                code: "REQUIRED",
+                path: ["body", "programId"],
+                message:
+                    "programId is required when specializationId is provided"
+            }
+        ]);
+
+    const specialization = await prisma.specialization.findUnique({
+        where: { id: specializationId },
+        select: { programId: true }
+    });
+    if (!specialization)
+        return new ValidationError([
+            {
+                code: "REFERENCE_NOT_FOUND",
+                path: ["body", "specializationId"],
+                message: `Specialization with id ${specializationId} not found`
+            }
+        ]);
+
+    if (specialization.programId !== programId)
+        return new ValidationError([
+            {
+                code: "INVALID_VALUE",
+                path: ["body", "specializationId"],
+                message: `Specialization ${specializationId} does not belong to program ${programId}`
+            }
+        ]);
+
+    return null;
+}
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
     const students = await ctx.prisma.student.findMany();
@@ -34,7 +77,7 @@ const get = defaultGetHandler(
     "Student not found"
 );
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
+export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const { body } = input;
     const existing = await ctx.prisma.student.findFirst({
         where: { ra: body.ra }
@@ -50,6 +93,13 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
             ])
         };
     }
+    const validation = await validateProgramSpecialization(
+        ctx.prisma,
+        body.programId,
+        body.specializationId
+    );
+    if (validation) return { 400: validation };
+
     const student = await ctx.prisma.student.create({
         data: {
             ra: body.ra,
@@ -62,13 +112,22 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     return { 201: studentEntity.build(student) };
 };
 
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
+export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
     const {
         path: { id },
         body
     } = input;
     const existing = await ctx.prisma.student.findUnique({ where: { id } });
     if (!existing) return { 404: { description: "Student not found" } };
+
+    const validation = await validateProgramSpecialization(
+        ctx.prisma,
+        body.programId !== undefined ? body.programId : existing.programId,
+        body.specializationId !== undefined
+            ? body.specializationId
+            : existing.specializationId
+    );
+    if (validation) return { 400: validation };
 
     const student = await ctx.prisma.student.update({
         where: { id },

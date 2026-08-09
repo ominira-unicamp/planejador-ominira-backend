@@ -86,16 +86,21 @@ model Program {
   unit            Unit             @relation(fields: [unitId], references: [id])
   unitId          Int
   catalogPrograms CatalogProgram[]
+  specializations Specialization[]
   students        Student[]
 }
 
 model Specialization {
-  id       Int       @id @default(autoincrement())
-  code     String
-  name     String
-  students Student[]
+  id        Int       @id @default(autoincrement())
+  program   Program   @relation(fields: [programId], references: [id])
+  programId Int
+  code      String
+  name      String
+  students  Student[]
 
   catalogSpecializations CatalogSpecialization[]
+
+  @@unique([programId, code])
 }
 
 model Language {
@@ -125,9 +130,16 @@ model CatalogSpecialization {
   specialization   Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
   specializationId Int
 
-  courseBlocks CourseBlock[]
+  courseBlocks         CourseBlock[]
+  curriculumSuggestion CurriculumSuggestion?
 
   @@unique([catalogProgramId, specializationId])
+}
+
+enum CurriculumSuggestionType {
+  GENERAL
+  SPECIALIZATION
+  PRE_OPTION
 }
 
 model CatalogLanguage {
@@ -142,22 +154,25 @@ model CatalogLanguage {
 }
 
 model CurriculumSuggestion {
-  id              Int                    @id @default(autoincrement())
-  catalogProgram  CatalogProgram         @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
-  catalogProgramId Int
-  code            String
-  name            String
-  semesters       SemesterSuggestion[]
+  id                      Int                      @id @default(autoincrement())
+  catalogProgram          CatalogProgram           @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
+  catalogProgramId        Int
+  code                    String
+  name                    String
+  type                    CurriculumSuggestionType @default(GENERAL)
+  catalogSpecialization   CatalogSpecialization?   @relation(fields: [catalogSpecializationId], references: [id])
+  catalogSpecializationId Int?                     @unique
+  semesters               SemesterSuggestion[]
 
   @@unique([catalogProgramId, code])
 }
 
 model SemesterSuggestion {
-  id              Int                    @id @default(autoincrement())
-  suggestion      CurriculumSuggestion  @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  id              Int                  @id @default(autoincrement())
+  suggestion      CurriculumSuggestion @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
   suggestionId    Int
   semester        Int
-  electiveCredits Int                    @default(0)
+  electiveCredits Int                  @default(0)
   courses         SuggestionCourse[]
 
   @@unique([suggestionId, semester])
@@ -169,7 +184,6 @@ model SuggestionCourse {
   semesterSuggestionId Int
   course               Course             @relation(fields: [courseId], references: [id])
   courseId             Int
-  position             Int
 
   @@unique([semesterSuggestionId, courseId])
 }
@@ -335,7 +349,7 @@ model PeriodPlanning {
 }
 
 model CalendarEvent {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   startDate   DateTime
   endDate     DateTime?
   description String
@@ -345,7 +359,7 @@ model CalendarEvent {
 }
 
 model CalendarTag {
-  id     Int            @id @default(autoincrement())
-  name   String         @unique
+  id     Int             @id @default(autoincrement())
+  name   String          @unique
   events CalendarEvent[]
 }

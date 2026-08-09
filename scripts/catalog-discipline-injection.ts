@@ -2,7 +2,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { PrismaClient } from "../prisma/generated/client.js";
+import { Prisma, PrismaClient } from "../prisma/generated/client.js";
 
 dotenv.config();
 
@@ -11,6 +11,13 @@ const inputPath = resolve(
         resolve(import.meta.dirname, "../../scrapper/catalogo_disciplinas.json")
 );
 const unitCode = process.env.CATALOG_DISCIPLINES_UNIT_CODE ?? "DAC";
+const transactionTimeout = Number(
+    process.env.CATALOG_DISCIPLINES_TRANSACTION_TIMEOUT_MS ?? "1800000"
+);
+if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+    throw new Error(
+        "CATALOG_DISCIPLINES_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
+    );
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter: pool });
 
@@ -65,13 +72,13 @@ async function main() {
                     [...latestCourses.values()].map(({ prefix }) => prefix)
                 )
             ];
-            for (const prefixCode of prefixCodes) {
-                await tx.prefixes.upsert({
-                    where: { prefix: prefixCode },
-                    create: { prefix: prefixCode, unitId: unit.id },
-                    update: {}
-                });
-            }
+            await tx.prefixes.createMany({
+                data: prefixCodes.map((prefix) => ({
+                    prefix,
+                    unitId: unit.id
+                })),
+                skipDuplicates: true
+            });
             const persistedPrefixes = new Map(
                 (
                     await tx.prefixes.findMany({
@@ -80,25 +87,34 @@ async function main() {
                     })
                 ).map((prefix) => [prefix.prefix, prefix.id])
             );
-            for (const { prefix, course } of latestCourses.values()) {
-                const prefixId = persistedPrefixes.get(prefix);
-                if (!prefixId)
-                    throw new Error(`Prefixo não persistido: ${prefix}`);
-                await tx.course.upsert({
-                    where: { code: normalize(course.code) },
-                    create: {
+            const courses = [...latestCourses.values()].map(
+                ({ prefix, course }) => {
+                    const prefixId = persistedPrefixes.get(prefix);
+                    if (!prefixId)
+                        throw new Error(`Prefixo não persistido: ${prefix}`);
+                    return {
                         code: normalize(course.code),
                         name: course.name,
                         credits: course.credits,
-                        unitId: unit.id,
                         prefixId
-                    },
-                    update: {
-                        name: course.name,
-                        credits: course.credits,
-                        prefixId
-                    }
-                });
+                    };
+                }
+            );
+            for (let start = 0; start < courses.length; start += 500) {
+                const rows = courses
+                    .slice(start, start + 500)
+                    .map(
+                        (course) =>
+                            Prisma.sql`(${course.code}, ${course.name}, ${course.credits}, ${unit.id}, ${course.prefixId})`
+                    );
+                await tx.$executeRaw`
+                    INSERT INTO "Course" ("code", "name", "credits", "unitId", "prefixId")
+                    VALUES ${Prisma.join(rows)}
+                    ON CONFLICT ("code") DO UPDATE SET
+                        "name" = EXCLUDED."name",
+                        "credits" = EXCLUDED."credits",
+                        "prefixId" = EXCLUDED."prefixId"
+                `;
             }
             const years = catalogs.map(({ year }) => year);
             return {
@@ -109,7 +125,7 @@ async function main() {
                 unitCode
             };
         },
-        { timeout: 600_000 }
+        { timeout: transactionTimeout, maxWait: 60_000 }
     );
     console.log(JSON.stringify(result, null, 2));
 }

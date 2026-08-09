@@ -21,6 +21,7 @@ import IO, {
     CourseBlockInput,
     CourseBlockOperations
 } from "../../Interfaces/CatalogProgramInterface.js";
+import { ValidationError } from "../../Validation.js";
 import catalogProgramEntity from "./Entity.js";
 
 extendZodWithOpenApi(z);
@@ -35,6 +36,45 @@ type TxType = Omit<
     PrismaClient,
     "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
 >;
+
+function specializationIdsFromOperations(
+    operations: CatalogSpecializationOperations
+) {
+    return [
+        ...(operations.set ?? []),
+        ...(operations.add ?? []),
+        ...(operations.upsert ?? []),
+        ...(operations.update ?? [])
+    ].map(({ specializationId }) => specializationId);
+}
+
+export async function validateSpecializationsForProgram(
+    prisma: Pick<TxType, "specialization">,
+    specializationIds: number[],
+    programId: number
+) {
+    const uniqueIds = [...new Set(specializationIds)];
+    if (uniqueIds.length === 0) return null;
+
+    const matching = await prisma.specialization.findMany({
+        where: {
+            id: { in: uniqueIds },
+            programId
+        },
+        select: { id: true }
+    });
+    const matchingIds = new Set(matching.map(({ id }) => id));
+    const invalidIds = uniqueIds.filter((id) => !matchingIds.has(id));
+    if (invalidIds.length === 0) return null;
+
+    return new ValidationError([
+        {
+            path: ["body", "catalogSpecializations"],
+            code: "INVALID_VALUE",
+            message: `Specializations ${invalidIds.join(", ")} do not belong to program ${programId}`
+        }
+    ]);
+}
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
     const {
@@ -114,6 +154,17 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
         where: { id: body.programId }
     });
     if (!program) return { 404: { description: "Program not found" } };
+
+    if (body.catalogSpecializations) {
+        const validation = await validateSpecializationsForProgram(
+            ctx.prisma,
+            body.catalogSpecializations.map(
+                ({ specializationId }) => specializationId
+            ),
+            body.programId
+        );
+        if (validation) return { 400: validation };
+    }
 
     const catalogProgram = await ctx.prisma.$transaction(async (tx) => {
         const catalogProgram = await tx.catalogProgram.create({
@@ -503,6 +554,15 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
     });
 
     if (!existing) return { 404: { description: "Catalog program not found" } };
+
+    if (body.catalogSpecializations) {
+        const validation = await validateSpecializationsForProgram(
+            ctx.prisma,
+            specializationIdsFromOperations(body.catalogSpecializations),
+            existing.programId
+        );
+        if (validation) return { 400: validation };
+    }
 
     const catalogProgram = await ctx.prisma.$transaction(async (tx) => {
         if (body.courseBlocks) {

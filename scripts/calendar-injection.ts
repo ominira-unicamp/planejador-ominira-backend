@@ -9,6 +9,13 @@ dotenv.config();
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter: pool });
 const calendarJsonPath = join(process.cwd(), ".local", "calendario.json");
+const transactionTimeout = Number(
+    process.env.CALENDAR_TRANSACTION_TIMEOUT_MS ?? "600000"
+);
+if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+    throw new Error(
+        "CALENDAR_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
+    );
 
 interface CalendarJsonEvent {
     dataInicio: string;
@@ -99,6 +106,14 @@ function readCalendarEvents(): ParsedCalendarJsonEvent[] {
 
 async function main() {
     const calendarEvents = readCalendarEvents();
+    const normalizedEvents = calendarEvents.map((calendarEvent, index) => ({
+        ...calendarEvent,
+        startDate: parseDate(calendarEvent.dataInicio, "dataInicio", index),
+        endDate: calendarEvent.dataFim
+            ? parseDate(calendarEvent.dataFim, "dataFim", index)
+            : null,
+        index
+    }));
     const tagNames = new Set(
         calendarEvents.flatMap((calendarEvent) => [
             calendarEvent.categoria,
@@ -129,16 +144,54 @@ async function main() {
 
             let createdEvents = 0;
             let updatedEvents = 0;
+            const existingEvents = await transaction.calendarEvent.findMany({
+                where: {
+                    startDate: {
+                        in: normalizedEvents.map(({ startDate }) => startDate)
+                    },
+                    description: {
+                        in: normalizedEvents.map(({ descricao }) => descricao)
+                    }
+                },
+                select: {
+                    id: true,
+                    startDate: true,
+                    endDate: true,
+                    description: true,
+                    tags: { select: { id: true } }
+                }
+            });
+            const eventKey = (
+                startDate: Date,
+                endDate: Date | null,
+                description: string
+            ) =>
+                `${startDate.toISOString()}\u0000${endDate?.toISOString() ?? ""}\u0000${description}`;
+            const existingByKey = new Map(
+                existingEvents.flatMap((event) => {
+                    const entries: Array<
+                        [string, { id: number; tags: Array<{ id: number }> }]
+                    > = [
+                        [
+                            eventKey(
+                                event.startDate,
+                                event.endDate,
+                                event.description
+                            ),
+                            event
+                        ]
+                    ];
+                    if (event.endDate?.getTime() === event.startDate.getTime())
+                        entries.push([
+                            eventKey(event.startDate, null, event.description),
+                            event
+                        ]);
+                    return entries;
+                })
+            );
 
-            for (const [index, calendarEvent] of calendarEvents.entries()) {
-                const startDate = parseDate(
-                    calendarEvent.dataInicio,
-                    "dataInicio",
-                    index
-                );
-                const endDate = calendarEvent.dataFim
-                    ? parseDate(calendarEvent.dataFim, "dataFim", index)
-                    : null;
+            for (const calendarEvent of normalizedEvents) {
+                const { startDate, endDate, index } = calendarEvent;
                 const eventTagNames = [
                     calendarEvent.categoria,
                     ...calendarEvent.tags
@@ -154,21 +207,12 @@ async function main() {
 
                     return tagId;
                 });
-                const existingEvent = await transaction.calendarEvent.findFirst(
-                    {
-                        where: {
-                            startDate,
-                            description: calendarEvent.descricao,
-                            OR: endDate
-                                ? [{ endDate }]
-                                : [{ endDate: null }, { endDate: startDate }]
-                        },
-                        select: {
-                            id: true,
-                            tags: { select: { id: true } }
-                        }
-                    }
+                const key = eventKey(
+                    startDate,
+                    endDate,
+                    calendarEvent.descricao
                 );
+                const existingEvent = existingByKey.get(key);
 
                 if (existingEvent) {
                     const existingTagIds = new Set(
@@ -187,18 +231,28 @@ async function main() {
                                 }
                             }
                         });
+                        existingEvent.tags.push(
+                            ...missingTagIds.map((id) => ({ id }))
+                        );
                         updatedEvents += 1;
                     }
                 } else {
-                    await transaction.calendarEvent.create({
-                        data: {
-                            startDate,
-                            endDate,
-                            description: calendarEvent.descricao,
-                            tags: {
-                                connect: tagIds.map((id) => ({ id }))
-                            }
+                    const createdEvent = await transaction.calendarEvent.create(
+                        {
+                            data: {
+                                startDate,
+                                endDate,
+                                description: calendarEvent.descricao,
+                                tags: {
+                                    connect: tagIds.map((id) => ({ id }))
+                                }
+                            },
+                            select: { id: true }
                         }
+                    );
+                    existingByKey.set(key, {
+                        id: createdEvent.id,
+                        tags: tagIds.map((id) => ({ id }))
                     });
                     createdEvents += 1;
                 }
@@ -208,7 +262,7 @@ async function main() {
                 `✨ Calendário sincronizado: ${createdEvents} eventos criados, ${updatedEvents} eventos enriquecidos.`
             );
         },
-        { timeout: 60_000 }
+        { timeout: transactionTimeout, maxWait: 60_000 }
     );
 
     console.log("✨ Injeção incremental concluída com sucesso!");

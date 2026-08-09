@@ -7,6 +7,7 @@ import catalogProgram from "./controllers/CatalogProgramController/CatalogProgra
 import classController from "./controllers/ClassController/ClassController.js";
 import classSchedule from "./controllers/ClassScheduleController/ClassScheduleController.js";
 import course from "./controllers/CourseController/CourseController.js";
+import curriculumSuggestion from "./controllers/CurriculumSuggestionController/CurriculumSuggestionController.js";
 import language from "./controllers/LanguageController/LanguageController.js";
 import professor from "./controllers/ProfessorController/ProfessorController.js";
 import program from "./controllers/ProgramController/ProgramController.js";
@@ -36,6 +37,7 @@ const controllers: Controler[] = [
     professor,
     unit,
     course,
+    curriculumSuggestion,
     classController,
     classSchedule,
     room,
@@ -76,6 +78,7 @@ export const resourcesPaths = {
     class: classController.paths,
     classSchedule: classSchedule.paths,
     course: course.paths,
+    curriculumSuggestion: curriculumSuggestion.paths,
     unit: unit.paths,
     professor: professor.paths,
     room: room.paths,

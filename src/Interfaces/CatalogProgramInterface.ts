@@ -54,6 +54,7 @@ const catalogProgramEntity = z
         modalities: z.array(
             z.object({
                 specializationId: z.number().int(),
+                curriculumSuggestionId: z.number().int().nullable(),
                 code: z.string(),
                 name: z.string(),
                 blocks: courseBlockSetSchema
@@ -69,7 +70,8 @@ const catalogProgramEntity = z
         _paths: z.object({
             self: z.string(),
             catalog: z.string(),
-            program: z.string()
+            program: z.string(),
+            curriculumSuggestions: z.string()
         })
     })
     .strict()

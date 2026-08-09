@@ -55,15 +55,22 @@ Table Program {
   unit Unit [not null]
   unitId Int [not null]
   catalogPrograms CatalogProgram [not null]
+  specializations Specialization [not null]
   students Student [not null]
 }
 
 Table Specialization {
   id Int [pk, increment]
+  program Program [not null]
+  programId Int [not null]
   code String [not null]
   name String [not null]
   students Student [not null]
   catalogSpecializations CatalogSpecialization [not null]
+
+  indexes {
+    (programId, code) [unique]
+  }
 }
 
 Table Language {
@@ -95,6 +102,7 @@ Table CatalogSpecialization {
   specialization Specialization [not null]
   specializationId Int [not null]
   courseBlocks CourseBlock [not null]
+  curriculumSuggestion CurriculumSuggestion
 
   indexes {
     (catalogProgramId, specializationId) [unique]
@@ -120,6 +128,9 @@ Table CurriculumSuggestion {
   catalogProgramId Int [not null]
   code String [not null]
   name String [not null]
+  type CurriculumSuggestionType [not null, default: 'GENERAL']
+  catalogSpecialization CatalogSpecialization
+  catalogSpecializationId Int [unique]
   semesters SemesterSuggestion [not null]
 
   indexes {
@@ -146,7 +157,6 @@ Table SuggestionCourse {
   semesterSuggestionId Int [not null]
   course Course [not null]
   courseId Int [not null]
-  position Int [not null]
 
   indexes {
     (semesterSuggestionId, courseId) [unique]
@@ -312,6 +322,12 @@ Enum YearPeriods {
   SECOND_SEMESTER
 }
 
+Enum CurriculumSuggestionType {
+  GENERAL
+  SPECIALIZATION
+  PRE_OPTION
+}
+
 Enum CourseBlockType {
   mandatory
   elective
@@ -347,6 +363,8 @@ Ref: Course.prefixId > Prefixes.id
 
 Ref: Program.unitId > Unit.id
 
+Ref: Specialization.programId > Program.id
+
 Ref: CatalogProgram.catalogId > Catalog.id
 
 Ref: CatalogProgram.programId > Program.id
@@ -360,6 +378,8 @@ Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id [delete: Cascade]
 Ref: CatalogLanguage.languageId > Language.id [delete: Cascade]
 
 Ref: CurriculumSuggestion.catalogProgramId > CatalogProgram.id [delete: Cascade]
+
+Ref: CurriculumSuggestion.catalogSpecializationId - CatalogSpecialization.id
 
 Ref: SemesterSuggestion.suggestionId > CurriculumSuggestion.id [delete: Cascade]
 

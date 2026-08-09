@@ -1,5 +1,4 @@
 import z from "zod";
-import { resourcesPaths } from "../../../Controllers.js";
 import IO from "../../../Interfaces/students/StudentInterface.js";
 import { MyPrisma } from "../../../PrismaClient.js";
 
@@ -8,12 +7,8 @@ type PrismaStudentPayload = MyPrisma.StudentGetPayload<{}>;
 
 function relatedPathsForStudent(studentId: number) {
     return {
-        classes: resourcesPaths.class.list({
-            studyPeriodId: studentId
-        }),
-        classSchedules: resourcesPaths.classSchedule.list({
-            studyPeriodId: studentId
-        })
+        classes: `/classes?studyPeriodId=${studentId}`,
+        classSchedules: `/class-schedules?studyPeriodId=${studentId}`
     };
 }
 

@@ -9,16 +9,27 @@ extendZodWithOpenApi(z);
 const basePath = [pathSeg.literal("specializations")];
 const tags = ["specializations"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
+const positiveId = z.number().int().positive();
+const queryId = z.coerce.number().int().positive();
+const specializationCode = z
+    .string()
+    .trim()
+    .min(1)
+    .transform((code) => code.toUpperCase());
 
 const schema = z
     .object({
-        id: z.number().int(),
+        id: positiveId,
+        programId: positiveId,
+        programCode: z.number().int().positive(),
+        programName: z.string().trim().min(1),
         code: z.string(),
         name: z.string(),
         catalogSpecializationsCount: z.number().int(),
         studentsCount: z.number().int(),
         _paths: z.object({
-            self: z.string()
+            self: z.string(),
+            program: z.string()
         })
     })
     .openapi("Specialization");
@@ -39,7 +50,13 @@ const get = {
 const list = {
     specs: specsBuilder.list(),
     input: z.object({
-        query: z.object({})
+        query: z
+            .object({
+                programId: queryId.optional(),
+                programCode: z.coerce.number().int().positive().optional(),
+                code: specializationCode.optional()
+            })
+            .strict()
     }),
     output: new OutputBuilder()
         .ok(z.array(schema), "List of specializations retrieved successfully")
@@ -51,8 +68,9 @@ const create = {
     input: z.object({
         body: z
             .object({
-                code: z.string().min(1),
-                name: z.string().min(1)
+                programId: positiveId,
+                code: specializationCode,
+                name: z.string().trim().min(1)
             })
             .strict()
     }),
@@ -70,10 +88,13 @@ const patch = {
         }),
         body: z
             .object({
-                code: z.string().min(1).optional(),
-                name: z.string().min(1).optional()
+                code: specializationCode.optional(),
+                name: z.string().trim().min(1).optional()
             })
             .strict()
+            .refine((body) => Object.keys(body).length > 0, {
+                message: "at least one field must be provided"
+            })
     }),
     output: new OutputBuilder()
         .ok(schema, "Specialization updated successfully")

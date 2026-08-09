@@ -7,6 +7,13 @@ import { DayOfWeek, PrismaClient } from "../prisma/generated/client.js";
 dotenv.config();
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter: pool });
+const databaseConcurrency = Number(
+    process.env.ACADEMIC_INJECTION_CONCURRENCY ?? "8"
+);
+if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
+    throw new Error(
+        "ACADEMIC_INJECTION_CONCURRENCY deve ser um inteiro positivo"
+    );
 interface Aula {
     dia_semana: string;
     horario: {
@@ -45,6 +52,28 @@ const dayOfWeekMap: Record<string, DayOfWeek> = {
     Sábado: DayOfWeek.SATURDAY,
     Domingo: DayOfWeek.SUNDAY
 };
+
+async function mapWithConcurrency<T, R>(
+    values: T[],
+    concurrency: number,
+    operation: (value: T) => Promise<R>
+) {
+    const results: R[] = new Array(values.length);
+    let next = 0;
+    await Promise.all(
+        Array.from(
+            { length: Math.min(concurrency, values.length) },
+            async () => {
+                while (next < values.length) {
+                    const index = next;
+                    next += 1;
+                    results[index] = await operation(values[index]);
+                }
+            }
+        )
+    );
+    return results;
+}
 
 async function main() {
     console.log("🌱 Iniciando injeção dos dados acadêmicos...");
@@ -129,34 +158,41 @@ async function main() {
     });
 
     console.log(`📅 Inserindo ${studyPeriods.size} períodos de estudo...`);
-    for (const studyPeriod of studyPeriods.values()) {
-        await prisma.studyPeriod.upsert({
-            where: { code: studyPeriod.code },
-            create: studyPeriod,
-            update: { startDate: studyPeriod.startDate }
-        });
-    }
+    await mapWithConcurrency(
+        [...studyPeriods.values()],
+        databaseConcurrency,
+        (studyPeriod) =>
+            prisma.studyPeriod.upsert({
+                where: { code: studyPeriod.code },
+                create: studyPeriod,
+                update: { startDate: studyPeriod.startDate }
+            })
+    );
 
     const unitsMap = new Map(
         (await prisma.unit.findMany()).map((i) => [i.code, i])
     );
 
     console.log(`📚 Inserindo ${allCourses.size} cursos...`);
-    for (const course of allCourses.values()) {
-        const unit = unitsMap.get(course.unitCode);
-        if (!unit)
-            throw new Error(`Unidade não encontrada: ${course.unitCode}`);
-        await prisma.course.upsert({
-            where: { code: course.code },
-            create: {
-                code: course.code,
-                name: course.name,
-                credits: course.credits,
-                unitId: unit.id
-            },
-            update: { unitId: unit.id }
-        });
-    }
+    await mapWithConcurrency(
+        [...allCourses.values()],
+        databaseConcurrency,
+        (course) => {
+            const unit = unitsMap.get(course.unitCode);
+            if (!unit)
+                throw new Error(`Unidade não encontrada: ${course.unitCode}`);
+            return prisma.course.upsert({
+                where: { code: course.code },
+                create: {
+                    code: course.code,
+                    name: course.name,
+                    credits: course.credits,
+                    unitId: unit.id
+                },
+                update: { unitId: unit.id }
+            });
+        }
+    );
 
     const professorsMap = new Map(
         (await prisma.professor.findMany()).map((p) => [p.name, p])
@@ -236,26 +272,31 @@ async function main() {
             c
         ])
     );
-    for (const classData of uniqueClasses) {
-        const existingClass = classesMap.get(classData.turmaKey);
-        if (existingClass) {
-            await prisma.class.update({
-                where: { id: existingClass.id },
-                data: { reservations: classData.reservations }
-            });
-            continue;
+    const persistedClasses = await mapWithConcurrency(
+        uniqueClasses,
+        databaseConcurrency,
+        async (classData) => {
+            const existingClass = classesMap.get(classData.turmaKey);
+            const persisted = existingClass
+                ? await prisma.class.update({
+                      where: { id: existingClass.id },
+                      data: { reservations: classData.reservations },
+                      include: { course: true, studyPeriod: true }
+                  })
+                : await prisma.class.create({
+                      data: {
+                          code: classData.code,
+                          courseId: classData.courseId,
+                          studyPeriodId: classData.studyPeriodId,
+                          reservations: classData.reservations
+                      },
+                      include: { course: true, studyPeriod: true }
+                  });
+            return [classData.turmaKey, persisted] as const;
         }
-        const createdClass = await prisma.class.create({
-            data: {
-                code: classData.code,
-                courseId: classData.courseId,
-                studyPeriodId: classData.studyPeriodId,
-                reservations: classData.reservations
-            },
-            include: { course: true, studyPeriod: true }
-        });
-        classesMap.set(classData.turmaKey, createdClass);
-    }
+    );
+    for (const [key, persisted] of persistedClasses)
+        classesMap.set(key, persisted);
 
     console.log("🔗 Conectando professores às turmas...");
     const professorConnections: Array<{ A: number; B: number }> = [];

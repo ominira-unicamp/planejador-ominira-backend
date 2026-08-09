@@ -154,6 +154,7 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
             _count: {
                 select: {
                     catalogPrograms: true,
+                    specializations: true,
                     students: true
                 }
             }
@@ -164,12 +165,16 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
         return { 404: { description: "Program not found" } };
     }
 
-    if (existing._count.catalogPrograms > 0 || existing._count.students > 0) {
+    if (
+        existing._count.catalogPrograms > 0 ||
+        existing._count.specializations > 0 ||
+        existing._count.students > 0
+    ) {
         const error = new ValidationError();
         error.addError({
             path: ["path", "id"],
             code: "REFERENCE_EXISTS",
-            message: `Cannot delete program with ${existing._count.students} students and ${existing._count.catalogPrograms} catalog programs`
+            message: `Cannot delete program with ${existing._count.students} students, ${existing._count.catalogPrograms} catalog programs and ${existing._count.specializations} specializations`
         });
         return { 400: error };
     }

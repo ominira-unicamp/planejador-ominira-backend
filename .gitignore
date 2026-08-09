@@ -27,3 +27,4 @@ prisma/seed.json
 data/
 
 bun.lock
+test
