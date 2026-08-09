@@ -1,35 +1,22 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
     CourseBlockType,
     CourseRequirementType,
+    Prisma,
     PrismaClient
 } from "../prisma/generated/client.js";
 
 dotenv.config();
 
-const catalogsUrl =
-    process.env.CATALOGS_URL ??
-    "https://www.dac.unicamp.br/portal/graduacao/catalogos-de-cursos";
-const firstYear = Number(process.env.CATALOG_FIRST_YEAR ?? "2021");
-const lastYear = Number(
-    process.env.CATALOG_LAST_YEAR ?? new Date().getFullYear()
-);
 const fetchConcurrency = Number(process.env.CATALOG_FETCH_CONCURRENCY ?? "6");
 const transactionTimeout = Number(
     process.env.CATALOG_TRANSACTION_TIMEOUT_MS ?? "600000"
 );
 
-if (
-    !Number.isInteger(firstYear) ||
-    !Number.isInteger(lastYear) ||
-    firstYear > lastYear
-)
-    throw new Error(
-        "CATALOG_FIRST_YEAR e CATALOG_LAST_YEAR devem definir um intervalo válido"
-    );
 if (!Number.isInteger(fetchConcurrency) || fetchConcurrency < 1)
     throw new Error("CATALOG_FETCH_CONCURRENCY deve ser um inteiro positivo");
 if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
@@ -37,7 +24,11 @@ if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
         "CATALOG_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
     );
 
-type CatalogSource = { year: number; url: string };
+type CatalogSource = {
+    year: number;
+    url?: string;
+    programs?: ProgramDetails[];
+};
 type RequirementSource = {
     type: CourseRequirementType;
     code?: string;
@@ -74,6 +65,10 @@ type CourseBlockParent = {
     catalogSpecializationId?: number;
     catalogLanguageId?: number;
 };
+type CourseRequirementData = Omit<
+    Prisma.CourseRequirementCreateManyInput,
+    "courseBlockId"
+>;
 
 function decodeHtml(value: string) {
     const named: Record<string, string> = {
@@ -143,71 +138,6 @@ function text(value: string) {
     return decodeHtml(value.replace(/<[^>]*>/g, " "))
         .replace(/\s+/g, " ")
         .trim();
-}
-
-async function download(url: string) {
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-        const response = await fetch(url);
-        if (response.ok) return response.text();
-        if (response.status !== 429 || attempt === 3)
-            throw new Error(`HTTP ${response.status} em ${url}`);
-        await new Promise((resolve) =>
-            setTimeout(resolve, 2_000 * (attempt + 1))
-        );
-    }
-    throw new Error(`Não foi possível baixar ${url}`);
-}
-
-function parseCatalogs(html: string) {
-    const found = new Map<number, CatalogSource>();
-    for (const match of html.matchAll(
-        /href=["']([^"']*catalogo(\d{4})\/index\.html)["']/gi
-    )) {
-        const year = Number(match[2]);
-        if (year >= firstYear && year <= lastYear)
-            found.set(year, { year, url: new URL(match[1], catalogsUrl).href });
-    }
-    return [...found.values()].sort((left, right) => left.year - right.year);
-}
-
-function parsePrograms(html: string, catalogUrl: string) {
-    const programs: ProgramSource[] = [];
-    const pattern =
-        /<a\b[^>]*class=["'][^"']*\brotulo-curso\b[^"']*["'][^>]*>([\s\S]*?)<\/a>([\s\S]*?)(?=<a\b[^>]*class=["'][^"']*\brotulo-curso\b|$)/gi;
-    for (const match of html.matchAll(pattern)) {
-        const title = text(match[1]);
-        const parsed = /^(\d+)\s*-\s*(.+?)\s*-\s*(?:Integral|Noturno)$/i.exec(
-            title
-        );
-        const coursePage =
-            /href=["']([^"']*\/cursos\/[^"']+\/index\.html)["']/i.exec(
-                match[2]
-            );
-        if (!parsed || !coursePage) continue;
-        programs.push({
-            code: Number(parsed[1]),
-            name: parsed[2].trim(),
-            membersUrl: new URL(
-                coursePage[1].replace(/index\.html$/, "membros.html"),
-                catalogUrl
-            ).href,
-            curriculumUrl: new URL(
-                coursePage[1].replace(/index\.html$/, "curriculo.html"),
-                catalogUrl
-            ).href
-        });
-    }
-    return programs;
-}
-
-function parseUnitCode(html: string) {
-    const unitCode = Array.from(
-        html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi),
-        (match) => /-\s*([A-Z][A-Z0-9]{1,9})\s*$/.exec(text(match[1]))?.[1]
-    ).find((code) => code !== undefined);
-    if (!unitCode)
-        throw new Error("sigla da unidade não encontrada na página de membros");
-    return unitCode;
 }
 
 function parseRequirements(tableHtml: string) {
@@ -335,45 +265,6 @@ export function parseCurriculum(html: string) {
     };
 }
 
-async function programDetails(program: ProgramSource): Promise<ProgramDetails> {
-    try {
-        const [membersHtml, curriculumHtml] = await Promise.all([
-            download(program.membersUrl),
-            download(program.curriculumUrl)
-        ]);
-        const curriculum = parseCurriculum(curriculumHtml);
-        return {
-            ...program,
-            unitCode: parseUnitCode(membersHtml),
-            ...curriculum
-        };
-    } catch (error) {
-        throw new Error(`programa ${program.code} (${program.name}): ${error}`);
-    }
-}
-
-async function mapWithConcurrency<T, R>(
-    values: T[],
-    concurrency: number,
-    operation: (value: T) => Promise<R>
-) {
-    const results: R[] = new Array(values.length);
-    let next = 0;
-    await Promise.all(
-        Array.from(
-            { length: Math.min(concurrency, values.length) },
-            async () => {
-                while (next < values.length) {
-                    const index = next;
-                    next += 1;
-                    results[index] = await operation(values[index]);
-                }
-            }
-        )
-    );
-    return results;
-}
-
 async function replaceCourseBlocks(
     tx: TxType,
     parent: CourseBlockParent,
@@ -386,24 +277,26 @@ async function replaceCourseBlocks(
     let blocksCreated = 0;
     let requirementsCreated = 0;
     for (const block of blocks) {
-        const requirements = block.requirements.flatMap((requirement) => {
-            if (requirement.type === CourseRequirementType.any)
-                return [{ type: requirement.type }];
-            if (requirement.type === CourseRequirementType.specific) {
-                const courseId = courseIds.get(requirement.code!);
-                if (courseId === undefined) {
-                    missing.add(requirement.code!);
+        const requirements = block.requirements.flatMap<CourseRequirementData>(
+            (requirement): CourseRequirementData[] => {
+                if (requirement.type === CourseRequirementType.any)
+                    return [{ type: requirement.type }];
+                if (requirement.type === CourseRequirementType.specific) {
+                    const courseId = courseIds.get(requirement.code!);
+                    if (courseId === undefined) {
+                        missing.add(requirement.code!);
+                        return [];
+                    }
+                    return [{ type: requirement.type, courseId }];
+                }
+                const prefixId = prefixIds.get(requirement.code!);
+                if (prefixId === undefined) {
+                    missing.add(`${requirement.code}---`);
                     return [];
                 }
-                return [{ type: requirement.type, courseId }];
+                return [{ type: requirement.type, prefixId }];
             }
-            const prefixId = prefixIds.get(requirement.code!);
-            if (prefixId === undefined) {
-                missing.add(`${requirement.code}---`);
-                return [];
-            }
-            return [{ type: requirement.type, prefixId }];
-        });
+        );
         if (requirements.length === 0) continue;
         const persisted = await tx.courseBlock.create({
             data: {
@@ -431,7 +324,7 @@ async function importCatalog(
     courseIds: Map<string, number>,
     prefixIds: Map<string, number>
 ) {
-    const programs = parsePrograms(await download(source.url), source.url);
+    const programs = source.programs ?? [];
     if (programs.length === 0) {
         console.warn(
             `Catálogo ${source.year}: nenhum programa foi encontrado; ignorando.`
@@ -439,23 +332,7 @@ async function importCatalog(
         return;
     }
 
-    const resolvedDetails = await mapWithConcurrency(
-        programs,
-        fetchConcurrency,
-        async (program) => {
-            try {
-                return await programDetails(program);
-            } catch (error) {
-                console.warn(
-                    `Catálogo ${source.year}: programa ${program.code} (${program.name}) ignorado: ${error}`
-                );
-                return null;
-            }
-        }
-    );
-    const details = resolvedDetails.filter(
-        (program): program is ProgramDetails => program !== null
-    );
+    const details = programs;
     if (details.length === 0) {
         console.warn(
             `Catálogo ${source.year}: nenhum programa pôde ser importado; ignorando.`
@@ -630,7 +507,13 @@ async function main() {
         const prefixIds = new Map(
             prefixes.map((prefix) => [prefix.prefix.toUpperCase(), prefix.id])
         );
-        const catalogs = parseCatalogs(await download(catalogsUrl));
+        const inputPath = resolve(
+            process.env.CATALOG_INPUT ??
+                resolve(process.cwd(), ".local", "catalogo_curriculos.json")
+        );
+        const catalogs = JSON.parse(
+            await readFile(inputPath, "utf8")
+        ) as CatalogSource[];
         if (catalogs.length === 0)
             throw new Error("Nenhum catálogo foi encontrado na página da DAC");
         console.log(

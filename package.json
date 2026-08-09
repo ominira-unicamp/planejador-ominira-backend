@@ -12,6 +12,7 @@
         "inject:catalog-disciplines": "tsx scripts/catalog-discipline-injection.ts",
         "inject:suggestions": "tsx scripts/suggestion-injection.ts",
         "inject:academic-data": "tsx scripts/academic-data-injection.ts",
+        "auth:bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
         "start": "node dist/src/index.js",
         "lint": "eslint src/ --ext .ts && prettier --write src/",
         "prisma:generate": "npx prisma generate",

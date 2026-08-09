@@ -38,7 +38,7 @@ const studentBase = z
     .strict();
 
 const createStudentBody = studentBase
-    .omit({ id: true })
+    .omit({ id: true, ra: true })
     .openapi("CreateStudentBody");
 
 const patchStudentBody = studentBase
@@ -74,8 +74,14 @@ const create = {
         body: createStudentBody
     }),
     output: new OutputBuilder()
+        .ok(studentEntity, "Existing student linked successfully")
         .created(studentEntity, "Student created successfully")
         .badRequest()
+        .statusCode(
+            409,
+            z.object({ description: z.string() }),
+            "Student identity conflict"
+        )
         .build()
 } satisfies IO;
 
@@ -99,7 +105,12 @@ const remove = {
     input: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
+        }),
+        body: z
+            .object({
+                confirmationRa: z.string().regex(/^\d{6}$/)
+            })
+            .strict()
     }),
     output: new OutputBuilder()
         .noContent("Student deleted successfully")

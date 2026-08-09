@@ -11,6 +11,7 @@ import ResponseBuilder from "./openapi/ResponseBuilder.js";
 import { PrismaClient } from "../prisma/generated/client.js";
 import { PathSegment, pathSegmentToOpenApiPath } from "./PathSegment.js";
 import { buildZodIds } from "./PrismaValidator.js";
+import { Principal } from "./auth.js";
 
 export const Methods = {
     GET: "get",
@@ -35,6 +36,7 @@ export type outputSchemaType = z.ZodObject<{
 export type Context = {
     prisma: PrismaClient;
     zodIds: ReturnType<typeof buildZodIds>;
+    principal?: Principal;
 };
 
 export type HandlerFn<T extends { input: z.ZodType; output: z.ZodType }> = (
@@ -68,7 +70,8 @@ export function buildHandler<
                 .json(new ValidationError(ZodToApiError(error, [])));
         const ctx = {
             prisma: req.prisma,
-            zodIds: buildZodIds(req.prisma)
+            zodIds: buildZodIds(req.prisma),
+            principal: req.principal
         };
         const output = await fn(ctx, input);
         const status = Object.keys(outputSchema.shape)

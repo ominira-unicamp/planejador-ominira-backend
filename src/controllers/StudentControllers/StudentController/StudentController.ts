@@ -5,7 +5,12 @@ import {
 import { Router } from "express";
 import z from "zod";
 
-import { AuthRegistry } from "../../../auth.js";
+import {
+    AuthRegistry,
+    AuthRoles,
+    ForbiddenError,
+    raFromDacEmail
+} from "../../../auth.js";
 import {
     buildHandler,
     openApiArgsFromIO,
@@ -79,19 +84,28 @@ const get = defaultGetHandler(
 
 export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const { body } = input;
-    const existing = await ctx.prisma.student.findFirst({
-        where: { ra: body.ra }
+    const principal = ctx.principal;
+    if (!principal) throw new ForbiddenError();
+    const ra = raFromDacEmail(principal.email);
+    if (!ra) throw new ForbiddenError();
+
+    const existing = await ctx.prisma.student.findUnique({
+        where: { ra }
     });
-    if (existing) {
+    if (existing?.authUserId === principal.authUserId) {
+        return { 409: { description: "This identity already has a student" } };
+    }
+    if (existing?.authUserId != null) {
         return {
-            400: new ValidationError([
-                {
-                    code: "ALREADY_EXISTS",
-                    path: ["body", "ra"],
-                    message: "A student with this RA already exists"
-                }
-            ])
+            409: { description: "The RA is already linked to another identity" }
         };
+    }
+    if (existing) {
+        const student = await ctx.prisma.student.update({
+            where: { id: existing.id },
+            data: { authUserId: principal.authUserId }
+        });
+        return { 200: studentEntity.build(student) };
     }
     const validation = await validateProgramSpecialization(
         ctx.prisma,
@@ -102,7 +116,7 @@ export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
 
     const student = await ctx.prisma.student.create({
         data: {
-            ra: body.ra,
+            ra,
             name: body.name,
             programId: body.programId,
             specializationId: body.specializationId,
@@ -146,11 +160,44 @@ export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
     const {
-        path: { id }
+        path: { id },
+        body: { confirmationRa }
     } = input;
-    const existing = await ctx.prisma.student.findUnique({ where: { id } });
+    const principal = ctx.principal;
+    if (!principal) throw new ForbiddenError();
+    if (principal.studentId !== id && !principal.roles.has(AuthRoles.ADMIN)) {
+        throw new ForbiddenError();
+    }
+
+    const existing = await ctx.prisma.student.findUnique({
+        where: { id },
+        select: { id: true, ra: true, authUserId: true }
+    });
     if (!existing) return { 404: { description: "Student not found" } };
-    await ctx.prisma.student.delete({ where: { id } });
+    if (existing.ra !== confirmationRa) {
+        return {
+            400: new ValidationError([
+                {
+                    code: "INVALID_VALUE",
+                    path: ["body", "confirmationRa"],
+                    message: "The confirmation RA does not match the student"
+                }
+            ])
+        };
+    }
+
+    await ctx.prisma.$transaction(async (tx) => {
+        await tx.studentCourse.deleteMany({ where: { studentId: id } });
+        await tx.curriculumCourse.deleteMany({
+            where: { curriculum: { studentId: id } }
+        });
+        await tx.curriculum.deleteMany({ where: { studentId: id } });
+        await tx.periodPlanning.deleteMany({ where: { studentId: id } });
+        await tx.student.delete({ where: { id } });
+        if (existing.authUserId != null) {
+            await tx.authUser.delete({ where: { id: existing.authUserId } });
+        }
+    });
     return { 204: null };
 };
 

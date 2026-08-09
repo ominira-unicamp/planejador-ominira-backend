@@ -118,6 +118,25 @@ const patch = {
         .build()
 } satisfies IO;
 
+const put = {
+    specs: {
+        method: "put",
+        path: basePath.concat(pathSeg.param("courseId")),
+        tags
+    },
+    input: z.object({
+        path: z.object({
+            sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
+            courseId: z.string().pipe(z.coerce.number()).pipe(z.number())
+        }),
+        body: z.object({ status: statusSchema }).strict()
+    }),
+    output: new OutputBuilder()
+        .ok(schema, "Student course upserted successfully")
+        .badRequest()
+        .build()
+} satisfies IO;
+
 const remove = {
     specs: specBuilder.remove(),
     input: z.object({
@@ -139,5 +158,6 @@ export default {
     list,
     create,
     patch,
+    put,
     remove
 };

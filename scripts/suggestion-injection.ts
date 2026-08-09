@@ -10,8 +10,9 @@ import {
 dotenv.config();
 
 const defaultInput = resolve(
-    import.meta.dirname,
-    "../../scrapper/sugestao_curriculo.json"
+    process.cwd(),
+    ".local",
+    "sugestao_curriculo.json"
 );
 const inputPath = resolve(process.env.SUGGESTION_INPUT ?? defaultInput);
 const transactionTimeout = Number(

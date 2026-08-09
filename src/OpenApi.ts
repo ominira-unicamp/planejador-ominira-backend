@@ -21,17 +21,18 @@ registry.registerComponent("securitySchemes", "BearerAuth", {
 
 registry.definitions.forEach((r) => {
     if (r.type == "route") {
-        for (const exception of Controlellers.authRegistry.exceptions) {
-            if (
-                r.route.method.toUpperCase() == exception.method &&
-                r.route.path === convertExpressToOpenAPI(exception.path)
-            ) {
-                return;
-            }
-        }
+        const rule = Controlellers.authRegistry.rules.find(
+            (candidate) =>
+                r.route.method.toUpperCase() === candidate.method &&
+                r.route.path === convertExpressToOpenAPI(candidate.path)
+        );
+        if (rule?.policy.kind === "public") return;
         r.route.security = [{ BearerAuth: [] }];
         r.route.responses["401"] = {
             description: "Unauthorized - Missing or invalid JWT token"
+        };
+        r.route.responses["403"] = {
+            description: "Forbidden - Insufficient authorization"
         };
     }
 });

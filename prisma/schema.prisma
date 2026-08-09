@@ -32,6 +32,66 @@ model User {
   name  String
 }
 
+enum AuthUserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AuthRole {
+  STUDENT
+  BOT
+  ADMIN
+}
+
+enum Capability {
+  ACADEMIC_WRITE
+}
+
+enum StudentCapability {
+  STUDENT_PROFILE_READ
+  STUDENT_PROFILE_WRITE
+  STUDENT_HISTORY_READ
+  STUDENT_HISTORY_WRITE
+  STUDENT_PLANNING_READ
+  STUDENT_PLANNING_WRITE
+}
+
+model AuthUser {
+  id          Int            @id @default(autoincrement())
+  issuer      String
+  subject     String
+  email       String?
+  displayName String?
+  status      AuthUserStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  roles        AuthUserRole[]
+  capabilities AuthUserCapability[]
+  student      Student?
+  botGrants    BotGrant[] @relation("BotGrantBot")
+  grantsGiven  BotGrant[] @relation("BotGrantGrantedBy")
+  grantsRevoked BotGrant[] @relation("BotGrantRevokedBy")
+
+  @@unique([issuer, subject])
+}
+
+model AuthUserRole {
+  authUser   AuthUser @relation(fields: [authUserId], references: [id], onDelete: Cascade)
+  authUserId Int
+  role       AuthRole
+
+  @@id([authUserId, role])
+}
+
+model AuthUserCapability {
+  authUser   AuthUser   @relation(fields: [authUserId], references: [id], onDelete: Cascade)
+  authUserId Int
+  capability Capability
+
+  @@id([authUserId, capability])
+}
+
 // ----------------------- Academic Models ----------------------- //
 
 model Unit {
@@ -119,6 +179,7 @@ model CatalogProgram {
   catalogLanguages       CatalogLanguage[]
   courseBlocks           CourseBlock[]
   curriculumSuggestions  CurriculumSuggestion[]
+  curricula               Curriculum[]
 
   @@unique([catalogId, programId])
 }
@@ -132,6 +193,7 @@ model CatalogSpecialization {
 
   courseBlocks         CourseBlock[]
   curriculumSuggestion CurriculumSuggestion?
+  curricula             Curriculum[]
 
   @@unique([catalogProgramId, specializationId])
 }
@@ -149,6 +211,7 @@ model CatalogLanguage {
   language         Language       @relation(fields: [languageId], references: [id], onDelete: Cascade)
   languageId       Int
   courseBlocks     CourseBlock[]
+  curricula        Curriculum[]
 
   @@unique([catalogProgramId, languageId])
 }
@@ -299,6 +362,8 @@ model Student {
   id               Int             @id @default(autoincrement())
   ra               String          @unique
   name             String
+  authUser         AuthUser?       @relation(fields: [authUserId], references: [id])
+  authUserId       Int?            @unique
   program          Program?        @relation(fields: [programId], references: [id])
   programId        Int?
   specialization   Specialization? @relation(fields: [specializationId], references: [id])
@@ -309,6 +374,24 @@ model Student {
   courses         StudentCourse[]
   periodPlannings PeriodPlanning[]
   curriculums     Curriculum[]
+  botGrants       BotGrant[]
+}
+
+model BotGrant {
+  id                  Int               @id @default(autoincrement())
+  student             Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId           Int
+  botAuthUser         AuthUser          @relation("BotGrantBot", fields: [botAuthUserId], references: [id], onDelete: Cascade)
+  botAuthUserId       Int
+  capability          StudentCapability
+  grantedByAuthUser   AuthUser          @relation("BotGrantGrantedBy", fields: [grantedByAuthUserId], references: [id])
+  grantedByAuthUserId Int
+  createdAt           DateTime          @default(now())
+  revokedAt           DateTime?
+  revokedByAuthUser   AuthUser?         @relation("BotGrantRevokedBy", fields: [revokedByAuthUserId], references: [id])
+  revokedByAuthUserId Int?
+
+  @@index([studentId, botAuthUserId, capability, revokedAt])
 }
 
 model StudentCourse {
@@ -322,20 +405,52 @@ model StudentCourse {
 }
 
 model Curriculum {
-  id                Int                @id @default(autoincrement())
-  student           Student            @relation(fields: [studentId], references: [id])
-  studentId         Int
-  CurriculumCourses CurriculumCourse[]
+  id                      Int                    @id @default(autoincrement())
+  student                 Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId               Int
+  name                    String                 @default("Novo planejamento")
+  catalogProgram          CatalogProgram?        @relation(fields: [catalogProgramId], references: [id])
+  catalogProgramId        Int?
+  catalogSpecialization   CatalogSpecialization? @relation(fields: [catalogSpecializationId], references: [id])
+  catalogSpecializationId Int?
+  catalogLanguage         CatalogLanguage?       @relation(fields: [catalogLanguageId], references: [id])
+  catalogLanguageId       Int?
+  planningStartYear       Int?
+  planningStartSemester   Int?
+  planningStartNumber     Int?
+  currentPeriod           CurriculumPeriod?      @relation("CurrentPeriod", fields: [currentPeriodId], references: [id], onDelete: SetNull)
+  currentPeriodId         Int?
+  periods                 CurriculumPeriod[]
+  courses                 CurriculumCourse[]
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+
+  @@index([studentId, updatedAt])
 }
 
 model CurriculumCourse {
-  curriculum   Curriculum @relation(fields: [curriculumId], references: [id])
+  curriculum   Curriculum        @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
   curriculumId Int
-  course       Course     @relation(fields: [courseId], references: [id])
+  course       Course            @relation(fields: [courseId], references: [id])
   courseId     Int
-  semester     Int?
+  period       CurriculumPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  periodId     Int?
 
   @@id([curriculumId, courseId])
+  @@index([curriculumId, periodId])
+}
+
+model CurriculumPeriod {
+  id           Int                @id @default(autoincrement())
+  curriculum   Curriculum         @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  curriculumId Int
+  position     Int
+  courses      CurriculumCourse[]
+  currentForCurricula Curriculum[] @relation("CurrentPeriod")
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@unique([curriculumId, position])
 }
 
 model PeriodPlanning {

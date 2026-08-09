@@ -7,7 +7,6 @@ import errorHandler from "./Middlewares/erroHandler.js";
 import jsonErrorHandler from "./Middlewares/jsonErrorHandler.js";
 import prismaInjectMiddleware from "./Middlewares/prismaInjectMiddleware.js";
 import sizeLimitMiddleware from "./Middlewares/sizeLimitMiddleware.js";
-import studentMiddleware from "./Middlewares/studentMiddleware.js";
 import openapi from "./OpenApi.js";
 
 const app = express();
@@ -28,6 +27,7 @@ app.use(
 
 Controlellers.authRegistry.addException("GET", "/openapi.json");
 Controlellers.authRegistry.addException("GET", "/docs");
+Controlellers.authRegistry.addException("GET", "/api-docs");
 
 app.use(
     helmet({
@@ -64,7 +64,6 @@ app.use(jsonErrorHandler);
 app.use(prismaInjectMiddleware);
 app.use(sizeLimitMiddleware);
 app.use(Controlellers.authRegistry.middleware());
-app.use("/student/:sid", studentMiddleware);
 app.use(openapi.router);
 app.use(Controlellers.router);
 app.use(errorHandler);

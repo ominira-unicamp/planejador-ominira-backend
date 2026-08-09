@@ -8,7 +8,7 @@ dotenv.config();
 
 const inputPath = resolve(
     process.env.CATALOG_DISCIPLINES_INPUT ??
-        resolve(import.meta.dirname, "../../scrapper/catalogo_disciplinas.json")
+        resolve(process.cwd(), ".local", "catalogo_disciplinas.json")
 );
 const unitCode = process.env.CATALOG_DISCIPLINES_UNIT_CODE ?? "DAC";
 const transactionTimeout = Number(

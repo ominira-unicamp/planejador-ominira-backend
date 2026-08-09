@@ -121,6 +121,29 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
     return { 200: studentCourseEntity.build(studentCourse) };
 };
 
+const putFn: HandlerFn<typeof IO.put> = async (ctx, input) => {
+    const { sid, courseId } = input.path;
+    const course = await ctx.prisma.course.findUnique({
+        where: { id: courseId }
+    });
+    if (!course) {
+        const error = new ValidationError();
+        error.addError({
+            path: ["body", "courseId"],
+            code: "REFERENCE_NOT_FOUND",
+            message: `Course with id ${courseId} not found`
+        });
+        return { 400: error };
+    }
+    const studentCourse = await ctx.prisma.studentCourse.upsert({
+        ...studentCourseEntity.prismaSelection,
+        where: { studentId_courseId: { studentId: sid, courseId } },
+        create: { studentId: sid, courseId, status: input.body.status },
+        update: { status: input.body.status }
+    });
+    return { 200: studentCourseEntity.build(studentCourse) };
+};
+
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
     const {
         path: { sid, courseId }
@@ -162,6 +185,11 @@ router.patch(
     buildHandler(IO.patch.input, IO.patch.output, patchFn)
 );
 
+router.put(
+    "/student/:sid/courses/:courseId",
+    buildHandler(IO.put.input, IO.put.output, putFn)
+);
+
 router.delete(
     "/student/:sid/courses/:courseId",
     buildHandler(IO.remove.input, IO.remove.output, removeFn)
@@ -172,6 +200,7 @@ registry.registerPath(openApiArgsFromIO(IO.list));
 registry.registerPath(openApiArgsFromIO(IO.list));
 registry.registerPath(openApiArgsFromIO(IO.create));
 registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.put));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 function entityPath(studentId: number, studentCourseId: number) {

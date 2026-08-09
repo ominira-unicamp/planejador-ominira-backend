@@ -3,7 +3,6 @@ import {
     Prisma as MyPrisma,
     PrismaClient
 } from "../prisma/generated/client.js";
-import * as models from "../prisma/generated/zod/schemas/models/index.js";
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
 const prisma = new PrismaClient({ adapter: pool });
 
@@ -62,7 +61,6 @@ const selectIdCode = {
 
 export {
     prisma as globalPrisma,
-    models,
     MyPrisma,
     selectIdCode,
     selectIdName,
