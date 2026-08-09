@@ -38,6 +38,7 @@ Table Course {
   studentCourses StudentCourse [not null]
   curriculumCourses CurriculumCourse [not null]
   courseRequirements CourseRequirement [not null]
+  suggestionCourses SuggestionCourse [not null]
 }
 
 Table Catalog {
@@ -80,6 +81,7 @@ Table CatalogProgram {
   catalogSpecializations CatalogSpecialization [not null]
   catalogLanguages CatalogLanguage [not null]
   courseBlocks CourseBlock [not null]
+  curriculumSuggestions CurriculumSuggestion [not null]
 
   indexes {
     (catalogId, programId) [unique]
@@ -109,6 +111,45 @@ Table CatalogLanguage {
 
   indexes {
     (catalogProgramId, languageId) [unique]
+  }
+}
+
+Table CurriculumSuggestion {
+  id Int [pk, increment]
+  catalogProgram CatalogProgram [not null]
+  catalogProgramId Int [not null]
+  code String [not null]
+  name String [not null]
+  semesters SemesterSuggestion [not null]
+
+  indexes {
+    (catalogProgramId, code) [unique]
+  }
+}
+
+Table SemesterSuggestion {
+  id Int [pk, increment]
+  suggestion CurriculumSuggestion [not null]
+  suggestionId Int [not null]
+  semester Int [not null]
+  electiveCredits Int [not null, default: 0]
+  courses SuggestionCourse [not null]
+
+  indexes {
+    (suggestionId, semester) [unique]
+  }
+}
+
+Table SuggestionCourse {
+  id Int [pk, increment]
+  semesterSuggestion SemesterSuggestion [not null]
+  semesterSuggestionId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  position Int [not null]
+
+  indexes {
+    (semesterSuggestionId, courseId) [unique]
   }
 }
 
@@ -317,6 +358,14 @@ Ref: CatalogSpecialization.specializationId > Specialization.id [delete: Cascade
 Ref: CatalogLanguage.catalogProgramId > CatalogProgram.id [delete: Cascade]
 
 Ref: CatalogLanguage.languageId > Language.id [delete: Cascade]
+
+Ref: CurriculumSuggestion.catalogProgramId > CatalogProgram.id [delete: Cascade]
+
+Ref: SemesterSuggestion.suggestionId > CurriculumSuggestion.id [delete: Cascade]
+
+Ref: SuggestionCourse.semesterSuggestionId > SemesterSuggestion.id [delete: Cascade]
+
+Ref: SuggestionCourse.courseId > Course.id
 
 Ref: CourseBlock.catalogLanguageId > CatalogLanguage.id [delete: Cascade]
 

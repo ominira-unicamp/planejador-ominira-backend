@@ -13,11 +13,9 @@ Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, qu
 - [Instalação](#instalação)
 - [Configuração](#configuração)
 - [Executando o Projeto](#executando-o-projeto)
-- [Estrutura do Projeto](#estrutura-do-projeto) 
+- [Estrutura do Projeto](#estrutura-do-projeto)
 
 ## Sobre o Projeto
-
-
 ## Tecnologias
 
 - **Runtime:** Node.js
@@ -88,9 +86,14 @@ dois repositórios devem estar lado a lado. O realm `pomi`, o client público
 `pomi-frontend` e a audiência `pomi-api` são reconciliados pelo serviço
 transitório `keycloak-config`. O console local fica em `http://localhost:8080`.
 
-### Seed 
+### Injeção de dados acadêmicos
 
-Para fazer seed de informações academicas ao banco de dados é nescessario possuir um arquivo seed em `./prisma/seed.json` 
+O injetor lê por padrão `./prisma/seed.json`. Outro arquivo pode ser
+informado por `ACADEMIC_DATA_INPUT`.
+
+```bash
+npm run inject:academic-data
+```
 
 ### Acessando a Documentação
 
@@ -106,8 +109,9 @@ pomi-backend/
 ├── prisma/
 │   ├── schema.prisma     # Schema do banco de dados
 │   ├── migrations/       # Migrations do Prisma
-│   ├── seed.ts           # Script de seed 
 │   └── generated/        # Arquivos gerados (client, zod schemas)
+├── scripts/
+│   └── injects/          # Scripts de injeção de dados
 ├── src/
 │   ├── index.ts          # Entry point da aplicação
 │   ├── auth.ts           # Configuração de autenticação

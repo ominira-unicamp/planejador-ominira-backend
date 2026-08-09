@@ -66,6 +66,7 @@ model Course {
   studentCourses     StudentCourse[]
   curriculumCourses  CurriculumCourse[]
   courseRequirements CourseRequirement[]
+  suggestionCourses  SuggestionCourse[]
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
@@ -112,6 +113,7 @@ model CatalogProgram {
   catalogSpecializations CatalogSpecialization[]
   catalogLanguages       CatalogLanguage[]
   courseBlocks           CourseBlock[]
+  curriculumSuggestions  CurriculumSuggestion[]
 
   @@unique([catalogId, programId])
 }
@@ -137,6 +139,39 @@ model CatalogLanguage {
   courseBlocks     CourseBlock[]
 
   @@unique([catalogProgramId, languageId])
+}
+
+model CurriculumSuggestion {
+  id              Int                    @id @default(autoincrement())
+  catalogProgram  CatalogProgram         @relation(fields: [catalogProgramId], references: [id], onDelete: Cascade)
+  catalogProgramId Int
+  code            String
+  name            String
+  semesters       SemesterSuggestion[]
+
+  @@unique([catalogProgramId, code])
+}
+
+model SemesterSuggestion {
+  id              Int                    @id @default(autoincrement())
+  suggestion      CurriculumSuggestion  @relation(fields: [suggestionId], references: [id], onDelete: Cascade)
+  suggestionId    Int
+  semester        Int
+  electiveCredits Int                    @default(0)
+  courses         SuggestionCourse[]
+
+  @@unique([suggestionId, semester])
+}
+
+model SuggestionCourse {
+  id                   Int                @id @default(autoincrement())
+  semesterSuggestion   SemesterSuggestion @relation(fields: [semesterSuggestionId], references: [id], onDelete: Cascade)
+  semesterSuggestionId Int
+  course               Course             @relation(fields: [courseId], references: [id])
+  courseId             Int
+  position             Int
+
+  @@unique([semesterSuggestionId, courseId])
 }
 
 // ----------------------- Course Requirements Models ----------------------- //

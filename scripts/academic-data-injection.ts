@@ -1,8 +1,8 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import dotenv from "dotenv";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { DayOfWeek, PrismaClient } from "./generated/client.js";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { DayOfWeek, PrismaClient } from "../prisma/generated/client.js";
 
 dotenv.config();
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -30,7 +30,7 @@ interface Instituto {
     nome: string;
     diciplinas: Disciplina[];
 }
-interface SeedData {
+interface AcademicData {
     ano: number;
     semestre: number;
     institutos: Instituto[];
@@ -47,31 +47,18 @@ const dayOfWeekMap: Record<string, DayOfWeek> = {
 };
 
 async function main() {
-    console.log("🌱 Iniciando seeding...");
+    console.log("🌱 Iniciando injeção dos dados acadêmicos...");
 
-    const seedDataPath = join(__dirname, "seed.json");
-    const seedDataRaw = readFileSync(seedDataPath, "utf-8");
-    const seedData: SeedData[] = JSON.parse(seedDataRaw);
+    const inputPath = resolve(
+        process.env.ACADEMIC_DATA_INPUT ??
+            resolve(import.meta.dirname, "../../prisma/seed.json")
+    );
+    const academicData = JSON.parse(
+        await readFile(inputPath, "utf-8")
+    ) as AcademicData[];
+    if (academicData.length === 0)
+        throw new Error("Nenhum período acadêmico encontrado");
 
-    console.log("🗑️  Limpando dados existentes...");
-    await prisma.classSchedule.deleteMany();
-    await prisma.class.deleteMany();
-    await prisma.room.deleteMany();
-    await prisma.professor.deleteMany();
-    await prisma.studyPeriod.deleteMany();
-    await prisma.studentCourse.deleteMany();
-    await prisma.curriculum.deleteMany();
-    await prisma.curriculumCourse.deleteMany();
-    await prisma.student.deleteMany();
-    await prisma.catalogProgram.deleteMany();
-    await prisma.catalog.deleteMany();
-    await prisma.program.deleteMany();
-    await prisma.specialization.deleteMany();
-    await prisma.course.deleteMany();
-    await prisma.prefixes.deleteMany();
-    await prisma.unit.deleteMany();
-
-    // Coletar todos os dados para inserção em batch
     const allUnits: Map<string, { code: string }> = new Map();
     const allProfessors: Map<string, { name: string }> = new Map();
     const allRooms: Map<string, { code: string }> = new Map();
@@ -79,23 +66,19 @@ async function main() {
         string,
         { code: string; name: string; unitCode: string; credits: number }
     > = new Map();
-    const studyPeriods: { code: string; startDate: Date }[] = [];
+    const studyPeriods = new Map<string, { code: string; startDate: Date }>();
 
-    // Primeira passagem: coletar todos os dados únicos
     console.log("📊 Coletando dados...");
-    for (const periodo of seedData) {
-        //if (periodo.ano < 2024) continue
-
-        studyPeriods.push({
+    for (const periodo of academicData) {
+        const studyPeriod = {
             code: `${periodo.ano}s${periodo.semestre}`,
             startDate: new Date(
                 `${periodo.ano}-${periodo.semestre === 1 ? "02" : "08"}-01`
             )
-        });
+        };
+        studyPeriods.set(studyPeriod.code, studyPeriod);
 
         for (const institutoData of periodo.institutos) {
-            //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
-
             allUnits.set(institutoData.nome, { code: institutoData.nome });
 
             for (const disciplinaData of institutoData.diciplinas) {
@@ -121,52 +104,60 @@ async function main() {
         }
     }
 
-    // Inserir institutos em batch
     console.log(`\n🏛️  Inserindo ${allUnits.size} institutos...`);
     await prisma.unit.createMany({
         data: Array.from(allUnits.values()),
         skipDuplicates: true
     });
 
-    // Inserir professores em batch
     console.log(`👨‍🏫 Inserindo ${allProfessors.size} professores...`);
-    await prisma.professor.createMany({
-        data: Array.from(allProfessors.values()),
-        skipDuplicates: true
-    });
+    const existingProfessorNames = new Set(
+        (await prisma.professor.findMany({ select: { name: true } })).map(
+            ({ name }) => name
+        )
+    );
+    const newProfessors = [...allProfessors.values()].filter(
+        ({ name }) => !existingProfessorNames.has(name)
+    );
+    if (newProfessors.length > 0)
+        await prisma.professor.createMany({ data: newProfessors });
 
-    // Inserir salas em batch
     console.log(`🚪 Inserindo ${allRooms.size} salas...`);
     await prisma.room.createMany({
         data: Array.from(allRooms.values()),
         skipDuplicates: true
     });
 
-    // Inserir períodos de estudo em batch
-    console.log(`📅 Inserindo ${studyPeriods.length} períodos de estudo...`);
-    await prisma.studyPeriod.createMany({
-        data: studyPeriods,
-        skipDuplicates: true
-    });
+    console.log(`📅 Inserindo ${studyPeriods.size} períodos de estudo...`);
+    for (const studyPeriod of studyPeriods.values()) {
+        await prisma.studyPeriod.upsert({
+            where: { code: studyPeriod.code },
+            create: studyPeriod,
+            update: { startDate: studyPeriod.startDate }
+        });
+    }
 
-    // Buscar institutos criados para pegar IDs
     const unitsMap = new Map(
         (await prisma.unit.findMany()).map((i) => [i.code, i])
     );
 
-    // Inserir cursos em batch
     console.log(`📚 Inserindo ${allCourses.size} cursos...`);
-    await prisma.course.createMany({
-        data: Array.from(allCourses.values()).map((c) => ({
-            code: c.code,
-            name: c.name,
-            credits: c.credits,
-            unitId: unitsMap.get(c.unitCode)!.id
-        })),
-        skipDuplicates: true
-    });
+    for (const course of allCourses.values()) {
+        const unit = unitsMap.get(course.unitCode);
+        if (!unit)
+            throw new Error(`Unidade não encontrada: ${course.unitCode}`);
+        await prisma.course.upsert({
+            where: { code: course.code },
+            create: {
+                code: course.code,
+                name: course.name,
+                credits: course.credits,
+                unitId: unit.id
+            },
+            update: { unitId: unit.id }
+        });
+    }
 
-    // Buscar dados criados para pegar IDs
     const professorsMap = new Map(
         (await prisma.professor.findMany()).map((p) => [p.name, p])
     );
@@ -180,7 +171,6 @@ async function main() {
         (await prisma.studyPeriod.findMany()).map((sp) => [sp.code, sp])
     );
 
-    // Coletar todas as turmas para inserção em batch
     console.log("\n👥 Coletando turmas...");
     const allClasses: Array<{
         code: string;
@@ -191,23 +181,34 @@ async function main() {
         turmaKey: string;
     }> = [];
 
-    for (const periodo of seedData) {
-        //if (periodo.ano < 2024) continue
-
+    for (const periodo of academicData) {
         const studyPeriod = studyPeriodsMap.get(
             `${periodo.ano}s${periodo.semestre}`
-        )!;
+        );
+        if (!studyPeriod)
+            throw new Error(
+                `Período não encontrado: ${periodo.ano}s${periodo.semestre}`
+            );
 
         for (const institutoData of periodo.institutos) {
-            //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
-
             for (const disciplinaData of institutoData.diciplinas) {
-                const course = coursesMap.get(disciplinaData.codigo)!;
+                const course = coursesMap.get(disciplinaData.codigo);
+                if (!course)
+                    throw new Error(
+                        `Disciplina não encontrada: ${disciplinaData.codigo}`
+                    );
 
                 for (const turmaData of disciplinaData.turmas) {
                     const professorIds = turmaData.docentes
                         .filter((d) => d && d.trim() !== "")
-                        .map((d) => professorsMap.get(d.trim())!.id);
+                        .map((d) => {
+                            const professor = professorsMap.get(d.trim());
+                            if (!professor)
+                                throw new Error(
+                                    `Professor não encontrado: ${d.trim()}`
+                                );
+                            return professor.id;
+                        });
 
                     allClasses.push({
                         code: turmaData.nome,
@@ -222,37 +223,44 @@ async function main() {
         }
     }
 
-    // Inserir todas as turmas em batch sem professores
-    console.log(`👥 Inserindo ${allClasses.length} turmas...`);
-    await prisma.class.createMany({
-        data: allClasses.map((c) => ({
-            code: c.code,
-            courseId: c.courseId,
-            studyPeriodId: c.studyPeriodId,
-            reservations: c.reservations
-        })),
-        skipDuplicates: true
-    });
-
-    // Buscar todas as classes criadas
-    console.log("🔍 Buscando turmas criadas...");
+    const uniqueClasses = [
+        ...new Map(allClasses.map((item) => [item.turmaKey, item])).values()
+    ];
+    console.log(`👥 Inserindo ${uniqueClasses.length} turmas...`);
     const createdClassesArray = await prisma.class.findMany({
         include: { course: true, studyPeriod: true }
     });
-
-    // Criar mapa de turmas por chave única
     const classesMap = new Map(
         createdClassesArray.map((c) => [
             `${c.studyPeriod.code.split("s")[0]}-${c.studyPeriod.code.split("s")[1]}-${c.course.code}-${c.code}`,
             c
         ])
     );
+    for (const classData of uniqueClasses) {
+        const existingClass = classesMap.get(classData.turmaKey);
+        if (existingClass) {
+            await prisma.class.update({
+                where: { id: existingClass.id },
+                data: { reservations: classData.reservations }
+            });
+            continue;
+        }
+        const createdClass = await prisma.class.create({
+            data: {
+                code: classData.code,
+                courseId: classData.courseId,
+                studyPeriodId: classData.studyPeriodId,
+                reservations: classData.reservations
+            },
+            include: { course: true, studyPeriod: true }
+        });
+        classesMap.set(classData.turmaKey, createdClass);
+    }
 
-    // Preparar conexões com professores em batch
     console.log("🔗 Conectando professores às turmas...");
     const professorConnections: Array<{ A: number; B: number }> = [];
 
-    for (const classData of allClasses) {
+    for (const classData of uniqueClasses) {
         const classEntity = classesMap.get(classData.turmaKey);
         if (!classEntity) continue;
 
@@ -264,12 +272,12 @@ async function main() {
         }
     }
 
-    // Inserir conexões em batch usando executeRaw
     console.log(
         `🔗 Inserindo ${professorConnections.length} conexões professor-turma...`
     );
-    if (professorConnections.length > 0) {
+    for (let start = 0; start < professorConnections.length; start += 1_000) {
         const values = professorConnections
+            .slice(start, start + 1_000)
             .map((c) => `(${c.A}, ${c.B})`)
             .join(", ");
         await prisma.$executeRawUnsafe(
@@ -277,7 +285,6 @@ async function main() {
         );
     }
 
-    // Coletar todos os horários para inserção em batch
     console.log("📅 Coletando horários...");
     const allSchedules: Array<{
         classId: number;
@@ -287,22 +294,24 @@ async function main() {
         end: string;
     }> = [];
 
-    for (const periodo of seedData) {
-        //if (periodo.ano < 2024) continue
-
+    for (const periodo of academicData) {
         for (const institutoData of periodo.institutos) {
-            //if (!["IC", "FEEC"].includes(institutoData.nome)) continue
-
             for (const disciplinaData of institutoData.diciplinas) {
                 for (const turmaData of disciplinaData.turmas) {
                     const turmaKey = `${periodo.ano}-${periodo.semestre}-${disciplinaData.codigo}-${turmaData.nome}`;
-                    const classEntity = classesMap.get(turmaKey)!;
+                    const classEntity = classesMap.get(turmaKey);
+                    if (!classEntity)
+                        throw new Error(`Turma não encontrada: ${turmaKey}`);
 
                     for (const aulaData of turmaData.aulas) {
                         const dayOfWeek = dayOfWeekMap[aulaData.dia_semana];
                         if (!dayOfWeek) continue;
 
-                        const room = roomsMap.get(aulaData.sala)!;
+                        const room = roomsMap.get(aulaData.sala);
+                        if (!room)
+                            throw new Error(
+                                `Sala não encontrada: ${aulaData.sala}`
+                            );
                         allSchedules.push({
                             classId: classEntity.id,
                             roomId: room.id,
@@ -316,13 +325,64 @@ async function main() {
         }
     }
 
-    // Inserir todos os horários em batch
-    console.log(`📅 Inserindo ${allSchedules.length} horários...`);
-    await prisma.classSchedule.createMany({
-        data: allSchedules
-    });
+    const existingScheduleKeys = new Set(
+        (
+            await prisma.classSchedule.findMany({
+                where: {
+                    classId: {
+                        in: [
+                            ...new Set(
+                                allSchedules.map(({ classId }) => classId)
+                            )
+                        ]
+                    }
+                },
+                select: {
+                    classId: true,
+                    roomId: true,
+                    dayOfWeek: true,
+                    start: true,
+                    end: true
+                }
+            })
+        ).map(
+            (schedule) =>
+                `${schedule.classId}:${schedule.roomId}:${schedule.dayOfWeek}:${schedule.start}:${schedule.end}`
+        )
+    );
+    const uniqueSchedules = [
+        ...new Map(
+            allSchedules.map((schedule) => [
+                `${schedule.classId}:${schedule.roomId}:${schedule.dayOfWeek}:${schedule.start}:${schedule.end}`,
+                schedule
+            ])
+        ).values()
+    ];
+    const newSchedules = uniqueSchedules.filter(
+        (schedule) =>
+            !existingScheduleKeys.has(
+                `${schedule.classId}:${schedule.roomId}:${schedule.dayOfWeek}:${schedule.start}:${schedule.end}`
+            )
+    );
+    console.log(`📅 Inserindo ${newSchedules.length} horários novos...`);
+    if (newSchedules.length > 0)
+        await prisma.classSchedule.createMany({ data: newSchedules });
 
-    console.log("\n✨ Seeding concluído com sucesso!");
+    console.log(
+        JSON.stringify(
+            {
+                units: allUnits.size,
+                professors: allProfessors.size,
+                rooms: allRooms.size,
+                studyPeriods: studyPeriods.size,
+                courses: allCourses.size,
+                classes: uniqueClasses.length,
+                schedules: newSchedules.length
+            },
+            null,
+            2
+        )
+    );
 }
 
 main()
@@ -330,7 +390,7 @@ main()
         await prisma.$disconnect();
     })
     .catch(async (e) => {
-        console.error("❌ Erro durante seeding:", e);
+        console.error("❌ Erro durante a injeção:", e);
         await prisma.$disconnect();
         process.exit(1);
     });

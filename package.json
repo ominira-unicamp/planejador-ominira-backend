@@ -9,12 +9,13 @@
         "test": "tsx --test test/**/*.test.ts",
         "inject:calendar": "tsx scripts/calendar-injection.ts",
         "inject:catalogs": "tsx scripts/catalog-injection.ts",
-        "inject:catalog-22g": "tsx scripts/catalog-22g-injection.ts",
+        "inject:catalog-disciplines": "tsx scripts/catalog-discipline-injection.ts",
+        "inject:suggestions": "tsx scripts/suggestion-injection.ts",
+        "inject:academic-data": "tsx scripts/academic-data-injection.ts",
         "start": "node dist/src/index.js",
         "lint": "eslint src/ --ext .ts && prettier --write src/",
         "prisma:generate": "npx prisma generate",
         "prisma:deploy": "npx prisma migrate deploy",
-        "prisma:seed": "npx prisma db seed",
         "prepare": "husky install"
     },
     "dependencies": {
