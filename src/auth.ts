@@ -159,6 +159,23 @@ async function resolvePrincipal(payload: TokenPayload, req: Request) {
         });
     }
 
+    if (!authUser.student) {
+        const ra = raFromDacEmail(authUser.email);
+        if (ra) {
+            const student = await req.prisma.student.findUnique({
+                where: { ra },
+                select: { id: true, authUserId: true }
+            });
+            if (student?.authUserId == null) {
+                await req.prisma.student.update({
+                    where: { id: student.id },
+                    data: { authUserId: authUser.id }
+                });
+                authUser.student = { id: student.id };
+            }
+        }
+    }
+
     if (authUser.status === "DISABLED") throw new ForbiddenError();
 
     return {

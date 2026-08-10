@@ -26,6 +26,10 @@ app.use(
 );
 
 Controlellers.authRegistry.addException("GET", "/openapi.json");
+Controlellers.authRegistry.addException("GET", "/public-openapi.json");
+Controlellers.authRegistry.addException("GET", "/student-openapi.json");
+Controlellers.authRegistry.addException("GET", "/public-docs");
+Controlellers.authRegistry.addException("GET", "/student-docs");
 Controlellers.authRegistry.addException("GET", "/docs");
 Controlellers.authRegistry.addException("GET", "/api-docs");
 
