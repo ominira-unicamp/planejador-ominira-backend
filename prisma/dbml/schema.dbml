@@ -8,6 +8,47 @@ Table User {
   name String [not null]
 }
 
+Table AuthUser {
+  id Int [pk, increment]
+  issuer String [not null]
+  subject String [not null]
+  email String
+  displayName String
+  status AuthUserStatus [not null, default: 'ACTIVE']
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  roles AuthUserRole [not null]
+  capabilities AuthUserCapability [not null]
+  student Student
+  botGrants BotGrant [not null]
+  grantsGiven BotGrant [not null]
+  grantsRevoked BotGrant [not null]
+
+  indexes {
+    (issuer, subject) [unique]
+  }
+}
+
+Table AuthUserRole {
+  authUser AuthUser [not null]
+  authUserId Int [not null]
+  role AuthRole [not null]
+
+  indexes {
+    (authUserId, role) [pk]
+  }
+}
+
+Table AuthUserCapability {
+  authUser AuthUser [not null]
+  authUserId Int [not null]
+  capability Capability [not null]
+
+  indexes {
+    (authUserId, capability) [pk]
+  }
+}
+
 Table Unit {
   id Int [pk, increment]
   code String [unique, not null]
@@ -89,6 +130,7 @@ Table CatalogProgram {
   catalogLanguages CatalogLanguage [not null]
   courseBlocks CourseBlock [not null]
   curriculumSuggestions CurriculumSuggestion [not null]
+  curricula Curriculum [not null]
 
   indexes {
     (catalogId, programId) [unique]
@@ -103,6 +145,7 @@ Table CatalogSpecialization {
   specializationId Int [not null]
   courseBlocks CourseBlock [not null]
   curriculumSuggestion CurriculumSuggestion
+  curricula Curriculum [not null]
 
   indexes {
     (catalogProgramId, specializationId) [unique]
@@ -116,6 +159,7 @@ Table CatalogLanguage {
   language Language [not null]
   languageId Int [not null]
   courseBlocks CourseBlock [not null]
+  curricula Curriculum [not null]
 
   indexes {
     (catalogProgramId, languageId) [unique]
@@ -235,6 +279,8 @@ Table Student {
   id Int [pk, increment]
   ra String [unique, not null]
   name String [not null]
+  authUser AuthUser
+  authUserId Int [unique]
   program Program
   programId Int
   specialization Specialization
@@ -244,6 +290,22 @@ Table Student {
   courses StudentCourse [not null]
   periodPlannings PeriodPlanning [not null]
   curriculums Curriculum [not null]
+  botGrants BotGrant [not null]
+}
+
+Table BotGrant {
+  id Int [pk, increment]
+  student Student [not null]
+  studentId Int [not null]
+  botAuthUser AuthUser [not null]
+  botAuthUserId Int [not null]
+  capability StudentCapability [not null]
+  grantedByAuthUser AuthUser [not null]
+  grantedByAuthUserId Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  revokedAt DateTime
+  revokedByAuthUser AuthUser
+  revokedByAuthUserId Int
 }
 
 Table StudentCourse {
@@ -262,7 +324,23 @@ Table Curriculum {
   id Int [pk, increment]
   student Student [not null]
   studentId Int [not null]
-  CurriculumCourses CurriculumCourse [not null]
+  name String [not null, default: 'Novo planejamento']
+  catalogProgram CatalogProgram
+  catalogProgramId Int
+  catalogSpecialization CatalogSpecialization
+  catalogSpecializationId Int
+  catalogLanguage CatalogLanguage
+  catalogLanguageId Int
+  planningStartYear Int
+  planningStartSemester Int
+  planningStartNumber Int
+  currentPeriod CurriculumPeriod
+  currentPeriodId Int
+  periods CurriculumPeriod [not null]
+  courses CurriculumCourse [not null]
+  periodPlannings PeriodPlanning [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 }
 
 Table CurriculumCourse {
@@ -270,20 +348,41 @@ Table CurriculumCourse {
   curriculumId Int [not null]
   course Course [not null]
   courseId Int [not null]
-  semester Int
+  period CurriculumPeriod
+  periodId Int
 
   indexes {
     (curriculumId, courseId) [pk]
   }
 }
 
+Table CurriculumPeriod {
+  id Int [pk, increment]
+  curriculum Curriculum [not null]
+  curriculumId Int [not null]
+  position Int [not null]
+  courses CurriculumCourse [not null]
+  currentForCurricula Curriculum [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (curriculumId, position) [unique]
+  }
+}
+
 Table PeriodPlanning {
   id Int [pk, increment]
+  name String [not null, default: 'Novo planejamento de semestre']
   studyPeriod StudyPeriod [not null]
   studyPeriodId Int [not null]
   student Student [not null]
   studentId Int [not null]
+  curriculum Curriculum
+  curriculumId Int
   classes Class [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 }
 
 Table CalendarEvent {
@@ -322,6 +421,30 @@ Enum YearPeriods {
   SECOND_SEMESTER
 }
 
+Enum AuthUserStatus {
+  ACTIVE
+  DISABLED
+}
+
+Enum AuthRole {
+  STUDENT
+  BOT
+  ADMIN
+}
+
+Enum Capability {
+  ACADEMIC_WRITE
+}
+
+Enum StudentCapability {
+  STUDENT_PROFILE_READ
+  STUDENT_PROFILE_WRITE
+  STUDENT_HISTORY_READ
+  STUDENT_HISTORY_WRITE
+  STUDENT_PLANNING_READ
+  STUDENT_PLANNING_WRITE
+}
+
 Enum CurriculumSuggestionType {
   GENERAL
   SPECIALIZATION
@@ -354,6 +477,10 @@ Enum StudentCourseStatus {
   COMPLETED
   DROPPED
 }
+
+Ref: AuthUserRole.authUserId > AuthUser.id [delete: Cascade]
+
+Ref: AuthUserCapability.authUserId > AuthUser.id [delete: Cascade]
 
 Ref: Prefixes.unitId > Unit.id
 
@@ -407,21 +534,43 @@ Ref: ClassSchedule.roomId > Room.id
 
 Ref: ClassSchedule.classId > Class.id
 
+Ref: Student.authUserId - AuthUser.id
+
 Ref: Student.programId > Program.id
 
 Ref: Student.specializationId > Specialization.id
 
 Ref: Student.catalogId > Catalog.id
 
+Ref: BotGrant.studentId > Student.id [delete: Cascade]
+
+Ref: BotGrant.botAuthUserId > AuthUser.id [delete: Cascade]
+
+Ref: BotGrant.grantedByAuthUserId > AuthUser.id [delete: Cascade]
+
+Ref: BotGrant.revokedByAuthUserId > AuthUser.id [delete: Cascade]
+
 Ref: StudentCourse.studentId > Student.id
 
 Ref: StudentCourse.courseId > Course.id
 
-Ref: Curriculum.studentId > Student.id
+Ref: Curriculum.studentId > Student.id [delete: Cascade]
 
-Ref: CurriculumCourse.curriculumId > Curriculum.id
+Ref: Curriculum.catalogProgramId > CatalogProgram.id
+
+Ref: Curriculum.catalogSpecializationId > CatalogSpecialization.id
+
+Ref: Curriculum.catalogLanguageId > CatalogLanguage.id
+
+Ref: Curriculum.currentPeriodId - CurriculumPeriod.id [delete: Set Null]
+
+Ref: CurriculumCourse.curriculumId > Curriculum.id [delete: Cascade]
 
 Ref: CurriculumCourse.courseId > Course.id
+
+Ref: CurriculumCourse.periodId > CurriculumPeriod.id [delete: Set Null]
+
+Ref: CurriculumPeriod.curriculumId - Curriculum.id [delete: Cascade]
 
 Ref: PeriodPlanning.studyPeriodId > StudyPeriod.id
 

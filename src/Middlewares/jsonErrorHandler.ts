@@ -1,5 +1,5 @@
+import { ValidationError } from "#/Validation.js";
 import type { ErrorRequestHandler } from "express";
-import { ValidationError } from "../Validation.js";
 
 const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
     if (

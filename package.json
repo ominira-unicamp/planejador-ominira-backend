@@ -1,6 +1,10 @@
 {
     "name": "pomi-backend",
     "version": "0.1.0",
+    "imports": {
+        "#/scripts/*": "./scripts/*",
+        "#/*": "./dist/src/*"
+    },
     "license": "AGPL-3.0-only",
     "type": "module",
     "scripts": {

@@ -422,6 +422,7 @@ model Curriculum {
   currentPeriodId         Int?
   periods                 CurriculumPeriod[]
   courses                 CurriculumCourse[]
+  periodPlannings         PeriodPlanning[]
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 
@@ -455,12 +456,20 @@ model CurriculumPeriod {
 
 model PeriodPlanning {
   id            Int         @id @default(autoincrement())
+  name          String      @default("Novo planejamento de semestre")
   studyPeriod   StudyPeriod @relation(fields: [studyPeriodId], references: [id])
   studyPeriodId Int
   student       Student     @relation(fields: [studentId], references: [id])
   studentId     Int
+  curriculum   Curriculum? @relation(fields: [curriculumId], references: [id], onDelete: SetNull)
+  curriculumId Int?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   classes Class[]
+
+  @@index([studentId, updatedAt])
+  @@index([curriculumId])
 }
 
 model CalendarEvent {

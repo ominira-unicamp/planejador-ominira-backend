@@ -1,4 +1,5 @@
 # POMI Backend - Planejador Ominira
+
 [![Lint and Format](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml/badge.svg?branch=main)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml)
 [![Deploy to GCP](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml/badge.svg)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/ominira-unicamp/pomi-backend/main)
@@ -16,6 +17,7 @@ Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, qu
 - [Estrutura do Projeto](#estrutura-do-projeto)
 
 ## Sobre o Projeto
+
 ## Tecnologias
 
 - **Runtime:** Node.js
@@ -115,10 +117,15 @@ pomi-backend/
 ├── src/
 │   ├── index.ts          # Entry point da aplicação
 │   ├── auth.ts           # Configuração de autenticação
-│   ├── Controllers.ts    # Agregador de controllers
+│   ├── Controllers.ts    # Composição dos módulos da API
 │   ├── OpenApi.ts        # Configuração OpenAPI
 │   ├── PrismaClient.ts   # Instância do Prisma
-│   ├── controllers/      # Controllers da API
+│   ├── modules/          # Domínios da API
+│   │   ├── academic/     # Referências acadêmicas compartilhadas
+│   │   ├── catalog/      # Catálogos e estruturas curriculares
+│   │   ├── identity/     # Identidade e autorização
+│   │   ├── planning/     # Estudantes e planejamentos
+│   │   └── schedule/     # Caderno de horário e calendário
 │   ├── Middlewares/      # Middlewares Express
 │   └── openapi/          # Builders para OpenAPI
 ├── .env

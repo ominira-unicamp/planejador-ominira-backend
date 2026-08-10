@@ -1,3 +1,4 @@
+import { ValidationErrorSchema } from "#/Validation.js";
 import {
     extendZodWithOpenApi,
     ResponseConfig
@@ -7,7 +8,6 @@ import {
     SchemaObject
 } from "@asteasolutions/zod-to-openapi/dist/types.js";
 import z, { ZodType } from "zod";
-import { ValidationErrorSchema } from "../Validation.js";
 extendZodWithOpenApi(z);
 
 class ResponseBuilder {

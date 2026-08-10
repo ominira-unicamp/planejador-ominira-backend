@@ -1,0 +1,182 @@
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
+import { Router } from "express";
+import z from "zod";
+
+import { AuthRegistry } from "#/auth.js";
+import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
+import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
+import IO from "#/modules/academic/contracts/CourseInterface.js";
+import courseEntity from "#/modules/academic/controllers/CourseController/Entity.js";
+import { PaginationQueryType } from "#/pagination.js";
+import { ValidationError } from "#/Validation.js";
+
+extendZodWithOpenApi(z);
+
+const list = defaultListHandler(
+    (p) => p.course,
+    IO.list.input.shape.query,
+    (query) => ({
+        code: {
+            contains: query.courseCode,
+            mode: "insensitive" as const
+        },
+        unit: {
+            ...(query.unitId ? { id: query.unitId } : {}),
+            ...(query.unitCode ? { code: query.unitCode } : {})
+        }
+    }),
+    listPath,
+    courseEntity.selection,
+    courseEntity.build
+);
+
+const get = defaultGetHandler(
+    (p) => p.course,
+    courseEntity.selection,
+    courseEntity.build,
+    "Course not found"
+);
+
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
+    const { body } = input;
+    const existing = await ctx.prisma.course.findUnique({
+        where: { code: body.code }
+    });
+    if (existing) {
+        return {
+            400: new ValidationError([
+                {
+                    code: "ALREADY_EXISTS",
+                    path: ["body", "code"],
+                    message: "A course with this code already exists"
+                }
+            ])
+        };
+    }
+
+    const course = await ctx.prisma.course.create({
+        ...courseEntity.selection,
+        data: body
+    });
+
+    const entity = courseEntity.build(course);
+    return { 201: entity };
+};
+
+const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
+    const {
+        path: { id },
+        body
+    } = input;
+    if (body.code !== undefined) {
+        const existing = await ctx.prisma.course.findUnique({
+            where: { code: body.code }
+        });
+        if (existing && existing.id !== id) {
+            return {
+                400: new ValidationError([
+                    {
+                        code: "ALREADY_EXISTS",
+                        path: ["body", "code"],
+                        message: "A course with this code already exists"
+                    }
+                ])
+            };
+        }
+    }
+
+    const course = await ctx.prisma.course.update({
+        ...courseEntity.selection,
+        where: { id: id },
+        data: {
+            ...(body.code !== undefined && { code: body.code }),
+            ...(body.name !== undefined && { name: body.name }),
+            ...(body.credits !== undefined && { credits: body.credits })
+        }
+    });
+
+    const entity = courseEntity.build(course);
+    return { 200: entity };
+};
+
+const deleteFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
+    const {
+        path: { id }
+    } = input;
+    const existing = await ctx.prisma.course.findUnique({ where: { id: id } });
+    if (!existing) {
+        return {
+            404: { description: "Course not found" }
+        };
+    }
+    await ctx.prisma.course.delete({ where: { id: id } });
+    return { 200: undefined };
+};
+
+const router = Router();
+const authRegistry = new AuthRegistry();
+
+router.get("/courses/:id", get);
+
+authRegistry.addException("GET", "/courses");
+router.get("/courses", list);
+
+router.post(
+    "/courses",
+    buildHandler(IO.create.input, IO.create.output, createFn)
+);
+
+router.patch(
+    "/courses/:id",
+    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+);
+
+router.delete(
+    "/courses/:id",
+    buildHandler(IO.remove.input, IO.remove.output, deleteFn)
+);
+
+function entityPath(courseId: number) {
+    return `/courses/${courseId}`;
+}
+
+type ListQueryParams = {
+    unitId?: number;
+} & Partial<PaginationQueryType>;
+
+function listPath(query: ListQueryParams) {
+    return (
+        `/courses?` +
+        [
+            query.unitId ? "unitId=" + query.unitId : undefined,
+            query.page ? "page=" + query.page : undefined,
+            query.pageSize ? "pageSize=" + query.pageSize : undefined
+        ]
+            .filter(Boolean)
+            .join("&")
+    );
+}
+
+authRegistry.addException("GET", "/courses/:id");
+
+const registry = new OpenAPIRegistry();
+
+registry.registerPath(openApiArgsFromIO(IO.get));
+registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.create));
+registry.registerPath(openApiArgsFromIO(IO.patch));
+registry.registerPath(openApiArgsFromIO(IO.remove));
+
+export default {
+    router,
+    registry,
+    authRegistry,
+    paths: {
+        list: listPath,
+        entity: entityPath
+    },
+    entity: courseEntity
+};

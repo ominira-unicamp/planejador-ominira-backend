@@ -4,7 +4,7 @@ import test from "node:test";
 process.env.DISABLED_AUTH = "true";
 
 test("allows anonymous reads of catalog programs only", async () => {
-    const { default: controllers } = await import("../src/Controllers.js");
+    const { default: controllers } = await import("#/Controllers.js");
     const { authRegistry } = controllers;
 
     assert.equal(authRegistry.checkException("GET", "/catalog-program"), true);

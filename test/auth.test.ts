@@ -30,7 +30,7 @@ before(async () => {
     process.env.DISABLED_AUTH = "false";
     process.env.KEYCLOAK_ISSUER = issuer;
     process.env.KEYCLOAK_AUDIENCE = "pomi-api";
-    ({ verifyAccessToken } = await import("../src/auth.js"));
+    ({ verifyAccessToken } = await import("#/auth.js"));
 });
 
 after(async () => {

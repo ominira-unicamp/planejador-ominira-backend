@@ -1,214 +1,50 @@
-import calendar from "./controllers/CalendarController/CalendarController.js";
-import calendarEvent from "./controllers/CalendarEventController/CalendarEventController.js";
-import calendarTag from "./controllers/CalendarTagController/CalendarTagController.js";
-
-import catalog from "./controllers/CatalogController/CatalogController.js";
-import catalogProgram from "./controllers/CatalogProgramController/CatalogProgramController.js";
-import classController from "./controllers/ClassController/ClassController.js";
-import classSchedule from "./controllers/ClassScheduleController/ClassScheduleController.js";
-import course from "./controllers/CourseController/CourseController.js";
-import curriculumSuggestion from "./controllers/CurriculumSuggestionController/CurriculumSuggestionController.js";
-import identity from "./controllers/IdentityController/IdentityController.js";
-import language from "./controllers/LanguageController/LanguageController.js";
-import professor from "./controllers/ProfessorController/ProfessorController.js";
-import program from "./controllers/ProgramController/ProgramController.js";
-import room from "./controllers/RoomController/RoomController.js";
-import specialization from "./controllers/SpecializationController/SpecializationController.js";
-import studyPeriods from "./controllers/StudyPeriodsController/StudyPeriodsController.js";
-import unit from "./controllers/UnitController/UnitController.js";
-
-import CurriculumController from "./controllers/StudentControllers/CurriculumController/CurriculumController.js";
-import periodPlan from "./controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js";
-import studentController from "./controllers/StudentControllers/StudentController/StudentController.js";
-import studentCourse from "./controllers/StudentControllers/StudentCourseController/StudentCourseController.js";
-
+import { AuthRegistry } from "#/auth.js";
+import academic from "#/modules/academic/index.js";
+import catalog from "#/modules/catalog/index.js";
+import identity from "#/modules/identity/index.js";
+import type { ControllerDefinition } from "#/modules/Module.js";
+import planning from "#/modules/planning/index.js";
+import schedule from "#/modules/schedule/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
-import {
-    AuthRegistry,
-    Capabilities,
-    policies,
-    StudentCapabilities
-} from "./auth.js";
 
-type Controler = {
-    router?: Router;
-    registry?: OpenAPIRegistry;
-    authRegistry?: AuthRegistry;
-};
-const controllers: Controler[] = [
-    identity,
-    calendar,
-    calendarEvent,
-    calendarTag,
-    professor,
-    unit,
-    course,
-    curriculumSuggestion,
-    classController,
-    classSchedule,
-    room,
-    studyPeriods,
-    studentController,
-    CurriculumController,
-    periodPlan,
-    studentCourse,
-    catalog,
-    catalogProgram,
-    program,
-    specialization,
-    language
-];
+import course from "#/modules/academic/controllers/CourseController/CourseController.js";
+import professor from "#/modules/academic/controllers/ProfessorController/ProfessorController.js";
+import room from "#/modules/academic/controllers/RoomController/RoomController.js";
+import unit from "#/modules/academic/controllers/UnitController/UnitController.js";
+import catalogController from "#/modules/catalog/controllers/CatalogController/CatalogController.js";
+import catalogProgram from "#/modules/catalog/controllers/CatalogProgramController/CatalogProgramController.js";
+import curriculumSuggestion from "#/modules/catalog/controllers/CurriculumSuggestionController/CurriculumSuggestionController.js";
+import language from "#/modules/catalog/controllers/LanguageController/LanguageController.js";
+import program from "#/modules/catalog/controllers/ProgramController/ProgramController.js";
+import specialization from "#/modules/catalog/controllers/SpecializationController/SpecializationController.js";
+import CurriculumController from "#/modules/planning/controllers/StudentControllers/CurriculumController/CurriculumController.js";
+import periodPlan from "#/modules/planning/controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js";
+import studentController from "#/modules/planning/controllers/StudentControllers/StudentController/StudentController.js";
+import studentCourse from "#/modules/planning/controllers/StudentControllers/StudentCourseController/StudentCourseController.js";
+import calendarEvent from "#/modules/schedule/controllers/CalendarEventController/CalendarEventController.js";
+import calendarTag from "#/modules/schedule/controllers/CalendarTagController/CalendarTagController.js";
+import classController from "#/modules/schedule/controllers/ClassController/ClassController.js";
+import classSchedule from "#/modules/schedule/controllers/ClassScheduleController/ClassScheduleController.js";
+import studyPeriods from "#/modules/schedule/controllers/StudyPeriodsController/StudyPeriodsController.js";
 
-const router = Router().use(
-    controllers.filter((c) => c.router).map((c) => c.router!)
+const modules = [identity, academic, catalog, schedule, planning];
+const controllers: ControllerDefinition[] = modules.flatMap(
+    (module) => module.controllers
 );
+
+const router = Router().use(modules.map((module) => module.router));
 const registry = new OpenAPIRegistry(
-    controllers
-        .filter((c) => c.registry)
-        .map((c) => c.registry!)
-        .flat()
+    modules.map((module) => module.registry).flat()
 );
 const authRegistry = new AuthRegistry(
-    controllers.filter((c) => c.authRegistry).map((c) => c.authRegistry!)
+    modules.map((module) => module.authRegistry)
 );
 
-const academicResources = [
-    "/calendar-events",
-    "/calendar-tags",
-    "/catalogs",
-    "/catalog-program",
-    "/classes",
-    "/class-schedules",
-    "/courses",
-    "/curriculum-suggestions",
-    "/languages",
-    "/professors",
-    "/programs",
-    "/rooms",
-    "/specializations",
-    "/study-periods",
-    "/units"
-];
-
-for (const path of academicResources) {
-    authRegistry.addPolicy(
-        "POST",
-        path,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "PATCH",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-}
-
-authRegistry.addPolicy("GET", "/students", policies.admin);
-authRegistry.addPolicy("GET", "/me", policies.authenticated);
-authRegistry.addPolicy("GET", "/bots", policies.authenticated);
-authRegistry.addPolicy("GET", "/me/bot-grants", policies.authenticated);
-authRegistry.addPolicy(
-    "PUT",
-    "/me/bot-grants/:botAuthUserId",
-    policies.authenticated
-);
-authRegistry.addPolicy("GET", "/admin/auth-users", policies.admin);
-authRegistry.addPolicy("POST", "/admin/auth-users", policies.admin);
-authRegistry.addPolicy("PATCH", "/admin/auth-users/:id", policies.admin);
-authRegistry.addPolicy(
-    "GET",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_READ)
-);
-authRegistry.addPolicy("POST", "/students", policies.studentRegistration);
-authRegistry.addPolicy(
-    "PATCH",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_WRITE)
-);
-authRegistry.addPolicy(
-    "DELETE",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_WRITE)
-);
-
-for (const path of [
-    "/student/:sid/courses",
-    "/student/:sid/courses/:courseId"
-]) {
-    authRegistry.addPolicy(
-        "GET",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.HISTORY_READ)
-    );
-}
-authRegistry.addPolicy(
-    "PUT",
-    "/student/:sid/courses/:courseId",
-    policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-);
-authRegistry.addPolicy(
-    "POST",
-    "/student/:sid/courses",
-    policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-);
-for (const path of ["/student/:sid/courses/:courseId"]) {
-    authRegistry.addPolicy(
-        "PATCH",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-    );
-}
-
-for (const path of [
-    "/student/:sid/curricula",
-    "/student/:sid/curricula/:id",
-    "/student/:sid/period-plan",
-    "/student/:sid/period-plan/:id"
-]) {
-    authRegistry.addPolicy(
-        "GET",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_READ)
-    );
-}
-for (const path of ["/student/:sid/curricula", "/student/:sid/period-plan"]) {
-    authRegistry.addPolicy(
-        "POST",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-}
-for (const path of [
-    "/student/:sid/curricula/:id",
-    "/student/:sid/period-plan/:id"
-]) {
-    authRegistry.addPolicy(
-        "PATCH",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-}
 export default {
-    router: router,
-    registry: registry,
-    authRegistry: authRegistry,
+    router,
+    registry,
+    authRegistry,
     all: controllers
 };
 
@@ -229,7 +65,7 @@ export const resourcesPaths = {
     periodPlan: periodPlan.paths,
     studentCourse: studentCourse.paths,
 
-    catalog: catalog.paths,
+    catalog: catalogController.paths,
     catalogProgram: catalogProgram.paths,
     program: program.paths,
     specialization: specialization.paths,

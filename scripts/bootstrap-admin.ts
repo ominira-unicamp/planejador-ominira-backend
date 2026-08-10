@@ -1,6 +1,6 @@
+import { AuthRoles } from "#/auth.js";
+import { globalPrisma } from "#/PrismaClient.js";
 import "dotenv/config";
-import { AuthRoles } from "../src/auth.js";
-import { globalPrisma } from "../src/PrismaClient.js";
 
 async function main() {
     const subjectArgument = process.argv.indexOf("--subject");

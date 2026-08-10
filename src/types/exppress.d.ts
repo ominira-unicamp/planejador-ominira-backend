@@ -1,6 +1,6 @@
+import { Principal } from "#/auth.js";
 import { JWTPayload } from "jose";
 import { PrismaClient } from "../../prisma/generated/client.js";
-import { Principal } from "../auth.js";
 
 declare global {
     namespace Express {

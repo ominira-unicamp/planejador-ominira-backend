@@ -1,21 +1,22 @@
-import type { Request, Response } from "express";
-import z, { ZodObject, ZodRawShape, ZodType } from "zod";
 import {
     ValidationError,
     ValidationErrorSchema,
     ZodToApiError
-} from "./Validation.js";
-import RequestBuilder from "./openapi/RequestBuilder.js";
-import ResponseBuilder from "./openapi/ResponseBuilder.js";
+} from "#/Validation.js";
+import RequestBuilder from "#/openapi/RequestBuilder.js";
+import ResponseBuilder from "#/openapi/ResponseBuilder.js";
+import type { Request, Response } from "express";
+import z, { ZodObject, ZodRawShape, ZodType } from "zod";
 
+import { PathSegment, pathSegmentToOpenApiPath } from "#/PathSegment.js";
+import { buildZodIds } from "#/PrismaValidator.js";
+import { Principal } from "#/auth.js";
 import { PrismaClient } from "../prisma/generated/client.js";
-import { PathSegment, pathSegmentToOpenApiPath } from "./PathSegment.js";
-import { buildZodIds } from "./PrismaValidator.js";
-import { Principal } from "./auth.js";
 
 export const Methods = {
     GET: "get",
     POST: "post",
+    PUT: "put",
     PATCH: "patch",
     DELETE: "delete"
 } as const;
@@ -197,7 +198,7 @@ export class OutputBuilder<
 }
 export type IO = {
     specs: {
-        method: "get" | "post" | "patch" | "delete";
+        method: "get" | "post" | "put" | "patch" | "delete";
         path: PathSegment[];
         tags: string[];
     };

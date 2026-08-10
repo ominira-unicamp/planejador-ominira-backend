@@ -1,9 +1,9 @@
+import Controlellers from "#/Controllers.js";
 import { OpenApiGeneratorV3 } from "@asteasolutions/zod-to-openapi";
 import { apiReference } from "@scalar/express-api-reference";
 import type { Request, Response } from "express";
 import { Router } from "express";
 import swaggerUi from "swagger-ui-express";
-import Controlellers from "./Controllers.js";
 
 type DocumentationAudience = "public" | "student" | "all";
 

@@ -1,15 +1,15 @@
-import { RouteConfig } from "@asteasolutions/zod-to-openapi";
-import { Request, Response } from "express";
-import { z } from "zod";
-import { PrismaClient } from "../prisma/generated/client.js";
-import { MyPrisma } from "./PrismaClient.js";
-import { ValidationError, ZodToApiError } from "./Validation.js";
-import ResponseBuilder from "./openapi/ResponseBuilder.js";
+import { MyPrisma } from "#/PrismaClient.js";
+import { ValidationError, ZodToApiError } from "#/Validation.js";
+import ResponseBuilder from "#/openapi/ResponseBuilder.js";
 import {
     buildPaginationResponse,
     PaginationQueryType,
     prismaPaginationParamsFromQuery
-} from "./pagination.js";
+} from "#/pagination.js";
+import { RouteConfig } from "@asteasolutions/zod-to-openapi";
+import { Request, Response } from "express";
+import { z } from "zod";
+import { PrismaClient } from "../prisma/generated/client.js";
 function defaultOpenApiGetPath(
     path: string,
     tag: string,

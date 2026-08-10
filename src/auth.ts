@@ -166,7 +166,7 @@ async function resolvePrincipal(payload: TokenPayload, req: Request) {
                 where: { ra },
                 select: { id: true, authUserId: true }
             });
-            if (student?.authUserId == null) {
+            if (student && student.authUserId == null) {
                 await req.prisma.student.update({
                     where: { id: student.id },
                     data: { authUserId: authUser.id }

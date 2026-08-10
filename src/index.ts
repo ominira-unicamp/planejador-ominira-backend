@@ -1,13 +1,13 @@
+import Controlellers from "#/Controllers.js";
+import errorHandler from "#/Middlewares/erroHandler.js";
+import jsonErrorHandler from "#/Middlewares/jsonErrorHandler.js";
+import prismaInjectMiddleware from "#/Middlewares/prismaInjectMiddleware.js";
+import sizeLimitMiddleware from "#/Middlewares/sizeLimitMiddleware.js";
+import openapi from "#/OpenApi.js";
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
-import Controlellers from "./Controllers.js";
-import errorHandler from "./Middlewares/erroHandler.js";
-import jsonErrorHandler from "./Middlewares/jsonErrorHandler.js";
-import prismaInjectMiddleware from "./Middlewares/prismaInjectMiddleware.js";
-import sizeLimitMiddleware from "./Middlewares/sizeLimitMiddleware.js";
-import openapi from "./OpenApi.js";
 
 const app = express();
 const configuredCorsOrigins =

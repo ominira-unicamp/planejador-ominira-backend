@@ -1,4 +1,4 @@
-import { PathSegment, pathSeg } from "./PathSegment.js";
+import { PathSegment, pathSeg } from "#/PathSegment.js";
 
 export class SpecBuilder {
     constructor(
