@@ -76,10 +76,11 @@ Table Course {
   prefix Prefixes
   prefixId Int
   classes Class [not null]
-  studentCourses StudentCourse [not null]
+  studentCourseAttempts StudentCourseAttempt [not null]
   curriculumCourses CurriculumCourse [not null]
   courseRequirements CourseRequirement [not null]
   suggestionCourses SuggestionCourse [not null]
+  periodPlanningManualCourses PeriodPlanningManualCourse [not null]
 }
 
 Table Catalog {
@@ -108,6 +109,7 @@ Table Specialization {
   name String [not null]
   students Student [not null]
   catalogSpecializations CatalogSpecialization [not null]
+  periodPlannings PeriodPlanning [not null]
 
   indexes {
     (programId, code) [unique]
@@ -118,6 +120,8 @@ Table Language {
   id Int [pk, increment]
   name String [not null]
   catalogLanguages CatalogLanguage [not null]
+  periodPlannings PeriodPlanning [not null]
+  students Student [not null]
 }
 
 Table CatalogProgram {
@@ -131,6 +135,7 @@ Table CatalogProgram {
   courseBlocks CourseBlock [not null]
   curriculumSuggestions CurriculumSuggestion [not null]
   curricula Curriculum [not null]
+  periodPlannings PeriodPlanning [not null]
 
   indexes {
     (catalogId, programId) [unique]
@@ -176,6 +181,7 @@ Table CurriculumSuggestion {
   catalogSpecialization CatalogSpecialization
   catalogSpecializationId Int [unique]
   semesters SemesterSuggestion [not null]
+  periodPlannings PeriodPlanning [not null]
 
   indexes {
     (catalogProgramId, code) [unique]
@@ -237,6 +243,7 @@ Table StudyPeriod {
   startDate DateTime [not null]
   classes Class [not null]
   periodPlannings PeriodPlanning [not null]
+  studentCourseAttempts StudentCourseAttempt [not null]
 }
 
 Table Professor {
@@ -262,6 +269,7 @@ Table Class {
   professors Professor [not null]
   classSchedules ClassSchedule [not null]
   periodPlannings PeriodPlanning [not null]
+  studentCourseAttempts StudentCourseAttempt [not null]
 }
 
 Table ClassSchedule {
@@ -287,9 +295,14 @@ Table Student {
   specializationId Int
   catalog Catalog
   catalogId Int
-  courses StudentCourse [not null]
+  entryYear Int
+  language Language
+  languageId Int
+  courseAttempts StudentCourseAttempt [not null]
   periodPlannings PeriodPlanning [not null]
   curriculums Curriculum [not null]
+  favoriteCurriculum Curriculum
+  favoriteCurriculumId Int [unique]
   botGrants BotGrant [not null]
 }
 
@@ -308,16 +321,20 @@ Table BotGrant {
   revokedByAuthUserId Int
 }
 
-Table StudentCourse {
+Table StudentCourseAttempt {
+  id Int [pk, increment]
   student Student [not null]
   studentId Int [not null]
   course Course [not null]
   courseId Int [not null]
-  status StudentCourseStatus [not null]
-
-  indexes {
-    (studentId, courseId) [pk]
-  }
+  studyPeriod StudyPeriod
+  studyPeriodId Int
+  class Class
+  classId Int
+  status StudentCourseAttemptStatus [not null]
+  grade Decimal
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
 }
 
 Table Curriculum {
@@ -339,6 +356,7 @@ Table Curriculum {
   periods CurriculumPeriod [not null]
   courses CurriculumCourse [not null]
   periodPlannings PeriodPlanning [not null]
+  favoriteForStudent Student
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
 }
@@ -380,9 +398,32 @@ Table PeriodPlanning {
   studentId Int [not null]
   curriculum Curriculum
   curriculumId Int
+  guideMode PeriodPlanningGuideMode [not null, default: 'NONE']
+  curriculumSource PeriodPlanningCurriculumSource
+  curriculumSuggestion CurriculumSuggestion
+  curriculumSuggestionId Int
+  catalogProgram CatalogProgram
+  catalogProgramId Int
+  specialization Specialization
+  specializationId Int
+  language Language
+  languageId Int
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   classes Class [not null]
+  manualCourses PeriodPlanningManualCourse [not null]
+}
+
+Table PeriodPlanningManualCourse {
+  periodPlanning PeriodPlanning [not null]
+  periodPlanningId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (periodPlanningId, courseId) [pk]
+  }
 }
 
 Table CalendarEvent {
@@ -419,6 +460,17 @@ Enum YearPeriods {
   FIRST_SEMESTER
   WINTER
   SECOND_SEMESTER
+}
+
+Enum PeriodPlanningGuideMode {
+  CURRICULUM
+  PROGRAM
+  NONE
+}
+
+Enum PeriodPlanningCurriculumSource {
+  SAVED
+  SUGGESTION
 }
 
 Enum AuthUserStatus {
@@ -472,9 +524,10 @@ Enum DayOfWeek {
   SUNDAY
 }
 
-Enum StudentCourseStatus {
+Enum StudentCourseAttemptStatus {
   ENROLLED
   COMPLETED
+  FAILED
   DROPPED
 }
 
@@ -542,6 +595,10 @@ Ref: Student.specializationId > Specialization.id
 
 Ref: Student.catalogId > Catalog.id
 
+Ref: Student.languageId > Language.id
+
+Ref: Student.favoriteCurriculumId - Curriculum.id
+
 Ref: BotGrant.studentId > Student.id [delete: Cascade]
 
 Ref: BotGrant.botAuthUserId > AuthUser.id [delete: Cascade]
@@ -550,9 +607,13 @@ Ref: BotGrant.grantedByAuthUserId > AuthUser.id [delete: Cascade]
 
 Ref: BotGrant.revokedByAuthUserId > AuthUser.id [delete: Cascade]
 
-Ref: StudentCourse.studentId > Student.id
+Ref: StudentCourseAttempt.studentId > Student.id [delete: Cascade]
 
-Ref: StudentCourse.courseId > Course.id
+Ref: StudentCourseAttempt.courseId > Course.id
+
+Ref: StudentCourseAttempt.studyPeriodId > StudyPeriod.id
+
+Ref: StudentCourseAttempt.classId > Class.id [delete: Set Null]
 
 Ref: Curriculum.studentId > Student.id [delete: Cascade]
 
@@ -577,3 +638,15 @@ Ref: PeriodPlanning.studyPeriodId > StudyPeriod.id
 Ref: PeriodPlanning.studentId > Student.id
 
 Ref: PeriodPlanning.curriculumId > Curriculum.id [delete: Set Null]
+
+Ref: PeriodPlanning.curriculumSuggestionId > CurriculumSuggestion.id [delete: Set Null]
+
+Ref: PeriodPlanning.catalogProgramId > CatalogProgram.id [delete: Set Null]
+
+Ref: PeriodPlanning.specializationId > Specialization.id [delete: Set Null]
+
+Ref: PeriodPlanning.languageId > Language.id [delete: Set Null]
+
+Ref: PeriodPlanningManualCourse.periodPlanningId > PeriodPlanning.id [delete: Cascade]
+
+Ref: PeriodPlanningManualCourse.courseId > Course.id [delete: Cascade]

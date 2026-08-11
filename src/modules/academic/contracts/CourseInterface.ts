@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { getPaginatedSchema, paginationQuerySchema } from "#/pagination.js";
+import { getPaginatedSchema } from "#/pagination.js";
 import { pathSeg } from "#/PathSegment.js";
 import { SpecBuilder } from "#/SpecBuilder.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
@@ -37,8 +37,16 @@ const courseBase = z.object({
     unitId: z.number().int()
 });
 
-const listCourseQuery = paginationQuerySchema
-    .extend({
+const listCourseQuery = z
+    .object({
+        page: z.coerce.number().int().min(1).optional().openapi({
+            description:
+                "Page number. If omitted together with pageSize, all courses are returned."
+        }),
+        pageSize: z.coerce.number().int().min(1).optional().openapi({
+            description:
+                "Number of courses per page. If omitted together with page, all courses are returned."
+        }),
         unitId: z.coerce.number().int().optional(),
         unitCode: z.string().min(1).optional(),
         courseCode: z.string().min(1).optional()

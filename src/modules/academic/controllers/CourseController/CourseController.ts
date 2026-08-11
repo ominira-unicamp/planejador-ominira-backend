@@ -7,18 +7,21 @@ import z from "zod";
 
 import { AuthRegistry } from "#/auth.js";
 import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
+import { defaultGetHandler } from "#/defaultEndpoint.js";
 import IO from "#/modules/academic/contracts/CourseInterface.js";
 import courseEntity from "#/modules/academic/controllers/CourseController/Entity.js";
-import { PaginationQueryType } from "#/pagination.js";
+import {
+    buildPaginationResponse,
+    PaginationQueryType,
+    prismaPaginationParamsFromQuery
+} from "#/pagination.js";
 import { ValidationError } from "#/Validation.js";
 
 extendZodWithOpenApi(z);
 
-const list = defaultListHandler(
-    (p) => p.course,
-    IO.list.input.shape.query,
-    (query) => ({
+const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
+    const { query } = input;
+    const where = {
         code: {
             contains: query.courseCode,
             mode: "insensitive" as const
@@ -27,11 +30,43 @@ const list = defaultListHandler(
             ...(query.unitId ? { id: query.unitId } : {}),
             ...(query.unitCode ? { code: query.unitCode } : {})
         }
-    }),
-    listPath,
-    courseEntity.selection,
-    courseEntity.build
-);
+    };
+    const delegate = ctx.prisma.course;
+    const total = await delegate.count({ where });
+    const hasExplicitPagination =
+        query.page !== undefined || query.pageSize !== undefined;
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const data = await delegate.findMany({
+        ...(hasExplicitPagination
+            ? prismaPaginationParamsFromQuery({ page, pageSize })
+            : {}),
+        ...courseEntity.selection,
+        where
+    });
+    const paginationQuery: PaginationQueryType = {
+        page: hasExplicitPagination ? page : 1,
+        pageSize: hasExplicitPagination ? pageSize : Math.max(total, 1)
+    };
+    const entities = data.map(courseEntity.build) as Array<
+        z.infer<typeof IO.schema>
+    >;
+    return {
+        200: buildPaginationResponse<typeof IO.schema>(
+            entities,
+            total,
+            paginationQuery,
+            (pageNumber) =>
+                listPath({
+                    ...query,
+                    page: pageNumber,
+                    pageSize: paginationQuery.pageSize
+                })
+        )
+    };
+};
+
+const list = buildHandler(IO.list.input, IO.list.output, listFn);
 
 const get = defaultGetHandler(
     (p) => p.course,
@@ -145,6 +180,8 @@ function entityPath(courseId: number) {
 
 type ListQueryParams = {
     unitId?: number;
+    unitCode?: string;
+    courseCode?: string;
 } & Partial<PaginationQueryType>;
 
 function listPath(query: ListQueryParams) {
@@ -152,6 +189,8 @@ function listPath(query: ListQueryParams) {
         `/courses?` +
         [
             query.unitId ? "unitId=" + query.unitId : undefined,
+            query.unitCode ? "unitCode=" + query.unitCode : undefined,
+            query.courseCode ? "courseCode=" + query.courseCode : undefined,
             query.page ? "page=" + query.page : undefined,
             query.pageSize ? "pageSize=" + query.pageSize : undefined
         ]
