@@ -43,24 +43,150 @@ const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
     return { 200: periodPlanningEntity.build(periodPlanning) };
 };
 
-async function validateCurriculum(
+type GuideInput = NonNullable<z.infer<typeof IO.create.input>["body"]["guide"]>;
+
+function legacyGuide(curriculumId: number | null | undefined): GuideInput {
+    return {
+        mode: curriculumId == null ? "NONE" : "CURRICULUM",
+        curriculumSource: curriculumId == null ? null : "SAVED",
+        curriculumId: curriculumId ?? null,
+        suggestionId: null,
+        suggestionCatalogProgramId: null,
+        catalogProgramId: null,
+        specializationId: null,
+        languageId: null,
+        manualCourseIds: []
+    };
+}
+
+async function validateGuide(
     prisma: PrismaClient,
-    curriculumId: number | null | undefined,
+    guide: GuideInput,
     studentId: number
 ): Promise<ValidationError | null> {
-    if (curriculumId === undefined || curriculumId === null) return null;
-    const curriculum = await prisma.curriculum.findFirst({
-        where: { id: curriculumId, studentId },
-        select: { id: true }
-    });
-    if (curriculum) return null;
     const error = new ValidationError();
-    error.addError({
-        path: ["body", "curriculumId"],
-        code: "REFERENCE_NOT_FOUND",
-        message: `Curriculum ${curriculumId} not found for student ${studentId}`
-    });
-    return error;
+    if (guide.curriculumSource === "SAVED") {
+        const curriculum =
+            guide.curriculumId !== null
+                ? await prisma.curriculum.findFirst({
+                      where: { id: guide.curriculumId, studentId },
+                      select: { id: true }
+                  })
+                : undefined;
+        if (guide.curriculumId !== null && !curriculum) {
+            error.addError({
+                path: ["body", "guide", "curriculumId"],
+                code: "REFERENCE_NOT_FOUND",
+                message: "The saved curriculum does not belong to this student"
+            });
+        }
+        if (guide.suggestionId !== null) {
+            error.addError({
+                path: ["body", "guide", "suggestionId"],
+                code: "INVALID_VALUE",
+                message: "A saved curriculum cannot also select a suggestion"
+            });
+        }
+    }
+    if (guide.curriculumSource === "SUGGESTION") {
+        const suggestion =
+            guide.suggestionId !== null
+                ? await prisma.curriculumSuggestion.findUnique({
+                      where: { id: guide.suggestionId },
+                      select: { id: true }
+                  })
+                : undefined;
+        if (guide.suggestionId !== null && !suggestion) {
+            error.addError({
+                path: ["body", "guide", "suggestionId"],
+                code: "REFERENCE_NOT_FOUND",
+                message: "Curriculum suggestion not found"
+            });
+        }
+        if (guide.curriculumId !== null) {
+            error.addError({
+                path: ["body", "guide", "curriculumId"],
+                code: "INVALID_VALUE",
+                message: "A suggestion cannot also select a saved curriculum"
+            });
+        }
+    }
+    if (
+        guide.curriculumSource === null &&
+        (guide.curriculumId !== null || guide.suggestionId !== null)
+    ) {
+        error.addError({
+            path: ["body", "guide", "curriculumSource"],
+            code: "INVALID_VALUE",
+            message:
+                "Curriculum source is required when a curriculum reference is selected"
+        });
+    }
+    if (guide.catalogProgramId !== null) {
+        const program = await prisma.catalogProgram.findUnique({
+            where: { id: guide.catalogProgramId },
+            select: { id: true }
+        });
+        if (!program) {
+            error.addError({
+                path: ["body", "guide", "catalogProgramId"],
+                code: "REFERENCE_NOT_FOUND",
+                message: "Catalog program not found"
+            });
+        }
+    }
+    if (guide.specializationId !== null) {
+        const specialization = await prisma.catalogSpecialization.findFirst({
+            where: {
+                specializationId: guide.specializationId,
+                ...(guide.catalogProgramId !== null
+                    ? { catalogProgramId: guide.catalogProgramId }
+                    : {})
+            },
+            select: { specializationId: true }
+        });
+        if (!specialization) {
+            error.addError({
+                path: ["body", "guide", "specializationId"],
+                code: "REFERENCE_NOT_FOUND",
+                message:
+                    "Specialization is not available for this catalog program"
+            });
+        }
+    }
+    if (guide.languageId !== null) {
+        const language = await prisma.catalogLanguage.findFirst({
+            where: {
+                languageId: guide.languageId,
+                ...(guide.catalogProgramId !== null
+                    ? { catalogProgramId: guide.catalogProgramId }
+                    : {})
+            },
+            select: { languageId: true }
+        });
+        if (!language) {
+            error.addError({
+                path: ["body", "guide", "languageId"],
+                code: "REFERENCE_NOT_FOUND",
+                message: "Language is not available for this catalog program"
+            });
+        }
+    }
+    const uniqueManualCourseIds = [...new Set(guide.manualCourseIds)];
+    if (uniqueManualCourseIds.length > 0) {
+        const courses = await prisma.course.findMany({
+            where: { id: { in: uniqueManualCourseIds } },
+            select: { id: true }
+        });
+        if (courses.length !== uniqueManualCourseIds.length) {
+            error.addError({
+                path: ["body", "guide", "manualCourseIds"],
+                code: "REFERENCE_NOT_FOUND",
+                message: "One or more manual courses were not found"
+            });
+        }
+    }
+    return error.errors.length > 0 ? error : null;
 }
 
 async function validateClasses(
@@ -172,8 +298,9 @@ async function validateNoDuplicateCourses(
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const {
         path: { sid },
-        body: { studyPeriodId, curriculumId, classes, name }
+        body: { studyPeriodId, curriculumId, guide: inputGuide, classes, name }
     } = input;
+    const guide = inputGuide ?? legacyGuide(curriculumId);
     const studyPeriod = await ctx.prisma.studyPeriod.findUnique({
         where: { id: studyPeriodId }
     });
@@ -196,24 +323,49 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     if (validationError) {
         return { 400: validationError };
     }
-    const curriculumValidation = await validateCurriculum(
-        ctx.prisma,
-        curriculumId,
-        sid
-    );
-    if (curriculumValidation) return { 400: curriculumValidation };
+    const guideValidation = await validateGuide(ctx.prisma, guide, sid);
+    if (guideValidation) return { 400: guideValidation };
 
     const periodPlanning = await ctx.prisma.periodPlanning.create({
         ...periodPlanningEntity.prismaSelection,
         data: {
-            studentId: sid,
-            studyPeriodId,
+            student: { connect: { id: sid } },
+            studyPeriod: { connect: { id: studyPeriodId } },
             ...(name ? { name } : { name: `Planejamento ${studyPeriod.code}` }),
-            ...(curriculumId === undefined
-                ? {}
-                : curriculumId === null
-                  ? {}
-                  : { curriculum: { connect: { id: curriculumId } } }),
+            guideMode: guide.mode,
+            curriculumSource: guide.curriculumSource,
+            ...(guide.curriculumId !== null
+                ? { curriculum: { connect: { id: guide.curriculumId } } }
+                : {}),
+            ...(guide.suggestionId !== null
+                ? {
+                      curriculumSuggestion: {
+                          connect: { id: guide.suggestionId }
+                      }
+                  }
+                : {}),
+            ...(guide.catalogProgramId !== null
+                ? {
+                      catalogProgram: {
+                          connect: { id: guide.catalogProgramId }
+                      }
+                  }
+                : {}),
+            ...(guide.specializationId !== null
+                ? {
+                      specialization: {
+                          connect: { id: guide.specializationId }
+                      }
+                  }
+                : {}),
+            ...(guide.languageId !== null
+                ? { language: { connect: { id: guide.languageId } } }
+                : {}),
+            manualCourses: {
+                create: guide.manualCourseIds.map((courseId) => ({
+                    course: { connect: { id: courseId } }
+                }))
+            },
             classes: {
                 connect: [...classes].map((id) => ({ id }))
             }
@@ -231,6 +383,39 @@ function buildClassUpdateData(
             ? [...ops.remove].map((id) => ({ id }))
             : undefined,
         connect: ops.add ? [...ops.add].map((id) => ({ id })) : undefined
+    };
+}
+
+function guideUpdateData(guide: GuideInput) {
+    return {
+        guideMode: guide.mode,
+        curriculumSource: guide.curriculumSource,
+        curriculum:
+            guide.curriculumId === null
+                ? { disconnect: true }
+                : { connect: { id: guide.curriculumId } },
+        curriculumSuggestion:
+            guide.suggestionId === null
+                ? { disconnect: true }
+                : { connect: { id: guide.suggestionId } },
+        catalogProgram:
+            guide.catalogProgramId === null
+                ? { disconnect: true }
+                : { connect: { id: guide.catalogProgramId } },
+        specialization:
+            guide.specializationId === null
+                ? { disconnect: true }
+                : { connect: { id: guide.specializationId } },
+        language:
+            guide.languageId === null
+                ? { disconnect: true }
+                : { connect: { id: guide.languageId } },
+        manualCourses: {
+            deleteMany: {},
+            create: guide.manualCourseIds.map((courseId) => ({
+                course: { connect: { id: courseId } }
+            }))
+        }
     };
 }
 
@@ -254,12 +439,16 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
             }
         };
 
-    const curriculumValidation = await validateCurriculum(
-        ctx.prisma,
-        body.curriculumId,
-        sid
-    );
-    if (curriculumValidation) return { 400: curriculumValidation };
+    const guide =
+        body.guide !== undefined
+            ? body.guide
+            : body.curriculumId !== undefined
+              ? legacyGuide(body.curriculumId)
+              : undefined;
+    if (guide) {
+        const guideValidation = await validateGuide(ctx.prisma, guide, sid);
+        if (guideValidation) return { 400: guideValidation };
+    }
 
     if (body.classes) {
         const classIdsToValidate: Set<number> = new Set(
@@ -286,28 +475,18 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
             data: {
                 classes: classesUpdate,
                 ...(body.name !== undefined && { name: body.name }),
-                ...(body.curriculumId !== undefined &&
-                    (body.curriculumId === null
-                        ? { curriculum: { disconnect: true } }
-                        : {
-                              curriculum: { connect: { id: body.curriculumId } }
-                          }))
+                ...(guide ? guideUpdateData(guide) : {})
             }
         });
         return { 200: periodPlanningEntity.build(periodPlanning) };
     }
-    if (body.name !== undefined || body.curriculumId !== undefined) {
+    if (body.name !== undefined || guide !== undefined) {
         const periodPlanning = await ctx.prisma.periodPlanning.update({
             ...periodPlanningEntity.prismaSelection,
             where: { id },
             data: {
                 ...(body.name !== undefined && { name: body.name }),
-                ...(body.curriculumId !== undefined &&
-                    (body.curriculumId === null
-                        ? { curriculum: { disconnect: true } }
-                        : {
-                              curriculum: { connect: { id: body.curriculumId } }
-                          }))
+                ...(guide ? guideUpdateData(guide) : {})
             }
         });
         return { 200: periodPlanningEntity.build(periodPlanning) };

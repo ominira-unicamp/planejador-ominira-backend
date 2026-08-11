@@ -9,155 +9,157 @@ extendZodWithOpenApi(z);
 const basePath = [
     pathSeg.literal("student"),
     pathSeg.param("sid"),
-    pathSeg.literal("courses")
+    pathSeg.literal("course-attempts")
 ];
-const tags = ["student-courses"];
-const specBuilder = new SpecBuilder(basePath, tags, "courseId");
+const tags = ["student-course-attempts"];
+const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
-export const StudentCourseStatus = {
+export const StudentCourseAttemptStatus = {
     ENROLLED: "ENROLLED",
     COMPLETED: "COMPLETED",
+    FAILED: "FAILED",
     DROPPED: "DROPPED"
 } as const;
 
-const res = Object.keys(StudentCourseStatus) as [
-    keyof typeof StudentCourseStatus
-];
-export const statusSchema = z.enum(res);
+export const statusSchema = z.enum([
+    "ENROLLED",
+    "COMPLETED",
+    "FAILED",
+    "DROPPED"
+]);
+const gradeSchema = z.number().min(0).max(10).nullable();
 
-const schema = z
+const attemptEntity = z
     .object({
+        id: z.number().int(),
         studentId: z.number().int(),
         courseId: z.number().int(),
+        studyPeriodId: z.number().int().nullable(),
         status: statusSchema,
+        grade: z.number().nullable(),
+        createdAt: z.string().datetime(),
+        updatedAt: z.string().datetime(),
         course: z.object({
             id: z.number().int(),
             code: z.string(),
             name: z.string(),
             credits: z.number().int(),
-            unit: z.object({
-                id: z.number().int(),
-                code: z.string()
-            })
+            unit: z.object({ id: z.number().int(), code: z.string() })
         }),
+        studyPeriod: z
+            .object({ id: z.number().int(), code: z.string() })
+            .nullable(),
         _paths: z.object({
             self: z.string(),
             student: z.string(),
-            course: z.string()
+            course: z.string(),
+            studyPeriod: z.string().nullable()
         })
     })
-    .openapi("StudentCourse");
+    .strict()
+    .openapi("StudentCourseAttempt");
+
+const attemptBody = z
+    .object({
+        courseId: z.number().int(),
+        studyPeriodId: z.number().int().nullable().optional(),
+        status: statusSchema,
+        grade: gradeSchema.optional()
+    })
+    .strict();
 
 const get = {
-    specs: specBuilder.get(),
+    specs: specsBuilder.get(),
     input: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-            courseId: z.string().pipe(z.coerce.number()).pipe(z.number())
+            id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
     output: new OutputBuilder()
-        .ok(schema, "Student course retrieved successfully")
+        .ok(attemptEntity, "Student course attempt retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specBuilder.list(),
+    specs: specsBuilder.list(),
     input: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         query: z.object({
-            status: statusSchema.optional()
+            status: statusSchema.optional(),
+            courseId: z
+                .string()
+                .pipe(z.coerce.number())
+                .pipe(z.number())
+                .optional(),
+            studyPeriodId: z
+                .string()
+                .pipe(z.coerce.number())
+                .pipe(z.number())
+                .optional()
         })
     }),
     output: new OutputBuilder()
-        .ok(z.array(schema), "List of student courses retrieved successfully")
+        .ok(
+            z.array(attemptEntity),
+            "Student course attempts retrieved successfully"
+        )
         .build()
 } satisfies IO;
 
 const create = {
-    specs: specBuilder.create(),
+    specs: specsBuilder.create(),
     input: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
-        body: z
-            .object({
-                courseId: z.number().int(),
-                status: z
-                    .enum(StudentCourseStatus)
-                    .default(StudentCourseStatus.ENROLLED)
-            })
-            .strict()
+        body: attemptBody.refine((value) => value.studyPeriodId !== null, {
+            path: ["studyPeriodId"],
+            message: "studyPeriodId is required for new attempts"
+        })
     }),
     output: new OutputBuilder()
-        .created(schema, "Student course created successfully")
+        .created(attemptEntity, "Student course attempt created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specBuilder.patch(),
+    specs: specsBuilder.patch(),
     input: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-            courseId: z.string().pipe(z.coerce.number()).pipe(z.number())
+            id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
-        body: z
-            .object({
-                status: statusSchema
-            })
-            .strict()
+        body: attemptBody.omit({ courseId: true }).partial().strict()
     }),
     output: new OutputBuilder()
-        .ok(schema, "Student course updated successfully")
+        .ok(attemptEntity, "Student course attempt updated successfully")
         .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const put = {
-    specs: {
-        method: "put",
-        path: basePath.concat(pathSeg.param("courseId")),
-        tags
-    },
-    input: z.object({
-        path: z.object({
-            sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-            courseId: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: z.object({ status: statusSchema }).strict()
-    }),
-    output: new OutputBuilder()
-        .ok(schema, "Student course upserted successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const remove = {
-    specs: specBuilder.remove(),
+    specs: specsBuilder.remove(),
     input: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
-            courseId: z.string().pipe(z.coerce.number()).pipe(z.number())
+            id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
-        .noContent("Student course deleted successfully")
-        .notFound()
-        .build()
+    output: new OutputBuilder().noContent().notFound().build()
 } satisfies IO;
 
 export default {
-    schema,
+    schema: attemptEntity,
     statusSchema,
     get,
     list,
     create,
     patch,
-    put,
     remove
 };

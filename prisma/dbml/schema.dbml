@@ -380,9 +380,9 @@ Table PeriodPlanning {
   studentId Int [not null]
   curriculum Curriculum
   curriculumId Int
-  classes Class [not null]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  classes Class [not null]
 }
 
 Table CalendarEvent {
@@ -575,3 +575,5 @@ Ref: CurriculumPeriod.curriculumId - Curriculum.id [delete: Cascade]
 Ref: PeriodPlanning.studyPeriodId > StudyPeriod.id
 
 Ref: PeriodPlanning.studentId > Student.id
+
+Ref: PeriodPlanning.curriculumId > Curriculum.id [delete: Set Null]

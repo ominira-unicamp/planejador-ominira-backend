@@ -14,6 +14,22 @@ const basePath = [
 const tags = ["period-plannings"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
+const guideSchema = z
+    .object({
+        mode: z.enum(["CURRICULUM", "PROGRAM", "NONE"]),
+        curriculumSource: z.enum(["SAVED", "SUGGESTION"]).nullable(),
+        curriculumId: z.number().int().nullable(),
+        suggestionId: z.number().int().nullable(),
+        suggestionCatalogProgramId: z.number().int().nullable().optional(),
+        catalogProgramId: z.number().int().nullable(),
+        specializationId: z.number().int().nullable(),
+        languageId: z.number().int().nullable(),
+        manualCourseIds: z
+            .array(z.number().int())
+            .transform((arr) => [...new Set(arr)])
+    })
+    .strict();
+
 const periodPlanningEntity = z
     .object({
         id: z.number().int(),
@@ -22,6 +38,7 @@ const periodPlanningEntity = z
         studyPeriodId: z.number().int(),
         studyPeriodCode: z.string(),
         curriculumId: z.number().int().nullable(),
+        guide: guideSchema,
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
         classes: z.array(
@@ -114,6 +131,7 @@ const create = {
                 name: z.string().trim().min(1).optional(),
                 studyPeriodId: z.number().int(),
                 curriculumId: z.number().int().nullable().optional(),
+                guide: guideSchema.optional(),
                 classes: z
                     .array(z.number().int())
                     .transform((arr) => new Set(arr))
@@ -137,6 +155,7 @@ const patch = {
             .object({
                 name: z.string().trim().min(1).optional(),
                 curriculumId: z.number().int().nullable().optional(),
+                guide: guideSchema.optional(),
                 classes: z
                     .object({
                         set: z

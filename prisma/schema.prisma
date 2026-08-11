@@ -26,6 +26,17 @@ enum YearPeriods {
   SECOND_SEMESTER
 }
 
+enum PeriodPlanningGuideMode {
+  CURRICULUM
+  PROGRAM
+  NONE
+}
+
+enum PeriodPlanningCurriculumSource {
+  SAVED
+  SUGGESTION
+}
+
 model User {
   id    Int    @id @default(autoincrement())
   email String @unique
@@ -123,10 +134,11 @@ model Course {
   prefixId Int?
 
   classes            Class[]
-  studentCourses     StudentCourse[]
+  studentCourseAttempts StudentCourseAttempt[]
   curriculumCourses  CurriculumCourse[]
   courseRequirements CourseRequirement[]
   suggestionCourses  SuggestionCourse[]
+  periodPlanningManualCourses PeriodPlanningManualCourse[]
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
@@ -159,6 +171,7 @@ model Specialization {
   students  Student[]
 
   catalogSpecializations CatalogSpecialization[]
+  periodPlannings PeriodPlanning[]
 
   @@unique([programId, code])
 }
@@ -167,6 +180,7 @@ model Language {
   id               Int               @id @default(autoincrement())
   name             String
   catalogLanguages CatalogLanguage[]
+  periodPlannings PeriodPlanning[]
 }
 
 model CatalogProgram {
@@ -180,6 +194,7 @@ model CatalogProgram {
   courseBlocks           CourseBlock[]
   curriculumSuggestions  CurriculumSuggestion[]
   curricula               Curriculum[]
+  periodPlannings         PeriodPlanning[]
 
   @@unique([catalogId, programId])
 }
@@ -226,6 +241,7 @@ model CurriculumSuggestion {
   catalogSpecialization   CatalogSpecialization?   @relation(fields: [catalogSpecializationId], references: [id])
   catalogSpecializationId Int?                     @unique
   semesters               SemesterSuggestion[]
+  periodPlannings         PeriodPlanning[]
 
   @@unique([catalogProgramId, code])
 }
@@ -300,6 +316,7 @@ model StudyPeriod {
   startDate       DateTime
   classes         Class[]
   periodPlannings PeriodPlanning[]
+  studentCourseAttempts StudentCourseAttempt[]
 }
 
 model Professor {
@@ -352,9 +369,10 @@ model ClassSchedule {
 
 // ----------------------- Student Models ----------------------- //
 
-enum StudentCourseStatus {
+enum StudentCourseAttemptStatus {
   ENROLLED
   COMPLETED
+  FAILED
   DROPPED
 }
 
@@ -371,7 +389,7 @@ model Student {
   catalog          Catalog?        @relation(fields: [catalogId], references: [id])
   catalogId        Int?
 
-  courses         StudentCourse[]
+  courseAttempts  StudentCourseAttempt[]
   periodPlannings PeriodPlanning[]
   curriculums     Curriculum[]
   botGrants       BotGrant[]
@@ -394,14 +412,22 @@ model BotGrant {
   @@index([studentId, botAuthUserId, capability, revokedAt])
 }
 
-model StudentCourse {
-  student   Student             @relation(fields: [studentId], references: [id])
-  studentId Int
-  course    Course              @relation(fields: [courseId], references: [id])
-  courseId  Int
-  status    StudentCourseStatus
+model StudentCourseAttempt {
+  id            Int                      @id @default(autoincrement())
+  student       Student                  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId     Int
+  course        Course                   @relation(fields: [courseId], references: [id])
+  courseId      Int
+  studyPeriod   StudyPeriod?             @relation(fields: [studyPeriodId], references: [id])
+  studyPeriodId Int?
+  status        StudentCourseAttemptStatus
+  grade         Decimal?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
-  @@id([studentId, courseId])
+  @@index([studentId, studyPeriodId])
+  @@index([studentId, courseId])
+  @@index([studentId, status])
 }
 
 model Curriculum {
@@ -463,13 +489,35 @@ model PeriodPlanning {
   studentId     Int
   curriculum   Curriculum? @relation(fields: [curriculumId], references: [id], onDelete: SetNull)
   curriculumId Int?
+  guideMode     PeriodPlanningGuideMode @default(NONE)
+  curriculumSource PeriodPlanningCurriculumSource?
+  curriculumSuggestion CurriculumSuggestion? @relation(fields: [curriculumSuggestionId], references: [id], onDelete: SetNull)
+  curriculumSuggestionId Int?
+  catalogProgram CatalogProgram? @relation(fields: [catalogProgramId], references: [id], onDelete: SetNull)
+  catalogProgramId Int?
+  specialization Specialization? @relation(fields: [specializationId], references: [id], onDelete: SetNull)
+  specializationId Int?
+  language Language? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  languageId Int?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   classes Class[]
+  manualCourses PeriodPlanningManualCourse[]
 
   @@index([studentId, updatedAt])
   @@index([curriculumId])
+}
+
+model PeriodPlanningManualCourse {
+  periodPlanning   PeriodPlanning @relation(fields: [periodPlanningId], references: [id], onDelete: Cascade)
+  periodPlanningId Int
+  course           Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId         Int
+  createdAt        DateTime @default(now())
+
+  @@id([periodPlanningId, courseId])
+  @@index([courseId])
 }
 
 model CalendarEvent {

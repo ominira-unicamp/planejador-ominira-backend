@@ -33,8 +33,8 @@ authRegistry.addPolicy(
 );
 
 for (const path of [
-    "/student/:sid/courses",
-    "/student/:sid/courses/:courseId"
+    "/student/:sid/course-attempts",
+    "/student/:sid/course-attempts/:id"
 ]) {
     authRegistry.addPolicy(
         "GET",
@@ -43,19 +43,14 @@ for (const path of [
     );
 }
 authRegistry.addPolicy(
-    "PUT",
-    "/student/:sid/courses/:courseId",
-    policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-);
-authRegistry.addPolicy(
     "POST",
-    "/student/:sid/courses",
+    "/student/:sid/course-attempts",
     policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
 );
 for (const method of ["PATCH", "DELETE"] as const) {
     authRegistry.addPolicy(
         method,
-        "/student/:sid/courses/:courseId",
+        "/student/:sid/course-attempts/:id",
         policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
     );
 }

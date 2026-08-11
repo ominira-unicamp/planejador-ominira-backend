@@ -29,9 +29,46 @@ const authRegistry = new AuthRegistry();
 
 async function validateProgramSpecialization(
     prisma: Context["prisma"],
+    catalogId: number | null | undefined,
     programId: number | null | undefined,
     specializationId: number | null | undefined
 ) {
+    if (catalogId != null) {
+        const catalog = await prisma.catalog.findUnique({
+            where: { id: catalogId },
+            select: { id: true }
+        });
+        if (!catalog)
+            return new ValidationError([
+                {
+                    code: "REFERENCE_NOT_FOUND",
+                    path: ["body", "catalogId"],
+                    message: `Catalog ${catalogId} not found`
+                }
+            ]);
+    }
+    if (programId != null && catalogId == null)
+        return new ValidationError([
+            {
+                code: "REQUIRED",
+                path: ["body", "catalogId"],
+                message: "catalogId is required when programId is provided"
+            }
+        ]);
+    if (programId != null && catalogId != null) {
+        const catalogProgram = await prisma.catalogProgram.findUnique({
+            where: { catalogId_programId: { catalogId, programId } },
+            select: { id: true }
+        });
+        if (!catalogProgram)
+            return new ValidationError([
+                {
+                    code: "INVALID_VALUE",
+                    path: ["body", "programId"],
+                    message: `Program ${programId} is not available in catalog ${catalogId}`
+                }
+            ]);
+    }
     if (specializationId == null) return null;
 
     if (programId == null)
@@ -109,6 +146,7 @@ export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     }
     const validation = await validateProgramSpecialization(
         ctx.prisma,
+        body.catalogId,
         body.programId,
         body.specializationId
     );
@@ -136,6 +174,7 @@ export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
 
     const validation = await validateProgramSpecialization(
         ctx.prisma,
+        body.catalogId !== undefined ? body.catalogId : existing.catalogId,
         body.programId !== undefined ? body.programId : existing.programId,
         body.specializationId !== undefined
             ? body.specializationId
@@ -187,7 +226,7 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
     }
 
     await ctx.prisma.$transaction(async (tx) => {
-        await tx.studentCourse.deleteMany({ where: { studentId: id } });
+        await tx.studentCourseAttempt.deleteMany({ where: { studentId: id } });
         await tx.curriculumCourse.deleteMany({
             where: { curriculum: { studentId: id } }
         });

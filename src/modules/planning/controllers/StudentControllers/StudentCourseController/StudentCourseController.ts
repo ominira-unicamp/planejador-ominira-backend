@@ -1,213 +1,200 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import {
+    extendZodWithOpenApi,
+    OpenAPIRegistry
+} from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 import z from "zod";
 
 import { AuthRegistry } from "#/auth.js";
 import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler } from "#/defaultEndpoint.js";
 import IO from "#/modules/planning/contracts/students/StudentCourseInterface.js";
-import studentCourseEntity from "#/modules/planning/controllers/StudentControllers/StudentCourseController/Entity.js";
+import attemptEntity from "#/modules/planning/controllers/StudentControllers/StudentCourseController/Entity.js";
 import { ValidationError } from "#/Validation.js";
-import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 
 extendZodWithOpenApi(z);
 
 const router = Router();
 const authRegistry = new AuthRegistry();
 
-authRegistry.addException("GET", "/courses/:id");
+function validationError(path: string[], message: string) {
+    return new ValidationError([
+        { code: "REFERENCE_NOT_FOUND", path, message }
+    ]);
+}
 
-const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
-    const {
-        path: { sid },
-        query
-    } = input;
-    const studentCourses = await ctx.prisma.studentCourse.findMany({
-        ...studentCourseEntity.prismaSelection,
-        where: {
-            studentId: sid,
-            ...(query?.status && { status: query.status })
-        }
-    });
-    const entities = studentCourses.map(studentCourseEntity.build);
-    return { 200: entities };
-};
-
-const get = defaultGetHandler(
-    (p) => p.studentCourse,
-    studentCourseEntity.prismaSelection,
-    studentCourseEntity.build,
-    "Student course not found"
-);
-
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const {
-        path: { sid },
-        body: { courseId, status }
-    } = input;
-
+async function validateReferences(
+    ctx: Parameters<HandlerFn<typeof IO.create>>[0],
+    courseId: number,
+    studyPeriodId: number | null | undefined
+) {
     const course = await ctx.prisma.course.findUnique({
         where: { id: courseId }
     });
-    if (!course) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["body", "courseId"],
-            code: "REFERENCE_NOT_FOUND",
-            message: `Course with id ${courseId} not found`
+    if (!course)
+        return validationError(
+            ["body", "courseId"],
+            `Course with id ${courseId} not found`
+        );
+    if (studyPeriodId !== null && studyPeriodId !== undefined) {
+        const period = await ctx.prisma.studyPeriod.findUnique({
+            where: { id: studyPeriodId }
         });
-        return { 400: error };
+        if (!period)
+            return validationError(
+                ["body", "studyPeriodId"],
+                `StudyPeriod with id ${studyPeriodId} not found`
+            );
     }
+    return null;
+}
 
-    const existing = await ctx.prisma.studentCourse.findUnique({
+async function validateActiveAttempt(
+    ctx: Parameters<HandlerFn<typeof IO.create>>[0],
+    studentId: number,
+    courseId: number,
+    status: "ENROLLED" | "COMPLETED" | "FAILED" | "DROPPED",
+    excludedId?: number
+) {
+    if (status !== "ENROLLED") return null;
+    const existing = await ctx.prisma.studentCourseAttempt.findFirst({
         where: {
-            studentId_courseId: {
-                studentId: sid,
-                courseId: courseId
-            }
-        }
-    });
-
-    if (existing) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["body", "courseId"],
-            code: "ALREADY_EXISTS",
-            message: `Student is already enrolled in course ${courseId}`
-        });
-        return { 400: error };
-    }
-
-    const studentCourse = await ctx.prisma.studentCourse.create({
-        ...studentCourseEntity.prismaSelection,
-        data: {
-            studentId: sid,
+            studentId,
             courseId,
-            status
-        }
+            status: "ENROLLED",
+            ...(excludedId === undefined ? {} : { id: { not: excludedId } })
+        },
+        select: { id: true }
     });
-    return { 201: studentCourseEntity.build(studentCourse) };
+    if (!existing) return null;
+    return new ValidationError([
+        {
+            code: "ALREADY_EXISTS",
+            path: ["body", "status"],
+            message: "Student already has an active attempt for this course"
+        }
+    ]);
+}
+
+const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
+    const { sid } = input.path;
+    const { status, courseId, studyPeriodId } = input.query ?? {};
+    const attempts = await ctx.prisma.studentCourseAttempt.findMany({
+        ...attemptEntity.prismaSelection,
+        where: {
+            studentId: sid,
+            ...(status ? { status } : {}),
+            ...(courseId ? { courseId } : {}),
+            ...(studyPeriodId ? { studyPeriodId } : {})
+        },
+        orderBy: [{ studyPeriod: { startDate: "desc" } }, { createdAt: "desc" }]
+    });
+    return { 200: attempts.map(attemptEntity.build) };
+};
+
+const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
+    const attempt = await ctx.prisma.studentCourseAttempt.findFirst({
+        ...attemptEntity.prismaSelection,
+        where: { id: input.path.id, studentId: input.path.sid }
+    });
+    if (!attempt)
+        return { 404: { description: "Student course attempt not found" } };
+    return { 200: attemptEntity.build(attempt) };
+};
+
+const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
+    const { sid } = input.path;
+    const { courseId, studyPeriodId, status, grade } = input.body;
+    const referenceError = await validateReferences(
+        ctx,
+        courseId,
+        studyPeriodId
+    );
+    if (referenceError) return { 400: referenceError };
+    const activeError = await validateActiveAttempt(ctx, sid, courseId, status);
+    if (activeError) return { 400: activeError };
+    const attempt = await ctx.prisma.studentCourseAttempt.create({
+        ...attemptEntity.prismaSelection,
+        data: { studentId: sid, courseId, studyPeriodId, status, grade }
+    });
+    return { 201: attemptEntity.build(attempt) };
 };
 
 const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { sid, courseId },
-        body: { status }
-    } = input;
-
-    const existing = await ctx.prisma.studentCourse.findUnique({
-        where: { studentId_courseId: { studentId: sid, courseId } }
+    const existing = await ctx.prisma.studentCourseAttempt.findFirst({
+        where: { id: input.path.id, studentId: input.path.sid }
     });
-
-    if (!existing) {
-        return {
-            404: {
-                description:
-                    "Student course not found or does not belong to the student"
-            }
-        };
-    }
-
-    const studentCourse = await ctx.prisma.studentCourse.update({
-        ...studentCourseEntity.prismaSelection,
-        where: { studentId_courseId: { studentId: sid, courseId } },
-        data: { status }
+    if (!existing)
+        return { 404: { description: "Student course attempt not found" } };
+    const next = { ...existing, ...input.body };
+    const referenceError = await validateReferences(
+        ctx,
+        next.courseId,
+        next.studyPeriodId
+    );
+    if (referenceError) return { 400: referenceError };
+    const activeError = await validateActiveAttempt(
+        ctx,
+        existing.studentId,
+        existing.courseId,
+        next.status,
+        existing.id
+    );
+    if (activeError) return { 400: activeError };
+    const attempt = await ctx.prisma.studentCourseAttempt.update({
+        ...attemptEntity.prismaSelection,
+        where: { id: existing.id },
+        data: input.body
     });
-
-    return { 200: studentCourseEntity.build(studentCourse) };
-};
-
-const putFn: HandlerFn<typeof IO.put> = async (ctx, input) => {
-    const { sid, courseId } = input.path;
-    const course = await ctx.prisma.course.findUnique({
-        where: { id: courseId }
-    });
-    if (!course) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["body", "courseId"],
-            code: "REFERENCE_NOT_FOUND",
-            message: `Course with id ${courseId} not found`
-        });
-        return { 400: error };
-    }
-    const studentCourse = await ctx.prisma.studentCourse.upsert({
-        ...studentCourseEntity.prismaSelection,
-        where: { studentId_courseId: { studentId: sid, courseId } },
-        create: { studentId: sid, courseId, status: input.body.status },
-        update: { status: input.body.status }
-    });
-    return { 200: studentCourseEntity.build(studentCourse) };
+    return { 200: attemptEntity.build(attempt) };
 };
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { sid, courseId }
-    } = input;
-
-    const existing = await ctx.prisma.studentCourse.findUnique({
-        where: { studentId_courseId: { studentId: sid, courseId } }
+    const existing = await ctx.prisma.studentCourseAttempt.findFirst({
+        where: { id: input.path.id, studentId: input.path.sid },
+        select: { id: true }
     });
-
-    if (!existing) {
-        return {
-            404: {
-                description:
-                    "Student course not found or does not belong to the student"
-            }
-        };
-    }
-
-    await ctx.prisma.studentCourse.delete({
-        where: { studentId_courseId: { studentId: sid, courseId } }
+    if (!existing)
+        return { 404: { description: "Student course attempt not found" } };
+    await ctx.prisma.studentCourseAttempt.delete({
+        where: { id: existing.id }
     });
     return { 204: null };
 };
 
-router.get("/student/:sid/courses/:courseId", get);
-
 router.get(
-    "/student/:sid/courses",
+    "/student/:sid/course-attempts",
     buildHandler(IO.list.input, IO.list.output, listFn)
 );
-
+router.get(
+    "/student/:sid/course-attempts/:id",
+    buildHandler(IO.get.input, IO.get.output, getFn)
+);
 router.post(
-    "/student/:sid/courses",
+    "/student/:sid/course-attempts",
     buildHandler(IO.create.input, IO.create.output, createFn)
 );
-
 router.patch(
-    "/student/:sid/courses/:courseId",
+    "/student/:sid/course-attempts/:id",
     buildHandler(IO.patch.input, IO.patch.output, patchFn)
 );
-
-router.put(
-    "/student/:sid/courses/:courseId",
-    buildHandler(IO.put.input, IO.put.output, putFn)
-);
-
 router.delete(
-    "/student/:sid/courses/:courseId",
+    "/student/:sid/course-attempts/:id",
     buildHandler(IO.remove.input, IO.remove.output, removeFn)
 );
 
 const registry = new OpenAPIRegistry();
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.list));
+registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.create));
 registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.put));
 registry.registerPath(openApiArgsFromIO(IO.remove));
-
-function entityPath(studentId: number, studentCourseId: number) {
-    return `/student/${studentId}/courses/${studentCourseId}`;
-}
 
 export default {
     router,
     registry,
     authRegistry,
     paths: {
-        entity: entityPath
+        entity: (studentId: number, id: number) =>
+            `/student/${studentId}/course-attempts/${id}`
     }
 };

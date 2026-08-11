@@ -13,43 +13,41 @@ export const prismaStudentCourseFieldSelection = {
                 credits: true,
                 unit: selectIdCode
             }
-        }
+        },
+        studyPeriod: { select: { id: true, code: true } }
     }
-} as const satisfies MyPrisma.StudentCourseDefaultArgs;
+} as const satisfies MyPrisma.StudentCourseAttemptDefaultArgs;
 
-type PrismaStudentCoursePayload = MyPrisma.StudentCourseGetPayload<
+type PrismaStudentCoursePayload = MyPrisma.StudentCourseAttemptGetPayload<
     typeof prismaStudentCourseFieldSelection
 >;
 
-function relatedPathsForStudentCourse(
-    studentCourse: PrismaStudentCoursePayload
-) {
+function buildStudentCourseEntity(
+    attempt: PrismaStudentCoursePayload
+): z.infer<typeof IO.schema> {
+    const { course, studyPeriod, grade, createdAt, updatedAt, ...rest } =
+        attempt;
     return {
-        self: resourcesPaths.studentCourse.entity(
-            studentCourse.studentId,
-            studentCourse.courseId
-        ),
-        student: resourcesPaths.student.entity(studentCourse.studentId),
-        course: resourcesPaths.course.entity(studentCourse.course.id)
+        ...rest,
+        grade: grade === null ? null : Number(grade),
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
+        course,
+        studyPeriod,
+        _paths: {
+            self: resourcesPaths.studentCourse.entity(
+                attempt.studentId,
+                attempt.id
+            ),
+            student: resourcesPaths.student.entity(attempt.studentId),
+            course: resourcesPaths.course.entity(course.id),
+            studyPeriod: studyPeriod
+                ? resourcesPaths.studyPeriod.entity(studyPeriod.id)
+                : null
+        }
     };
 }
 
-function buildStudentCourseEntity(
-    studentCourse: PrismaStudentCoursePayload
-): z.infer<typeof IO.schema> {
-    const { course, ...rest } = studentCourse;
-    return {
-        ...rest,
-        course: {
-            id: course.id,
-            code: course.code,
-            name: course.name,
-            credits: course.credits,
-            unit: course.unit
-        },
-        _paths: relatedPathsForStudentCourse(studentCourse)
-    };
-}
 export default {
     build: buildStudentCourseEntity,
     prismaSelection: prismaStudentCourseFieldSelection
