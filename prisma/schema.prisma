@@ -344,6 +344,7 @@ model Class {
   professors      Professor[]
   classSchedules  ClassSchedule[]
   periodPlannings PeriodPlanning[]
+  studentCourseAttempts StudentCourseAttempt[]
 }
 
 //  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 
@@ -424,6 +425,8 @@ model StudentCourseAttempt {
   courseId      Int
   studyPeriod   StudyPeriod?             @relation(fields: [studyPeriodId], references: [id])
   studyPeriodId Int?
+  class         Class?                   @relation(fields: [classId], references: [id], onDelete: SetNull)
+  classId       Int?
   status        StudentCourseAttemptStatus
   grade         Decimal?
   createdAt     DateTime                 @default(now())
@@ -432,6 +435,7 @@ model StudentCourseAttempt {
   @@index([studentId, studyPeriodId])
   @@index([studentId, courseId])
   @@index([studentId, status])
+  @@index([classId])
 }
 
 model Curriculum {

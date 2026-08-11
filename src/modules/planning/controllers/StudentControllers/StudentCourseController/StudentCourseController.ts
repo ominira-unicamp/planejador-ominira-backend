@@ -22,10 +22,15 @@ function validationError(path: string[], message: string) {
     ]);
 }
 
+function invalidValueError(path: string[], message: string) {
+    return new ValidationError([{ code: "INVALID_VALUE", path, message }]);
+}
+
 async function validateReferences(
     ctx: Parameters<HandlerFn<typeof IO.create>>[0],
     courseId: number,
-    studyPeriodId: number | null | undefined
+    studyPeriodId: number | null | undefined,
+    classId: number | null | undefined
 ) {
     const course = await ctx.prisma.course.findUnique({
         where: { id: courseId }
@@ -45,6 +50,31 @@ async function validateReferences(
                 `StudyPeriod with id ${studyPeriodId} not found`
             );
     }
+    if (classId === null || classId === undefined) return null;
+    if (studyPeriodId === null || studyPeriodId === undefined)
+        return invalidValueError(
+            ["body", "classId"],
+            "A class requires a study period"
+        );
+    const classData = await ctx.prisma.class.findUnique({
+        where: { id: classId },
+        select: { courseId: true, studyPeriodId: true }
+    });
+    if (!classData)
+        return validationError(
+            ["body", "classId"],
+            `Class with id ${classId} not found`
+        );
+    if (classData.courseId !== courseId)
+        return invalidValueError(
+            ["body", "classId"],
+            "The class must belong to the selected course"
+        );
+    if (classData.studyPeriodId !== studyPeriodId)
+        return invalidValueError(
+            ["body", "classId"],
+            "The class must belong to the selected study period"
+        );
     return null;
 }
 
@@ -103,18 +133,26 @@ const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const { sid } = input.path;
-    const { courseId, studyPeriodId, status, grade } = input.body;
+    const { courseId, studyPeriodId, classId, status, grade } = input.body;
     const referenceError = await validateReferences(
         ctx,
         courseId,
-        studyPeriodId
+        studyPeriodId,
+        classId
     );
     if (referenceError) return { 400: referenceError };
     const activeError = await validateActiveAttempt(ctx, sid, courseId, status);
     if (activeError) return { 400: activeError };
     const attempt = await ctx.prisma.studentCourseAttempt.create({
         ...attemptEntity.prismaSelection,
-        data: { studentId: sid, courseId, studyPeriodId, status, grade }
+        data: {
+            studentId: sid,
+            courseId,
+            studyPeriodId,
+            classId,
+            status,
+            grade
+        }
     });
     return { 201: attemptEntity.build(attempt) };
 };
@@ -129,7 +167,8 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
     const referenceError = await validateReferences(
         ctx,
         next.courseId,
-        next.studyPeriodId
+        next.studyPeriodId,
+        next.classId
     );
     if (referenceError) return { 400: referenceError };
     const activeError = await validateActiveAttempt(

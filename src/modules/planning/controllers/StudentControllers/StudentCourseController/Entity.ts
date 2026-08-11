@@ -14,7 +14,14 @@ export const prismaStudentCourseFieldSelection = {
                 unit: selectIdCode
             }
         },
-        studyPeriod: { select: { id: true, code: true } }
+        studyPeriod: { select: { id: true, code: true } },
+        class: {
+            select: {
+                id: true,
+                code: true,
+                professors: { select: { id: true, name: true } }
+            }
+        }
     }
 } as const satisfies MyPrisma.StudentCourseAttemptDefaultArgs;
 
@@ -25,8 +32,15 @@ type PrismaStudentCoursePayload = MyPrisma.StudentCourseAttemptGetPayload<
 function buildStudentCourseEntity(
     attempt: PrismaStudentCoursePayload
 ): z.infer<typeof IO.schema> {
-    const { course, studyPeriod, grade, createdAt, updatedAt, ...rest } =
-        attempt;
+    const {
+        course,
+        studyPeriod,
+        class: classData,
+        grade,
+        createdAt,
+        updatedAt,
+        ...rest
+    } = attempt;
     return {
         ...rest,
         grade: grade === null ? null : Number(grade),
@@ -34,6 +48,7 @@ function buildStudentCourseEntity(
         updatedAt: updatedAt.toISOString(),
         course,
         studyPeriod,
+        class: classData,
         _paths: {
             self: resourcesPaths.studentCourse.entity(
                 attempt.studentId,
@@ -43,7 +58,8 @@ function buildStudentCourseEntity(
             course: resourcesPaths.course.entity(course.id),
             studyPeriod: studyPeriod
                 ? resourcesPaths.studyPeriod.entity(studyPeriod.id)
-                : null
+                : null,
+            class: classData ? resourcesPaths.class.entity(classData.id) : null
         }
     };
 }

@@ -35,6 +35,7 @@ const attemptEntity = z
         studentId: z.number().int(),
         courseId: z.number().int(),
         studyPeriodId: z.number().int().nullable(),
+        classId: z.number().int().nullable(),
         status: statusSchema,
         grade: z.number().nullable(),
         createdAt: z.string().datetime(),
@@ -49,11 +50,21 @@ const attemptEntity = z
         studyPeriod: z
             .object({ id: z.number().int(), code: z.string() })
             .nullable(),
+        class: z
+            .object({
+                id: z.number().int(),
+                code: z.string(),
+                professors: z.array(
+                    z.object({ id: z.number().int(), name: z.string() })
+                )
+            })
+            .nullable(),
         _paths: z.object({
             self: z.string(),
             student: z.string(),
             course: z.string(),
-            studyPeriod: z.string().nullable()
+            studyPeriod: z.string().nullable(),
+            class: z.string().nullable()
         })
     })
     .strict()
@@ -63,6 +74,7 @@ const attemptBody = z
     .object({
         courseId: z.number().int(),
         studyPeriodId: z.number().int().nullable().optional(),
+        classId: z.number().int().nullable().optional(),
         status: statusSchema,
         grade: gradeSchema.optional()
     })
