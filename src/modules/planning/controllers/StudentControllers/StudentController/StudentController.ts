@@ -31,7 +31,8 @@ async function validateProgramSpecialization(
     prisma: Context["prisma"],
     catalogId: number | null | undefined,
     programId: number | null | undefined,
-    specializationId: number | null | undefined
+    specializationId: number | null | undefined,
+    languageId: number | null | undefined
 ) {
     if (catalogId != null) {
         const catalog = await prisma.catalog.findUnique({
@@ -69,6 +70,33 @@ async function validateProgramSpecialization(
                 }
             ]);
     }
+    if (languageId != null && (catalogId == null || programId == null))
+        return new ValidationError([
+            {
+                code: "REQUIRED",
+                path: ["body", "programId"],
+                message:
+                    "catalogId and programId are required when languageId is provided"
+            }
+        ]);
+    if (languageId != null) {
+        const catalogLanguage = await prisma.catalogLanguage.findFirst({
+            where: {
+                languageId,
+                catalogProgram: { catalogId: catalogId!, programId: programId! }
+            },
+            select: { id: true }
+        });
+        if (!catalogLanguage)
+            return new ValidationError([
+                {
+                    code: "INVALID_VALUE",
+                    path: ["body", "languageId"],
+                    message: `Language ${languageId} is not available in this catalog program`
+                }
+            ]);
+    }
+
     if (specializationId == null) return null;
 
     if (programId == null)
@@ -148,7 +176,8 @@ export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
         ctx.prisma,
         body.catalogId,
         body.programId,
-        body.specializationId
+        body.specializationId,
+        body.languageId
     );
     if (validation) return { 400: validation };
 
@@ -158,7 +187,9 @@ export const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
             name: body.name,
             programId: body.programId,
             specializationId: body.specializationId,
-            catalogId: body.catalogId
+            catalogId: body.catalogId,
+            entryYear: body.entryYear,
+            languageId: body.languageId
         }
     });
     return { 201: studentEntity.build(student) };
@@ -178,7 +209,8 @@ export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
         body.programId !== undefined ? body.programId : existing.programId,
         body.specializationId !== undefined
             ? body.specializationId
-            : existing.specializationId
+            : existing.specializationId,
+        body.languageId !== undefined ? body.languageId : existing.languageId
     );
     if (validation) return { 400: validation };
 
@@ -191,7 +223,11 @@ export const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
             ...(body.specializationId !== undefined && {
                 specializationId: body.specializationId
             }),
-            ...(body.catalogId !== undefined && { catalogId: body.catalogId })
+            ...(body.catalogId !== undefined && { catalogId: body.catalogId }),
+            ...(body.entryYear !== undefined && { entryYear: body.entryYear }),
+            ...(body.languageId !== undefined && {
+                languageId: body.languageId
+            })
         }
     });
     return { 200: studentEntity.build(student) };

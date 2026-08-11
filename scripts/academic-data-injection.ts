@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { DayOfWeek, PrismaClient } from "../prisma/generated/client.js";
+import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
 const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
@@ -15,32 +16,33 @@ if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
         "ACADEMIC_INJECTION_CONCURRENCY deve ser um inteiro positivo"
     );
 interface Aula {
-    dia_semana: string;
-    horario: {
-        inicio: string;
-        fim: string;
+    weekday: string;
+    time: {
+        start: string;
+        end: string;
     };
-    sala: string;
+    room: string;
 }
 interface Turma {
-    nome: string;
-    docentes: string[];
-    aulas: Aula[];
-    reservas: number[];
+    name: string;
+    professors: string[];
+    classes: Aula[];
+    reservations: number[];
 }
 interface Disciplina {
-    codigo: string;
-    nome: string;
-    turmas: Turma[];
+    code: string;
+    name: string;
+    classes: Turma[];
 }
 interface Instituto {
-    nome: string;
-    diciplinas: Disciplina[];
+    code: string;
+    name: string;
+    courses: Disciplina[];
 }
 interface AcademicData {
-    ano: number;
-    semestre: number;
-    institutos: Instituto[];
+    year: number;
+    semester: number;
+    institutes: Instituto[];
 }
 
 const dayOfWeekMap: Record<string, DayOfWeek> = {
@@ -82,8 +84,11 @@ async function main() {
         process.env.ACADEMIC_DATA_INPUT ??
             resolve(import.meta.dirname, "../../prisma/seed.json")
     );
-    const academicData = JSON.parse(
-        await readFile(inputPath, "utf-8")
+    const parsedInput = unwrapScrapeData(
+        JSON.parse(await readFile(inputPath, "utf-8"))
+    );
+    const academicData = (
+        Array.isArray(parsedInput) ? parsedInput : [parsedInput]
     ) as AcademicData[];
     if (academicData.length === 0)
         throw new Error("Nenhum período acadêmico encontrado");
@@ -98,35 +103,37 @@ async function main() {
     const studyPeriods = new Map<string, { code: string; startDate: Date }>();
 
     console.log("📊 Coletando dados...");
-    for (const periodo of academicData) {
+    for (const period of academicData) {
         const studyPeriod = {
-            code: `${periodo.ano}s${periodo.semestre}`,
+            code: `${period.year}s${period.semester}`,
             startDate: new Date(
-                `${periodo.ano}-${periodo.semestre === 1 ? "02" : "08"}-01`
+                `${period.year}-${period.semester === 1 ? "02" : "08"}-01`
             )
         };
         studyPeriods.set(studyPeriod.code, studyPeriod);
 
-        for (const institutoData of periodo.institutos) {
-            allUnits.set(institutoData.nome, { code: institutoData.nome });
+        for (const instituteData of period.institutes) {
+            allUnits.set(instituteData.code, { code: instituteData.code });
 
-            for (const disciplinaData of institutoData.diciplinas) {
-                allCourses.set(disciplinaData.codigo, {
-                    code: disciplinaData.codigo,
-                    name: disciplinaData.nome,
-                    unitCode: institutoData.nome,
+            for (const courseData of instituteData.courses) {
+                allCourses.set(courseData.code, {
+                    code: courseData.code,
+                    name: courseData.name,
+                    unitCode: instituteData.code,
                     credits: 4
                 });
 
-                for (const turmaData of disciplinaData.turmas) {
-                    turmaData.docentes
+                for (const classData of courseData.classes) {
+                    classData.professors
                         .filter((d) => d && d.trim() !== "")
                         .forEach((d) =>
                             allProfessors.set(d.trim(), { name: d.trim() })
                         );
 
-                    turmaData.aulas.forEach((a) =>
-                        allRooms.set(a.sala, { code: a.sala })
+                    classData.classes.forEach((classMeeting) =>
+                        allRooms.set(classMeeting.room, {
+                            code: classMeeting.room
+                        })
                     );
                 }
             }
@@ -217,25 +224,25 @@ async function main() {
         turmaKey: string;
     }> = [];
 
-    for (const periodo of academicData) {
+    for (const period of academicData) {
         const studyPeriod = studyPeriodsMap.get(
-            `${periodo.ano}s${periodo.semestre}`
+            `${period.year}s${period.semester}`
         );
         if (!studyPeriod)
             throw new Error(
-                `Período não encontrado: ${periodo.ano}s${periodo.semestre}`
+                `Período não encontrado: ${period.year}s${period.semester}`
             );
 
-        for (const institutoData of periodo.institutos) {
-            for (const disciplinaData of institutoData.diciplinas) {
-                const course = coursesMap.get(disciplinaData.codigo);
+        for (const instituteData of period.institutes) {
+            for (const courseData of instituteData.courses) {
+                const course = coursesMap.get(courseData.code);
                 if (!course)
                     throw new Error(
-                        `Disciplina não encontrada: ${disciplinaData.codigo}`
+                        `Disciplina não encontrada: ${courseData.code}`
                     );
 
-                for (const turmaData of disciplinaData.turmas) {
-                    const professorIds = turmaData.docentes
+                for (const classData of courseData.classes) {
+                    const professorIds = classData.professors
                         .filter((d) => d && d.trim() !== "")
                         .map((d) => {
                             const professor = professorsMap.get(d.trim());
@@ -247,12 +254,12 @@ async function main() {
                         });
 
                     allClasses.push({
-                        code: turmaData.nome,
+                        code: classData.name,
                         courseId: course.id,
                         studyPeriodId: studyPeriod.id,
-                        reservations: turmaData.reservas,
+                        reservations: classData.reservations,
                         professorIds,
-                        turmaKey: `${periodo.ano}-${periodo.semestre}-${disciplinaData.codigo}-${turmaData.nome}`
+                        turmaKey: `${period.year}-${period.semester}-${courseData.code}-${classData.name}`
                     });
                 }
             }
@@ -335,30 +342,30 @@ async function main() {
         end: string;
     }> = [];
 
-    for (const periodo of academicData) {
-        for (const institutoData of periodo.institutos) {
-            for (const disciplinaData of institutoData.diciplinas) {
-                for (const turmaData of disciplinaData.turmas) {
-                    const turmaKey = `${periodo.ano}-${periodo.semestre}-${disciplinaData.codigo}-${turmaData.nome}`;
+    for (const period of academicData) {
+        for (const instituteData of period.institutes) {
+            for (const courseData of instituteData.courses) {
+                for (const classData of courseData.classes) {
+                    const turmaKey = `${period.year}-${period.semester}-${courseData.code}-${classData.name}`;
                     const classEntity = classesMap.get(turmaKey);
                     if (!classEntity)
                         throw new Error(`Turma não encontrada: ${turmaKey}`);
 
-                    for (const aulaData of turmaData.aulas) {
-                        const dayOfWeek = dayOfWeekMap[aulaData.dia_semana];
+                    for (const classMeeting of classData.classes) {
+                        const dayOfWeek = dayOfWeekMap[classMeeting.weekday];
                         if (!dayOfWeek) continue;
 
-                        const room = roomsMap.get(aulaData.sala);
+                        const room = roomsMap.get(classMeeting.room);
                         if (!room)
                             throw new Error(
-                                `Sala não encontrada: ${aulaData.sala}`
+                                `Sala não encontrada: ${classMeeting.room}`
                             );
                         allSchedules.push({
                             classId: classEntity.id,
                             roomId: room.id,
                             dayOfWeek,
-                            start: aulaData.horario.inicio,
-                            end: aulaData.horario.fim
+                            start: classMeeting.time.start,
+                            end: classMeeting.time.end
                         });
                     }
                 }

@@ -6,6 +6,7 @@ import {
     CurriculumSuggestionType,
     PrismaClient
 } from "../prisma/generated/client.js";
+import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ type CourseInput = { code: string };
 type SemesterInput = {
     semester: number;
     elective_credits?: number;
+    electiveCredits?: number;
     courses: CourseInput[];
 };
 type SuggestionInput = {
@@ -148,7 +150,10 @@ async function importSuggestion(
                 data: suggestion.semesters.map((semester) => ({
                     suggestionId: persisted.id,
                     semester: semester.semester,
-                    electiveCredits: semester.elective_credits ?? 0
+                    electiveCredits:
+                        semester.electiveCredits ??
+                        semester.elective_credits ??
+                        0
                 }))
             });
             const persistedSemesters = new Map(
@@ -222,7 +227,9 @@ async function runWithConcurrency<T>(
 }
 
 async function main() {
-    const input = JSON.parse(await readFile(inputPath, "utf8")) as Input;
+    const input = unwrapScrapeData(
+        JSON.parse(await readFile(inputPath, "utf8"))
+    ) as Input;
     const persistedCatalogPrograms = await prisma.catalogProgram.findMany({
         select: {
             id: true,

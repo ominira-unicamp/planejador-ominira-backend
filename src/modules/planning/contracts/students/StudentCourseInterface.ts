@@ -116,10 +116,7 @@ const create = {
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
-        body: attemptBody.refine((value) => value.studyPeriodId !== null, {
-            path: ["studyPeriodId"],
-            message: "studyPeriodId is required for new attempts"
-        })
+        body: attemptBody
     }),
     output: new OutputBuilder()
         .created(attemptEntity, "Student course attempt created successfully")

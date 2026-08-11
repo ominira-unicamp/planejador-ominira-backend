@@ -9,6 +9,7 @@ import {
     Prisma,
     PrismaClient
 } from "../prisma/generated/client.js";
+import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
 
@@ -55,6 +56,23 @@ type ProgramDetails = ProgramSource & {
     blocks: CourseBlockSource[];
     specializations: SpecializationSource[];
     languages: LanguageSource[];
+};
+
+type NativeProgram = {
+    code: number;
+    name: string;
+    curriculum?: { url?: string };
+    members?: { url?: string };
+    unitCode?: string;
+    blocks?: CourseBlockSource[];
+    specializations?: SpecializationSource[];
+    languages?: LanguageSource[];
+};
+type NativeCatalog = {
+    year: number;
+    url?: string;
+    sourceUrl?: string;
+    programs?: NativeProgram[];
 };
 type TxType = Omit<
     PrismaClient,
@@ -138,6 +156,40 @@ function text(value: string) {
     return decodeHtml(value.replace(/<[^>]*>/g, " "))
         .replace(/\s+/g, " ")
         .trim();
+}
+
+export function normalizeCatalogs(value: unknown): CatalogSource[] {
+    const data = unwrapScrapeData(value);
+    const source = Array.isArray(data)
+        ? data
+        : data &&
+            typeof data === "object" &&
+            Array.isArray((data as { catalogs?: unknown }).catalogs)
+          ? (data as { catalogs: unknown[] }).catalogs
+          : undefined;
+    if (!source)
+        throw new Error(
+            "O arquivo de currículos deve conter uma lista de catálogos"
+        );
+    return source.map((catalog): CatalogSource => {
+        const input = catalog as NativeCatalog;
+        return {
+            year: input.year,
+            url: input.url ?? input.sourceUrl,
+            programs: input.programs?.map(
+                (program): ProgramDetails => ({
+                    code: program.code,
+                    name: program.name,
+                    membersUrl: program.members?.url ?? "",
+                    curriculumUrl: program.curriculum?.url ?? "",
+                    unitCode: program.unitCode ?? "DAC",
+                    blocks: program.blocks ?? [],
+                    specializations: program.specializations ?? [],
+                    languages: program.languages ?? []
+                })
+            )
+        };
+    });
 }
 
 function parseRequirements(tableHtml: string) {
@@ -511,9 +563,9 @@ async function main() {
             process.env.CATALOG_INPUT ??
                 resolve(process.cwd(), ".local", "catalogo_curriculos.json")
         );
-        const catalogs = JSON.parse(
-            await readFile(inputPath, "utf8")
-        ) as CatalogSource[];
+        const catalogs = normalizeCatalogs(
+            JSON.parse(await readFile(inputPath, "utf8"))
+        );
         if (catalogs.length === 0)
             throw new Error("Nenhum catálogo foi encontrado na página da DAC");
         console.log(

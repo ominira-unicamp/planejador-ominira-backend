@@ -35,7 +35,9 @@ const controllers: ControllerDefinition[] = modules.flatMap(
 
 const router = Router().use(modules.map((module) => module.router));
 const registry = new OpenAPIRegistry(
-    modules.map((module) => module.registry).flat()
+    controllers
+        .filter((controller) => controller.registry)
+        .map((controller) => controller.registry!)
 );
 const authRegistry = new AuthRegistry(
     modules.map((module) => module.authRegistry)

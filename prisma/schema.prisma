@@ -181,6 +181,7 @@ model Language {
   name             String
   catalogLanguages CatalogLanguage[]
   periodPlannings PeriodPlanning[]
+  students        Student[]
 }
 
 model CatalogProgram {
@@ -388,6 +389,9 @@ model Student {
   specializationId Int?
   catalog          Catalog?        @relation(fields: [catalogId], references: [id])
   catalogId        Int?
+  entryYear        Int?
+  language         Language?       @relation(fields: [languageId], references: [id])
+  languageId       Int?
 
   courseAttempts  StudentCourseAttempt[]
   periodPlannings PeriodPlanning[]
@@ -507,6 +511,10 @@ model PeriodPlanning {
 
   @@index([studentId, updatedAt])
   @@index([curriculumId])
+  @@index([curriculumSuggestionId])
+  @@index([catalogProgramId])
+  @@index([specializationId])
+  @@index([languageId])
 }
 
 model PeriodPlanningManualCourse {

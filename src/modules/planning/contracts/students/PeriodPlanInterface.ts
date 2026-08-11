@@ -48,6 +48,8 @@ const periodPlanningEntity = z
                     code: z.string(),
                     reservations: z.array(z.number().int()),
                     courseId: z.number().int(),
+                    courseCode: z.string(),
+                    courseCredits: z.number(),
                     professors: z.array(
                         z
                             .object({

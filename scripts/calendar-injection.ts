@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { PrismaClient } from "../prisma/generated/client.js";
+import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
 
@@ -22,6 +23,14 @@ interface CalendarJsonEvent {
     dataFim: string | null;
     categoria: string;
     descricao: string;
+    tags?: string[];
+}
+
+interface NativeCalendarJsonEvent {
+    startDate: string;
+    endDate: string | null;
+    category: string;
+    description: string;
     tags?: string[];
 }
 
@@ -54,7 +63,7 @@ function parseDate(value: string, field: string, index: number) {
 
 function readCalendarEvents(): ParsedCalendarJsonEvent[] {
     const raw = readFileSync(calendarJsonPath, "utf-8");
-    const parsed: unknown = JSON.parse(raw);
+    const parsed = unwrapScrapeData(JSON.parse(raw));
 
     if (!Array.isArray(parsed)) {
         throw new Error("O arquivo de calendário deve conter uma lista");
@@ -65,38 +74,44 @@ function readCalendarEvents(): ParsedCalendarJsonEvent[] {
             throw new Error(`Registro de calendário inválido: ${index + 1}`);
         }
 
-        const event = value as Partial<CalendarJsonEvent>;
+        const event = value as Partial<
+            CalendarJsonEvent & NativeCalendarJsonEvent
+        >;
+        const dataInicio = event.startDate ?? event.dataInicio;
+        const dataFim = event.endDate ?? event.dataFim;
+        const categoria = event.category ?? event.categoria;
+        const descricao = event.description ?? event.descricao;
         if (
-            typeof event.dataInicio !== "string" ||
-            (event.dataFim !== null && typeof event.dataFim !== "string") ||
-            typeof event.categoria !== "string" ||
-            typeof event.descricao !== "string" ||
+            typeof dataInicio !== "string" ||
+            (dataFim !== null && typeof dataFim !== "string") ||
+            typeof categoria !== "string" ||
+            typeof descricao !== "string" ||
             (event.tags !== undefined &&
                 (!Array.isArray(event.tags) ||
                     event.tags.some(
                         (tag) => typeof tag !== "string" || tag.trim() === ""
                     ))) ||
-            event.categoria.trim() === "" ||
-            event.descricao.trim() === ""
+            categoria.trim() === "" ||
+            descricao.trim() === ""
         ) {
             throw new Error(`Registro de calendário inválido: ${index + 1}`);
         }
 
-        const startDate = parseDate(event.dataInicio, "dataInicio", index);
-        if (event.dataFim !== null) {
-            const endDate = parseDate(event.dataFim, "dataFim", index);
+        const startDate = parseDate(dataInicio, "startDate", index);
+        if (dataFim !== null) {
+            const endDate = parseDate(dataFim, "endDate", index);
             if (startDate > endDate) {
                 throw new Error(
-                    `dataFim anterior a dataInicio no registro ${index + 1}`
+                    `endDate anterior a startDate no registro ${index + 1}`
                 );
             }
         }
 
         return {
-            dataInicio: event.dataInicio,
-            dataFim: event.dataFim,
-            categoria: event.categoria.trim(),
-            descricao: event.descricao.trim(),
+            dataInicio,
+            dataFim,
+            categoria: categoria.trim(),
+            descricao: descricao.trim(),
             tags: Array.from(
                 new Set(event.tags?.map((tag) => tag.trim()) ?? [])
             )

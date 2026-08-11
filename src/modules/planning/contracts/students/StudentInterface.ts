@@ -18,6 +18,8 @@ const studentEntity = z
         programId: z.number().int().nullable(),
         specializationId: z.number().int().nullable(),
         catalogId: z.number().int().nullable(),
+        entryYear: z.number().int().min(1900).max(9999).nullable(),
+        languageId: z.number().int().nullable(),
         _paths: z.object({
             classes: z.string(),
             classSchedules: z.string()
@@ -33,7 +35,9 @@ const studentBase = z
         name: z.string(),
         programId: z.number().int().nullable().optional(),
         specializationId: z.number().int().nullable().optional(),
-        catalogId: z.number().int().nullable().optional()
+        catalogId: z.number().int().nullable().optional(),
+        entryYear: z.number().int().min(1900).max(9999).nullable().optional(),
+        languageId: z.number().int().nullable().optional()
     })
     .strict();
 

@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Prisma, PrismaClient } from "../prisma/generated/client.js";
+import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
 
@@ -37,9 +38,9 @@ function normalize(value: string) {
 }
 
 async function main() {
-    const input = JSON.parse(await readFile(inputPath, "utf8")) as
-        | Input
-        | LegacyInput;
+    const input = unwrapScrapeData(
+        JSON.parse(await readFile(inputPath, "utf8"))
+    ) as Input | LegacyInput;
     const catalogs = "catalogs" in input ? input.catalogs : [input];
     if (catalogs.length === 0)
         throw new Error("Nenhum catálogo encontrado no arquivo de entrada");

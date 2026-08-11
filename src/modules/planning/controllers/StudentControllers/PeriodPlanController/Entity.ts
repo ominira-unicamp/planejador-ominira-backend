@@ -29,6 +29,7 @@ export const prismaPeriodPlanningFieldSelection = {
                     select: {
                         id: true,
                         code: true,
+                        credits: true,
                         unit: selectIdCode
                     }
                 }
@@ -96,9 +97,11 @@ function buildPeriodPlanningEntity(
             manualCourseIds: manualCourses.map(({ courseId }) => courseId)
         },
         classes: classes.map((c) => {
-            const { professors, ...classRest } = c;
+            const { course, professors, ...classRest } = c;
             return {
                 ...classRest,
+                courseCode: course.code,
+                courseCredits: course.credits,
                 professors: professors.map((p) => ({
                     id: p.id,
                     name: p.name
