@@ -146,7 +146,14 @@ const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
         where: { studentId: input.path.sid },
         orderBy: { updatedAt: "desc" }
     });
-    return { 200: curricula.map(curriculumEntity.buildSummary) };
+    return {
+        200: curricula
+            .map(curriculumEntity.buildSummary)
+            .sort(
+                (left, right) =>
+                    Number(right.isFavorite) - Number(left.isFavorite)
+            )
+    };
 };
 
 const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
@@ -408,6 +415,24 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
                 })
             }
         });
+        if (input.body.isFavorite !== undefined) {
+            const student = await tx.student.findUnique({
+                where: { id: sid },
+                select: { favoriteCurriculumId: true }
+            });
+            if (student) {
+                await tx.student.update({
+                    where: { id: sid },
+                    data: {
+                        favoriteCurriculumId: input.body.isFavorite
+                            ? id
+                            : student.favoriteCurriculumId === id
+                              ? null
+                              : student.favoriteCurriculumId
+                    }
+                });
+            }
+        }
         return null;
     });
     if (operationError) return { 400: operationError };

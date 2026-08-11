@@ -397,6 +397,8 @@ model Student {
   courseAttempts  StudentCourseAttempt[]
   periodPlannings PeriodPlanning[]
   curriculums     Curriculum[]
+  favoriteCurriculum Curriculum? @relation("StudentFavoriteCurriculum", fields: [favoriteCurriculumId], references: [id], onDelete: SetNull)
+  favoriteCurriculumId Int? @unique
   botGrants       BotGrant[]
 }
 
@@ -457,6 +459,7 @@ model Curriculum {
   periods                 CurriculumPeriod[]
   courses                 CurriculumCourse[]
   periodPlannings         PeriodPlanning[]
+  favoriteForStudent      Student?                @relation("StudentFavoriteCurriculum")
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
 

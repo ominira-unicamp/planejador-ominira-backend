@@ -6,8 +6,6 @@ import { DayOfWeek, PrismaClient } from "../prisma/generated/client.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
 dotenv.config();
-const pool = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const prisma = new PrismaClient({ adapter: pool });
 const databaseConcurrency = Number(
     process.env.ACADEMIC_INJECTION_CONCURRENCY ?? "8"
 );
@@ -15,6 +13,11 @@ if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
     throw new Error(
         "ACADEMIC_INJECTION_CONCURRENCY deve ser um inteiro positivo"
     );
+const pool = new PrismaPg({
+    connectionString: process.env.DATABASE_URL!,
+    max: databaseConcurrency
+});
+const prisma = new PrismaClient({ adapter: pool });
 interface Aula {
     weekday: string;
     time: {

@@ -20,7 +20,8 @@ export const prismaCurriculumFieldSelection = {
         periods: {
             select: { id: true, position: true },
             orderBy: { position: "asc" }
-        }
+        },
+        favoriteForStudent: { select: { id: true } }
     }
 } as const satisfies MyPrisma.CurriculumDefaultArgs;
 
@@ -32,6 +33,7 @@ export const prismaCurriculumSummaryFieldSelection = {
         catalogProgramId: true,
         catalogSpecializationId: true,
         catalogLanguageId: true,
+        favoriteForStudent: { select: { id: true } },
         createdAt: true,
         updatedAt: true
     }
@@ -88,6 +90,7 @@ function buildCurriculumEntity(
         id: curriculum.id,
         studentId: curriculum.studentId,
         name: curriculum.name,
+        isFavorite: curriculum.favoriteForStudent !== null,
         selection: selectionFromCurriculum(curriculum),
         planningStart: planningStartFromCurriculum(curriculum),
         currentPeriodId: curriculum.currentPeriodId,
@@ -112,6 +115,7 @@ function buildCurriculumSummary(
         id: curriculum.id,
         studentId: curriculum.studentId,
         name: curriculum.name,
+        isFavorite: curriculum.favoriteForStudent !== null,
         selection: selectionFromCurriculum(curriculum),
         createdAt: curriculum.createdAt.toISOString(),
         updatedAt: curriculum.updatedAt.toISOString(),

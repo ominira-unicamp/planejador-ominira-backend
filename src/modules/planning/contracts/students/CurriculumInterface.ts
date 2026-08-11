@@ -52,6 +52,7 @@ const curriculumEntity = z
         id: z.number().int(),
         studentId: z.number().int(),
         name: z.string(),
+        isFavorite: z.boolean(),
         selection,
         planningStart: planningStart.nullable(),
         currentPeriodId: z.number().int().nullable(),
@@ -74,6 +75,7 @@ const curriculumSummaryEntity = z
         id: z.number().int(),
         studentId: z.number().int(),
         name: z.string(),
+        isFavorite: z.boolean(),
         selection,
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
@@ -105,6 +107,7 @@ const periodUpdate = z
 const patchBody = z
     .object({
         name: z.string().trim().min(1).optional(),
+        isFavorite: z.boolean().optional(),
         selection: selection.partial().optional(),
         planningStart: planningStart.nullable().optional(),
         currentPeriodId: z.number().int().nullable().optional(),

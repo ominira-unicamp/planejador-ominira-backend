@@ -135,6 +135,16 @@ pomi-backend/
 └── tsconfig.json
 ```
 
+## Pendências de domínio
+
+`StudyPeriod` registra atualmente apenas a data inicial do período acadêmico.
+O modelo deverá passar a representar explicitamente as datas de início e fim
+do semestre para que consumidores da API possam identificar o período vigente
+sem heurísticas. Até essa evolução, o frontend considera janeiro a junho como
+primeiro semestre e julho a dezembro como segundo semestre. Essa aproximação
+representa a grade semanal prevista e não considera feriados, recessos,
+cancelamentos ou outras exceções do calendário acadêmico.
+
 ## LICENÇA
 
 O projeto está licenciado pelos termos da AGPL v3.0, para informações completas ver [licença](https://github.com/ominira-unicamp/pomi-backend/blob/main/LICENSE).
