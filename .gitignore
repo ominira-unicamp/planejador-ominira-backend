@@ -21,10 +21,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .cache
 *.tsbuildinfo
 
-prisma/generated
-prisma/seed.json
+packages/db/prisma/generated
+packages/db/prisma/seed.json
 
 data/
-
+!packages/data/
 bun.lock
 test
+packages/*/test/
+packages/*/test/**

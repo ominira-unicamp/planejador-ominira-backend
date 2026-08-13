@@ -1,0 +1,19 @@
+{
+    "name": "@pomi/api-core",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./dist/index.js"
+    },
+    "scripts": {
+        "build": "tsc -b"
+    },
+    "dependencies": {
+        "@asteasolutions/zod-to-openapi": "^8.2.0",
+        "cors": "^2.8.5",
+        "express": "5.1.0",
+        "helmet": "^8.1.0",
+        "zod": "^4.2.1"
+    }
+}

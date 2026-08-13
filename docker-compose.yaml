@@ -81,20 +81,48 @@ services:
     depends_on:
       keycloak:
         condition: service_healthy
-  api:
+  db-migrate:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: api
-    restart: always
-    stdin_open: true
-    tty: true 
+      target: migrate
+    restart: "no"
     env_file:
       - .docker.env
+    depends_on:
+      db:
+        condition: service_healthy
+  data-api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: data
+    container_name: pomi-data-api
+    restart: always
+    env_file:
+      - .docker.env
+    environment:
+      PORT: 3000
     ports:
       - 3000:3000
     depends_on:
-      db:
-       condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+  app-api:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      target: app
+    container_name: pomi-app-api
+    restart: always
+    env_file:
+      - .docker.env
+    environment:
+      PORT: 3001
+    ports:
+      - 3001:3001
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       keycloak-config:
-       condition: service_completed_successfully
+        condition: service_completed_successfully

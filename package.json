@@ -1,42 +1,30 @@
 {
     "name": "pomi-backend",
     "version": "0.1.0",
-    "imports": {
-        "#/scripts/*": "./scripts/*",
-        "#/*": "./dist/src/*"
-    },
-    "license": "AGPL-3.0-only",
+    "private": true,
     "type": "module",
+    "workspaces": [
+        "packages/*"
+    ],
+    "license": "AGPL-3.0-only",
     "scripts": {
-        "dev": "tsx watch src/index.ts",
-        "build": "tsc -b",
-        "test": "tsx --test test/**/*.test.ts",
-        "inject:calendar": "tsx scripts/calendar-injection.ts",
-        "inject:catalogs": "tsx scripts/catalog-injection.ts",
-        "inject:catalog-disciplines": "tsx scripts/catalog-discipline-injection.ts",
-        "inject:suggestions": "tsx scripts/suggestion-injection.ts",
-        "inject:academic-data": "tsx scripts/academic-data-injection.ts",
-        "auth:bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
-        "start": "node dist/src/index.js",
-        "lint": "eslint src/ --ext .ts && prettier --write src/",
-        "prisma:generate": "npx prisma generate",
-        "prisma:deploy": "npx prisma migrate deploy",
+        "dev:data": "npm run dev --workspace @pomi/data",
+        "dev:app": "npm run dev --workspace @pomi/app",
+        "build": "npm run check:boundaries && npm run build --workspace @pomi/db && npm run build --workspace @pomi/api-core && npm run build --workspace @pomi/data && npm run build --workspace @pomi/app && npm run build --workspace @pomi/injection",
+        "check:boundaries": "node scripts/check-package-boundaries.mjs",
+        "test": "npm run test --workspaces --if-present",
+        "lint": "eslint packages/api-core/src packages/app/src packages/app/test packages/data/src packages/data/test packages/injection/src packages/injection/test packages/db/src --ext .ts && prettier --check \"packages/{api-core,app,data,injection}/{src,test}/**/*.ts\" \"packages/db/src/**/*.ts\" \"packages/*/{package.json,tsconfig.json}\"",
+        "inject:calendar": "npm run inject:calendar --workspace @pomi/injection",
+        "inject:catalogs": "npm run inject:catalogs --workspace @pomi/injection",
+        "inject:catalog-disciplines": "npm run inject:catalog-disciplines --workspace @pomi/injection",
+        "inject:suggestions": "npm run inject:suggestions --workspace @pomi/injection",
+        "inject:academic-data": "npm run inject:academic-data --workspace @pomi/injection",
+        "auth:bootstrap-admin": "npm run auth:bootstrap-admin --workspace @pomi/app",
+        "prisma:generate": "npm run generate --workspace @pomi/db",
+        "prisma:migrate:dev": "npm run migrate:dev --workspace @pomi/db",
+        "prisma:deploy": "npm run migrate:deploy --workspace @pomi/db",
+        "prisma:status": "npm run migrate:status --workspace @pomi/db",
         "prepare": "husky install"
-    },
-    "dependencies": {
-        "@asteasolutions/zod-to-openapi": "^8.2.0",
-        "@prisma/adapter-pg": "7.8.0",
-        "@prisma/client": "^7.2.0",
-        "@scalar/express-api-reference": "^0.8.30",
-        "cors": "^2.8.5",
-        "dotenv": "^17.2.3",
-        "express": "5.1.0",
-        "helmet": "^8.1.0",
-        "jose": "^6.1.3",
-        "path-to-regexp": "^8.3.0",
-        "pg": "^8.16.3",
-        "swagger-ui-express": "^5.0.1",
-        "zod": "^4.2.1"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.2",
@@ -65,7 +53,10 @@
         "jsonwebtoken": "8.5.1"
     },
     "lint-staged": {
-        "*.{ts,js}": ["eslint --cache", "prettier --write"]
+        "*.{ts,js}": [
+            "eslint --cache",
+            "prettier --write"
+        ]
     },
     "allowScripts": {
         "@prisma/engines@7.8.0": true,

@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": { "#/*": ["src/*"] },
+        "rootDir": ".",
+        "outDir": "dist"
+    },
+    "include": ["src/**/*.ts", "test/**/*.ts"],
+    "references": [{ "path": "../db" }, { "path": "../api-core" }]
+}

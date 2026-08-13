@@ -1,12 +1,14 @@
-# Stage 1: Builder
 FROM node:25-alpine AS builder
 
-# Provide placeholder DATABASE_URL for prisma as it needs it to generate
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
-
 WORKDIR /usr/src/app
 
 COPY package.json package-lock.json ./
+COPY packages/db/package.json packages/db/package.json
+COPY packages/api-core/package.json packages/api-core/package.json
+COPY packages/data/package.json packages/data/package.json
+COPY packages/app/package.json packages/app/package.json
+COPY packages/injection/package.json packages/injection/package.json
 
 RUN npm ci
 
@@ -15,16 +17,20 @@ COPY . .
 RUN npm run prisma:generate
 RUN npm run build
 
-# Stage 2: Production
-FROM node:25-alpine
+FROM builder AS runtime
 
-WORKDIR /usr/app
+RUN npm prune --omit=dev --ignore-scripts
 
-COPY --from=builder /usr/src/app/package*.json ./
-COPY --from=builder /usr/src/app/dist ./dist
-COPY --from=builder /usr/src/app/prisma ./prisma
-COPY --from=builder /usr/src/app/prisma.config.ts ./
+FROM runtime AS data
 
-RUN npm ci --omit=dev --ignore-scripts
 EXPOSE 3000
-CMD ["sh", "-c", "npm run prisma:deploy && npm start"]
+CMD ["npm", "run", "start", "--workspace", "@pomi/data"]
+
+FROM runtime AS app
+
+EXPOSE 3001
+CMD ["npm", "run", "start", "--workspace", "@pomi/app"]
+
+FROM builder AS migrate
+
+CMD ["npm", "run", "prisma:deploy"]

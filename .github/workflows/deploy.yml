@@ -19,6 +19,9 @@ jobs:
   build-and-push-image:
     name: Build & Push Image
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [data, app]
     environment: ${{ github.event_name == 'pull_request' && 'preview' || 'OpenTofuDeploy' }}
     
     permissions:
@@ -27,9 +30,6 @@ jobs:
       attestations: write
       id-token: write
     
-    outputs:
-      container_sha: ${{ steps.push.outputs.digest }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -66,8 +66,8 @@ jobs:
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
           images: |
-            ghcr.io/${{ github.repository }}
-            ${{ github.event_name == 'push' && format('gcr.io/{0}/{1}', vars.TF_VAR_PROJECT_ID, vars.TF_VAR_APP_NAME) || '' }}
+            ghcr.io/${{ github.repository }}-${{ matrix.target }}
+            ${{ github.event_name == 'push' && format('gcr.io/{0}/{1}-{2}', vars.TF_VAR_PROJECT_ID, vars.TF_VAR_APP_NAME, matrix.target) || '' }}
 
       
       - name: Build and push Docker image
@@ -75,6 +75,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
+          target: ${{ matrix.target }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -12,18 +12,27 @@ export default defineConfig([
         ignores: [
             "**/dist/**",
             "**/node_modules/**",
+            "**/prisma/generated/**",
             "package.json",
             "tsconfig.json"
         ],
         languageOptions: {
             globals: globals.node,
             parserOptions: {
-                project: "./tsconfig.json",
+                project: ["./packages/*/tsconfig.json"],
                 tsconfigRootDir: import.meta.dirname
             }
         }
     },
     tseslint.configs.recommended,
+    {
+        files: ["eslint.config.ts", "packages/db/prisma.config.ts"],
+        languageOptions: {
+            parserOptions: {
+                project: false
+            }
+        }
+    },
     {
         rules: {
             "no-unassigned-vars": "warn",

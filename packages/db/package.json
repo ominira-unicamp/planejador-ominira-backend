@@ -1,0 +1,24 @@
+{
+    "name": "@pomi/db",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "exports": {
+        ".": "./dist/src/index.js",
+        "./client": "./dist/src/PrismaClient.js",
+        "./generated": "./dist/prisma/generated/client.js"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "generate": "prisma generate --config prisma.config.ts",
+        "migrate:dev": "prisma migrate dev --config prisma.config.ts",
+        "migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+        "migrate:status": "prisma migrate status --config prisma.config.ts"
+    },
+    "dependencies": {
+        "@prisma/adapter-pg": "7.8.0",
+        "@prisma/client": "^7.2.0",
+        "dotenv": "^17.2.3",
+        "pg": "^8.16.3"
+    }
+}

@@ -42,7 +42,7 @@ jobs:
 
       - name: Check for pending migrations
         run: |
-          npx prisma migrate status
+          npm run prisma:status
           if [ $? -ne 0 ]; then
             echo "❌ There are pending migrations or migration issues!"
             echo "Please run 'npx prisma migrate dev' locally and commit the changes."
@@ -53,8 +53,9 @@ jobs:
       - name: Check for schema changes without migration
         run: |
           npx prisma migrate diff \
-            --from-schema ./prisma/schema.prisma \
+            --from-schema ./packages/db/prisma/schema.prisma \
             --to-config-datasource \
+            --config ./packages/db/prisma.config.ts \
             --exit-code
           
           EXIT_CODE=$?

@@ -1,11 +1,11 @@
-# POMI Backend - Planejador Ominira
+# POMI Backend Workspace
 
 [![Lint and Format](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml/badge.svg?branch=main)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/lint-and-format.yml)
 [![Deploy to GCP](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml/badge.svg)](https://github.com/ominira-unicamp/pomi-backend/actions/workflows/deploy.yml)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/ominira-unicamp/pomi-backend/main)
 ![GitHub contributors](https://img.shields.io/github/contributors/ominira-unicamp/pomi-backend)
 
-Bom dia, boa tarde, boa noite, bem vindo ao backend do pranejador da ominira, que tem uma função dupla, ser uma fonte de dados academicos da unicamp para quem quiser, e ser o backend do planejador academico da ominira, feito de aluno para alunos.
+Este workspace reúne a API pública de dados universitários, a API de recursos pessoais do POMI, o schema compartilhado do banco e os processos de injeção.
 
 ## Índice
 
@@ -68,21 +68,23 @@ produção.
 Para iniciar o ambiente de desenvolvimento em um ambiente com docker:
 
 ```bash
-# Inicie o banco de dados PostgreSQL localmente ou via Docker
-docker compose up db -d
+# Inicie o banco e aplique as migrations
+docker compose up db db-migrate -d
 
 # Execute as migrations
-npx prisma migrate dev
+npm run prisma:migrate:dev
 
 # Gere o cliente Prisma
-npx prisma generate
+npm run prisma:generate
 
-# Inicie o servidor em modo desenvolvimento
-npm run dev
+# Inicie as APIs em terminais separados
+npm run dev:data
+npm run dev:app
 ```
 
-Para executar PostgreSQL, Keycloak e API juntos, preencha `.docker.env` a partir
-de `.env.template` e execute `docker compose up --build`. Esse Compose usa a
+Para executar PostgreSQL, Keycloak e as duas APIs, preencha `.docker.env` a partir
+de `.env.template` e execute `docker compose up --build`. A POMI Data API fica em
+`http://localhost:3000` e a POMI App API em `http://localhost:3001`. Esse Compose usa a
 configuração declarativa em `../pomi-infra/slices/pomi/keycloak`; portanto, os
 dois repositórios devem estar lado a lado. O realm `pomi`, o client público
 `pomi-frontend` e a audiência `pomi-api` são reconciliados pelo serviço
@@ -90,7 +92,7 @@ transitório `keycloak-config`. O console local fica em `http://localhost:8080`.
 
 ### Injeção de dados acadêmicos
 
-O injetor lê por padrão `./prisma/seed.json`. Outro arquivo pode ser
+O injetor lê por padrão `./packages/db/prisma/seed.json`. Outro arquivo pode ser
 informado por `ACADEMIC_DATA_INPUT`.
 
 ```bash
@@ -99,39 +101,25 @@ npm run inject:academic-data
 
 ### Acessando a Documentação
 
-Após iniciar o servidor, acesse a documentação interativa da API:
+Após iniciar os servidores, acesse:
 
-- **Swagger UI:** http://localhost:3000/docs
-- **OpenAPI JSON:** http://localhost:3000/openapi.json
+- **POMI Data:** http://localhost:3000/docs
+- **POMI Data pública:** http://localhost:3000/public-docs
+- **POMI App:** http://localhost:3001/docs
+- **POMI App para estudantes:** http://localhost:3001/student-docs
 
 ## Estrutura do Projeto
 
-```
+```text
 pomi-backend/
-├── prisma/
-│   ├── schema.prisma     # Schema do banco de dados
-│   ├── migrations/       # Migrations do Prisma
-│   └── generated/        # Arquivos gerados (client, zod schemas)
-├── scripts/
-│   └── injects/          # Scripts de injeção de dados
-├── src/
-│   ├── index.ts          # Entry point da aplicação
-│   ├── auth.ts           # Configuração de autenticação
-│   ├── Controllers.ts    # Composição dos módulos da API
-│   ├── OpenApi.ts        # Configuração OpenAPI
-│   ├── PrismaClient.ts   # Instância do Prisma
-│   ├── modules/          # Domínios da API
-│   │   ├── academic/     # Referências acadêmicas compartilhadas
-│   │   ├── catalog/      # Catálogos e estruturas curriculares
-│   │   ├── identity/     # Identidade e autorização
-│   │   ├── planning/     # Estudantes e planejamentos
-│   │   └── schedule/     # Caderno de horário e calendário
-│   ├── Middlewares/      # Middlewares Express
-│   └── openapi/          # Builders para OpenAPI
-├── .env
+├── packages/
+│   ├── db/          # Prisma, migrations e cliente compartilhado
+│   ├── api-core/    # Infraestrutura HTTP comum
+│   ├── data/        # API pública e administrativa de dados
+│   ├── app/         # API autenticada de usuários e planejamentos
+│   └── injection/   # Importadores e normalizadores
 ├── docker-compose.yaml
 ├── package.json
-├── prisma.config.ts
 └── tsconfig.json
 ```
 
