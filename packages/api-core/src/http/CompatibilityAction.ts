@@ -2,13 +2,18 @@ import type { Request, Response } from "express";
 import z from "zod";
 
 import type { PathSegment } from "../PathSegment.js";
-import { ApiResponse } from "./ApiResponse.js";
+import { ZodToApiError } from "../Validation.js";
+import {
+    invalidRequestProblem,
+    normalizeProblemResponse
+} from "../errors/ProblemDetails.js";
 import type {
     EndpointRequestSchema,
     EndpointResponsesSchema,
     HttpMethod
 } from "./EndpointContract.js";
-import { buildEndpointHandler, type EndpointAction } from "./RequestHandler.js";
+import { executeEffects } from "./RequestHandler.js";
+import { sendProblem } from "./problemResponse.js";
 
 export type CompatibilityContract = {
     meta: {
@@ -36,19 +41,14 @@ export type CompatibilityAction<
     request: z.infer<Contract["request"]>
 ) => Promise<CompatibilityOutput<Contract["response"]>>;
 
-type LegacyOutput<Result> = Result extends {
-    status: infer Status extends number;
-    body?: infer Body;
-}
-    ? { [Key in Status]: Body }
-    : never;
-
-type DeclaredOutput<Response extends EndpointResponsesSchema> = LegacyOutput<
-    z.infer<Response>
->;
+type ResponseStatus<Response extends EndpointResponsesSchema> =
+    z.infer<Response> extends { status: infer Status extends number }
+        ? Status
+        : never;
 
 export type CompatibilityOutput<Response extends EndpointResponsesSchema> =
-    DeclaredOutput<Response>;
+    Partial<Record<ResponseStatus<Response>, unknown>> &
+        Record<number, unknown>;
 
 export function buildCompatibilityHandler<
     RequestSchema extends EndpointRequestSchema,
@@ -63,31 +63,46 @@ export function buildCompatibilityHandler<
     >,
     createContext: (request: Request, response: Response) => Context
 ) {
-    const contract = {
-        meta: {
-            method: "get" as const,
-            path: [],
-            tags: [],
-            authorization: undefined
-        },
-        request: requestSchema,
-        response: responseSchema
+    return async (httpRequest: Request, response: Response) => {
+        const parsed = requestSchema.safeParse({
+            query: httpRequest.query,
+            path: httpRequest.params,
+            body: httpRequest.body,
+            headers: httpRequest.headers
+        });
+        if (!parsed.success) {
+            return sendProblem(
+                response,
+                invalidRequestProblem(
+                    ZodToApiError(parsed.error, []),
+                    httpRequest.path
+                )
+            );
+        }
+
+        const output = (await action(
+            createContext(httpRequest, response),
+            parsed.data
+        )) as Record<number, unknown>;
+        const status = responseSchema.options
+            .map((variant) => variant.shape.status.value)
+            .find((candidate) => Object.hasOwn(output, candidate));
+        if (status === undefined) {
+            throw new Error("No status code defined in output schema");
+        }
+
+        if (status >= 400) {
+            return sendProblem(
+                response,
+                normalizeProblemResponse(
+                    status,
+                    output[status],
+                    httpRequest.path
+                )
+            );
+        }
+        executeEffects(response);
+        response.status(status);
+        return status === 204 ? response.send() : response.json(output[status]);
     };
-    return buildEndpointHandler(
-        contract,
-        (async (context, request) => {
-            const output = (await action(context, request)) as Record<
-                number,
-                unknown
-            >;
-            const status = responseSchema.options
-                .map((variant) => variant.shape.status.value)
-                .find((candidate) => Object.hasOwn(output, candidate));
-            if (status === undefined) {
-                throw new Error("No status code defined in output schema");
-            }
-            return ApiResponse.status(status, output[status]);
-        }) as EndpointAction<typeof contract, Context>,
-        createContext
-    );
 }

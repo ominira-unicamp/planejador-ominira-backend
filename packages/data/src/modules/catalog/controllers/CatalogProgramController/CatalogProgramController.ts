@@ -14,7 +14,12 @@ import IO, {
     CourseBlockOperations
 } from "#/modules/catalog/contracts/CatalogProgramInterface.js";
 import catalogProgramEntity from "#/modules/catalog/controllers/CatalogProgramController/Entity.js";
-import { ValidationError } from "@pomi/api-core";
+import {
+    catalogProgramAlreadyExistsProblem,
+    catalogProgramNotFoundProblem,
+    specializationNotInProgramProblem
+} from "#/modules/catalog/problems/CatalogProgramProblems.js";
+import { resourceNotFoundProblem } from "@pomi/api-core";
 import { CourseBlockType, PrismaClient } from "@pomi/db";
 
 extendZodWithOpenApi(z);
@@ -41,13 +46,13 @@ function specializationIdsFromOperations(
     ].map(({ specializationId }) => specializationId);
 }
 
-export async function validateSpecializationsForProgram(
+export async function invalidSpecializationsForProgram(
     prisma: Pick<TxType, "specialization">,
     specializationIds: number[],
     programId: number
 ) {
     const uniqueIds = [...new Set(specializationIds)];
-    if (uniqueIds.length === 0) return null;
+    if (uniqueIds.length === 0) return [];
 
     const matching = await prisma.specialization.findMany({
         where: {
@@ -58,15 +63,11 @@ export async function validateSpecializationsForProgram(
     });
     const matchingIds = new Set(matching.map(({ id }) => id));
     const invalidIds = uniqueIds.filter((id) => !matchingIds.has(id));
-    if (invalidIds.length === 0) return null;
-
-    return new ValidationError([
-        {
-            path: ["body", "catalogSpecializations"],
-            code: "INVALID_VALUE",
-            message: `Specializations ${invalidIds.join(", ")} do not belong to program ${programId}`
-        }
-    ]);
+    if (invalidIds.length === 0) return [];
+    return await prisma.specialization.findMany({
+        where: { id: { in: invalidIds } },
+        select: { id: true, code: true, name: true }
+    });
 }
 
 const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
@@ -95,8 +96,7 @@ const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
         ...catalogProgramEntity.prismaSelection,
         where: { id }
     });
-    if (!catalogProgram)
-        return { 404: { description: "Catalog program not found" } };
+    if (!catalogProgram) return { 404: catalogProgramNotFoundProblem() };
     return { 200: catalogProgramEntity.build(catalogProgram) };
 };
 
@@ -141,22 +141,67 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
     const catalog = await ctx.prisma.catalog.findUnique({
         where: { id: body.catalogId }
     });
-    if (!catalog) return { 404: { description: "Catalog not found" } };
+    if (!catalog) {
+        return {
+            404: resourceNotFoundProblem(
+                "O catálogo informado não foi encontrado."
+            )
+        };
+    }
 
     const program = await ctx.prisma.program.findUnique({
         where: { id: body.programId }
     });
-    if (!program) return { 404: { description: "Program not found" } };
+    if (!program) {
+        return {
+            404: resourceNotFoundProblem(
+                "O programa informado não foi encontrado."
+            )
+        };
+    }
+
+    const alreadyExists = await ctx.prisma.catalogProgram.findUnique({
+        where: {
+            catalogId_programId: {
+                catalogId: catalog.id,
+                programId: program.id
+            }
+        },
+        select: { id: true }
+    });
+    if (alreadyExists) {
+        return {
+            409: catalogProgramAlreadyExistsProblem(
+                { id: catalog.id, year: catalog.year },
+                { id: program.id, code: program.code, name: program.name }
+            )
+        };
+    }
 
     if (body.catalogSpecializations) {
-        const validation = await validateSpecializationsForProgram(
+        const invalidSpecializations = await invalidSpecializationsForProgram(
             ctx.prisma,
             body.catalogSpecializations.map(
                 ({ specializationId }) => specializationId
             ),
             body.programId
         );
-        if (validation) return { 400: validation };
+        if (invalidSpecializations.length > 0) {
+            return {
+                422: specializationNotInProgramProblem(
+                    { id: program.id, code: program.code, name: program.name },
+                    invalidSpecializations.map((specialization, index) => ({
+                        ...specialization,
+                        path: [
+                            "body",
+                            "catalogSpecializations",
+                            String(index),
+                            "specializationId"
+                        ]
+                    }))
+                )
+            };
+        }
     }
 
     const catalogProgram = await ctx.prisma.$transaction(async (tx) => {
@@ -546,15 +591,34 @@ const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
         where: { id }
     });
 
-    if (!existing) return { 404: { description: "Catalog program not found" } };
+    if (!existing) return { 404: catalogProgramNotFoundProblem() };
 
     if (body.catalogSpecializations) {
-        const validation = await validateSpecializationsForProgram(
+        const invalidSpecializations = await invalidSpecializationsForProgram(
             ctx.prisma,
             specializationIdsFromOperations(body.catalogSpecializations),
             existing.programId
         );
-        if (validation) return { 400: validation };
+        if (invalidSpecializations.length > 0) {
+            const program = await ctx.prisma.program.findUniqueOrThrow({
+                where: { id: existing.programId },
+                select: { id: true, code: true, name: true }
+            });
+            return {
+                422: specializationNotInProgramProblem(
+                    program,
+                    invalidSpecializations.map((specialization, index) => ({
+                        ...specialization,
+                        path: [
+                            "body",
+                            "catalogSpecializations",
+                            String(index),
+                            "specializationId"
+                        ]
+                    }))
+                )
+            };
+        }
     }
 
     const catalogProgram = await ctx.prisma.$transaction(async (tx) => {
@@ -591,7 +655,7 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
         where: { id }
     });
 
-    if (!existing) return { 404: { description: "Catalog program not found" } };
+    if (!existing) return { 404: catalogProgramNotFoundProblem() };
 
     await ctx.prisma.catalogProgram.delete({ where: { id: existing.id } });
     return { 204: null };

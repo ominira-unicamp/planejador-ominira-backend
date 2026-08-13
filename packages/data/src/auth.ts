@@ -1,5 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 
+import {
+    sendProblem,
+    serviceUnavailableProblem,
+    unauthenticatedProblem
+} from "@pomi/api-core";
 import type { NextFunction, Request, Response } from "express";
 import { match } from "path-to-regexp";
 
@@ -63,17 +68,21 @@ export class AuthRegistry {
 
             const expected = process.env.POMI_DATA_ADMIN_TOKEN;
             if (!expected) {
-                return res
-                    .status(503)
-                    .json({ error: "Data administration disabled" });
+                return sendProblem(
+                    res,
+                    serviceUnavailableProblem(
+                        "A administração dos dados está temporariamente indisponível.",
+                        req.path
+                    )
+                );
             }
             const authorization = req.headers.authorization;
             if (!authorization?.startsWith("Bearer ")) {
-                return res.status(401).json({ error: "Unauthorized" });
+                return sendProblem(res, unauthenticatedProblem(req.path));
             }
             return validServiceToken(authorization.slice(7), expected)
                 ? next()
-                : res.status(401).json({ error: "Unauthorized" });
+                : sendProblem(res, unauthenticatedProblem(req.path));
         };
     }
 }

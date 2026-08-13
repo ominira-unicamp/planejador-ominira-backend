@@ -4,6 +4,7 @@ export * from "./http/ApiResponse.js";
 export * from "./http/CompatibilityAction.js";
 export * from "./http/EndpointContract.js";
 export * from "./http/EndpointRegistry.js";
+export * from "./http/problemResponse.js";
 export * from "./http/RequestHandler.js";
 export { default as errorHandler } from "./middleware/errorHandler.js";
 export { default as jsonErrorHandler } from "./middleware/jsonErrorHandler.js";

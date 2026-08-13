@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
-import { ValidationError } from "../Validation.js";
+import { malformedJsonProblem } from "../errors/ProblemDetails.js";
+import { sendProblem } from "../http/problemResponse.js";
 
 const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
     if (
@@ -9,15 +10,7 @@ const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
         "body" in err
     ) {
         console.error("Invalid JSON body:", err.message);
-        return res.status(400).json(
-            new ValidationError([
-                {
-                    code: "INVALID_VALUE",
-                    path: ["body"],
-                    message: "Malformed JSON body"
-                }
-            ])
-        );
+        return sendProblem(res, malformedJsonProblem(req.path));
     }
     next(err);
 };

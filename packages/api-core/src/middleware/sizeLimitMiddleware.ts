@@ -1,4 +1,15 @@
 import type { NextFunction, Request, Response } from "express";
+import { problemContentType } from "../http/problemResponse.js";
+
+function responseTooLargeProblem(instance: string) {
+    return {
+        type: "urn:pomi:problem:payload-too-large",
+        title: "Resposta muito grande",
+        status: 413,
+        detail: "A resposta excede o tamanho máximo permitido.",
+        instance
+    };
+}
 
 function sizeLimitMiddleware(_req: Request, res: Response, next: NextFunction) {
     const oldSend = res.send;
@@ -11,16 +22,10 @@ function sizeLimitMiddleware(_req: Request, res: Response, next: NextFunction) {
         );
 
         if (bodySize > sizeLimit) {
-            res.status(418);
+            res.status(413).type(problemContentType);
             return oldSend.call(
                 res,
-                JSON.stringify({
-                    error: "Response Object Too Large",
-                    message: `Response size of ${(
-                        bodySize /
-                        (1024 * 1024)
-                    ).toFixed(2)} MB exceeds the limit of 31 MB.`
-                })
+                JSON.stringify(responseTooLargeProblem(_req.path))
             );
         }
 
@@ -34,16 +39,10 @@ function sizeLimitMiddleware(_req: Request, res: Response, next: NextFunction) {
         );
 
         if (bodySize > sizeLimit) {
-            res.status(418);
+            res.status(413).type(problemContentType);
             return oldSend.call(
                 res,
-                JSON.stringify({
-                    error: "Response Object Too Large",
-                    message: `Response size of ${(
-                        bodySize /
-                        (1024 * 1024)
-                    ).toFixed(2)} MB exceeds the limit of 31 MB.`
-                })
+                JSON.stringify(responseTooLargeProblem(_req.path))
             );
         }
 

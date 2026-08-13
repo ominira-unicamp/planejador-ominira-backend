@@ -7,14 +7,27 @@ import {
     SchemaObject
 } from "@asteasolutions/zod-to-openapi/dist/types.js";
 import z, { ZodType } from "zod";
-import { ValidationErrorSchema } from "../Validation.js";
+import {
+    ConflictProblemSchema,
+    ForbiddenProblemSchema,
+    InternalServerErrorProblemSchema,
+    InvalidRequestProblemSchema,
+    ResourceNotFoundProblemSchema,
+    UnauthenticatedProblemSchema,
+    UnprocessableEntityProblemSchema
+} from "../errors/ProblemDetails.js";
 extendZodWithOpenApi(z);
 
 class ResponseBuilder {
     response: Record<number, ResponseConfig | ReferenceObject> = {};
     internalServerError(): ResponseBuilder {
         this.response[500] = {
-            description: "Internal server error"
+            description: "Não foi possível concluir a ação",
+            content: {
+                "application/problem+json": {
+                    schema: InternalServerErrorProblemSchema
+                }
+            }
         };
         return this;
     }
@@ -54,10 +67,10 @@ class ResponseBuilder {
     }
     badRequest(): ResponseBuilder {
         this.response[400] = {
-            description: "Bad request",
+            description: "Dados da requisição inválidos",
             content: {
-                "application/json": {
-                    schema: ValidationErrorSchema
+                "application/problem+json": {
+                    schema: InvalidRequestProblemSchema
                 }
             }
         };
@@ -65,13 +78,65 @@ class ResponseBuilder {
     }
     notFound(): ResponseBuilder {
         this.response[404] = {
-            description: "Not found"
+            description: "Recurso não encontrado",
+            content: {
+                "application/problem+json": {
+                    schema: ResourceNotFoundProblemSchema
+                }
+            }
         };
         return this;
     }
     unauthorized(): ResponseBuilder {
         this.response[401] = {
-            description: "Unauthorized - authentication required"
+            description: "Autenticação necessária",
+            content: {
+                "application/problem+json": {
+                    schema: UnauthenticatedProblemSchema
+                }
+            }
+        };
+        return this;
+    }
+    forbidden(): ResponseBuilder {
+        this.response[403] = {
+            description: "Acesso não permitido",
+            content: {
+                "application/problem+json": { schema: ForbiddenProblemSchema }
+            }
+        };
+        return this;
+    }
+    conflict(): ResponseBuilder {
+        this.response[409] = {
+            description: "Conflito ao concluir a ação",
+            content: {
+                "application/problem+json": { schema: ConflictProblemSchema }
+            }
+        };
+        return this;
+    }
+    unprocessableEntity(): ResponseBuilder {
+        this.response[422] = {
+            description: "Não foi possível concluir a ação",
+            content: {
+                "application/problem+json": {
+                    schema: UnprocessableEntityProblemSchema
+                }
+            }
+        };
+        return this;
+    }
+    problem(
+        statusCode: number,
+        schema: ZodType<unknown> | SchemaObject | ReferenceObject,
+        description: string
+    ): ResponseBuilder {
+        this.response[statusCode] = {
+            description,
+            content: {
+                "application/problem+json": { schema }
+            }
         };
         return this;
     }

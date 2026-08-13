@@ -1,12 +1,14 @@
 import type { Request, Response } from "express";
 import type z from "zod";
 
-import { ValidationError, ZodToApiError } from "../Validation.js";
+import { invalidRequestProblem } from "../errors/ProblemDetails.js";
+import { ZodToApiError } from "../Validation.js";
 import type {
     EndpointContract,
     EndpointResponsesSchema,
     ResponseEffect
 } from "./EndpointContract.js";
+import { sendProblem } from "./problemResponse.js";
 
 export type EndpointAction<
     Contract extends EndpointContract<unknown>,
@@ -16,7 +18,7 @@ export type EndpointAction<
     request: z.infer<Contract["request"]>
 ) => Promise<z.infer<Contract["response"]>>;
 
-function executeEffects(response: Response, effects?: ResponseEffect[]) {
+export function executeEffects(response: Response, effects?: ResponseEffect[]) {
     for (const effect of effects ?? []) {
         if (effect.type === "set-cookie") {
             response.cookie(effect.name, effect.value, effect.options);
@@ -46,9 +48,13 @@ export function buildEndpointHandler<
             headers: request.headers
         });
         if (!parsed.success) {
-            return response
-                .status(400)
-                .json(new ValidationError(ZodToApiError(parsed.error, [])));
+            return sendProblem(
+                response,
+                invalidRequestProblem(
+                    ZodToApiError(parsed.error, []),
+                    request.path
+                )
+            );
         }
 
         const result = (await action(

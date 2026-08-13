@@ -47,21 +47,20 @@ export function openApiFromEndpoint(
             case 204:
                 responses.noContent();
                 break;
-            case 400:
-                responses.badRequest();
-                break;
-            case 404:
-                responses.notFound();
-                break;
-            case 500:
-                responses.internalServerError();
-                break;
             default:
-                responses.statusCode(
-                    status,
-                    schema,
-                    variant.meta()?.description ?? "Response"
-                );
+                if (status >= 400) {
+                    responses.problem(
+                        status,
+                        schema,
+                        variant.meta()?.description ?? "Problema"
+                    );
+                } else {
+                    responses.statusCode(
+                        status,
+                        schema,
+                        variant.meta()?.description ?? "Response"
+                    );
+                }
         }
     }
     if (!statuses.has(400)) responses.badRequest();

@@ -1,7 +1,14 @@
 import type { CookieOptions } from "express";
 import z from "zod";
 
-import { ValidationErrorSchema } from "../Validation.js";
+import {
+    ConflictProblemSchema,
+    InternalServerErrorProblemSchema,
+    InvalidRequestProblemSchema,
+    ResourceNotFoundProblemSchema,
+    UnauthenticatedProblemSchema,
+    UnprocessableEntityProblemSchema
+} from "../errors/ProblemDetails.js";
 import type { ResponseEffect, ResponseVariant } from "./EndpointContract.js";
 import { responseEffectSchema } from "./EndpointContract.js";
 
@@ -41,7 +48,11 @@ export class ResponseSchemaBuilder<Variants extends ResponseVariant[] = []> {
 
     badRequest() {
         return this.add(
-            responseSchema(400, ValidationErrorSchema, "Bad request")
+            responseSchema(
+                400,
+                InvalidRequestProblemSchema,
+                "Dados da requisição inválidos"
+            )
         );
     }
 
@@ -49,8 +60,8 @@ export class ResponseSchemaBuilder<Variants extends ResponseVariant[] = []> {
         return this.add(
             responseSchema(
                 401,
-                z.string().length(0),
-                "Unauthorized - authentication required"
+                UnauthenticatedProblemSchema,
+                "Autenticação necessária"
             )
         );
     }
@@ -59,20 +70,46 @@ export class ResponseSchemaBuilder<Variants extends ResponseVariant[] = []> {
         return this.add(
             responseSchema(
                 404,
-                z.object({ description: z.string().default("Not found") }),
-                "Not found"
+                ResourceNotFoundProblemSchema,
+                "Recurso não encontrado"
             )
         );
+    }
+
+    conflict() {
+        return this.add(
+            responseSchema(
+                409,
+                ConflictProblemSchema,
+                "Conflito ao concluir a ação"
+            )
+        );
+    }
+
+    unprocessableEntity() {
+        return this.add(
+            responseSchema(
+                422,
+                UnprocessableEntityProblemSchema,
+                "Não foi possível concluir a ação"
+            )
+        );
+    }
+
+    problem<Status extends number, Schema extends z.ZodType>(
+        status: Status,
+        schema: Schema,
+        description: string
+    ) {
+        return this.add(responseSchema(status, schema, description));
     }
 
     internalServerError() {
         return this.add(
             responseSchema(
                 500,
-                z.object({
-                    message: z.string().default("Internal server error")
-                }),
-                "Internal server error"
+                InternalServerErrorProblemSchema,
+                "Não foi possível concluir a ação"
             )
         );
     }

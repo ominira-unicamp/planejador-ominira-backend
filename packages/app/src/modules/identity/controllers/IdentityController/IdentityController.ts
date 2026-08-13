@@ -5,6 +5,11 @@ import {
     StudentCapabilities,
     type StudentCapability
 } from "#/auth.js";
+import {
+    invalidRequestProblem,
+    resourceNotFoundProblem,
+    sendProblem
+} from "@pomi/api-core";
 import { Router, type Request, type Response } from "express";
 import z from "zod";
 
@@ -77,7 +82,7 @@ router.put(
             .safeParse(req.params.botAuthUserId);
         const body = replaceGrantsBody.safeParse(req.body);
         if (!botId.success || !body.success) {
-            return res.status(400).json({ error: "Invalid bot grant" });
+            return sendProblem(res, invalidRequestProblem([], req.path));
         }
 
         const bot = await req.prisma.authUser.findFirst({
@@ -88,7 +93,14 @@ router.put(
             },
             select: { id: true }
         });
-        if (!bot) return res.status(404).json({ error: "Bot not found" });
+        if (!bot)
+            return sendProblem(
+                res,
+                resourceNotFoundProblem(
+                    "O bot solicitado não foi encontrado.",
+                    req.path
+                )
+            );
 
         const capabilities = [...new Set(body.data.capabilities)];
         await req.prisma.$transaction(async (tx) => {
@@ -162,7 +174,7 @@ router.post("/admin/auth-users", async (req: Request, res: Response) => {
     const current = principal(req);
     const body = createBotBody.safeParse(req.body);
     if (!body.success)
-        return res.status(400).json({ error: "Invalid auth user" });
+        return sendProblem(res, invalidRequestProblem([], req.path));
 
     const authUser = await req.prisma.authUser.upsert({
         where: {
@@ -214,18 +226,28 @@ router.patch("/admin/auth-users/:id", async (req: Request, res: Response) => {
     const id = z.coerce.number().int().safeParse(req.params.id);
     const body = patchAuthUserBody.safeParse(req.body);
     if (!id.success || !body.success)
-        return res.status(400).json({ error: "Invalid auth user" });
+        return sendProblem(res, invalidRequestProblem([], req.path));
 
     const existing = await req.prisma.authUser.findUnique({
         where: { id: id.data },
         include: { roles: true }
     });
     if (!existing)
-        return res.status(404).json({ error: "Auth user not found" });
+        return sendProblem(
+            res,
+            resourceNotFoundProblem(
+                "A identidade solicitada não foi encontrada.",
+                req.path
+            )
+        );
     if (existing.roles.some((role) => role.role === AuthRoles.ADMIN)) {
-        return res
-            .status(403)
-            .json({ error: "Admin identities are managed by CLI" });
+        return sendProblem(res, {
+            type: "urn:pomi:problem:admin-identity-managed-by-cli",
+            title: "Identidade administrada pela linha de comando",
+            status: 403,
+            detail: "Identidades administrativas são gerenciadas apenas pela linha de comando.",
+            instance: req.path
+        });
     }
 
     const authUser = await req.prisma.$transaction(async (tx) => {

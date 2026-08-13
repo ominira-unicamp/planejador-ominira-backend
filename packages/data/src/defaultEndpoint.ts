@@ -1,10 +1,12 @@
 import { RouteConfig } from "@asteasolutions/zod-to-openapi";
 import {
     buildPaginationResponse,
+    invalidRequestProblem,
     PaginationQueryType,
     prismaPaginationParamsFromQuery,
+    resourceNotFoundProblem,
     ResponseBuilder,
-    ValidationError,
+    sendProblem,
     ZodToApiError
 } from "@pomi/api-core";
 import { MyPrisma, PrismaClient } from "@pomi/db";
@@ -49,7 +51,13 @@ function defaultGetHandler<
     return async function get(req: Request, res: Response): Promise<void> {
         const parsed = z.coerce.number().int().safeParse(req.params.id);
         if (!parsed.success) {
-            res.status(400).json(ZodToApiError(parsed.error, ["path", "id"]));
+            sendProblem(
+                res,
+                invalidRequestProblem(
+                    ZodToApiError(parsed.error, ["path", "id"]),
+                    req.path
+                )
+            );
             return;
         }
         const id: number = parsed.data;
@@ -61,7 +69,10 @@ function defaultGetHandler<
         const delegate = delegateFn(req.prisma);
         const data = await delegate.findUnique(args);
         if (!data) {
-            res.status(404).json({ error: notFoundMessage });
+            sendProblem(
+                res,
+                resourceNotFoundProblem(notFoundMessage, req.path)
+            );
             return;
         }
         res.json(buildClassEntity(data));
@@ -96,8 +107,9 @@ function defaultListHandler<
             error
         } = querySchema.safeParse(req.query);
         if (!success) {
-            res.status(400).json(
-                new ValidationError(ZodToApiError(error, ["query"]))
+            sendProblem(
+                res,
+                invalidRequestProblem(ZodToApiError(error, ["query"]), req.path)
             );
             return;
         }

@@ -7,7 +7,12 @@ import {
     calendarQuerySchema,
     invalidCalendarQuery
 } from "#/modules/schedule/controllers/CalendarController/CalendarQuery.js";
-import { ValidationErrorSchema } from "@pomi/api-core";
+import {
+    InternalServerErrorProblemSchema,
+    InvalidRequestProblemSchema,
+    invalidRequestProblem,
+    sendProblem
+} from "@pomi/api-core";
 
 const router = Router();
 const authRegistry = new AuthRegistry();
@@ -17,7 +22,11 @@ authRegistry.addException("GET", "/calendar");
 async function getCalendar(req: Request, res: Response) {
     const query = calendarQuerySchema.safeParse(req.query);
     if (!query.success) {
-        return res.status(400).json(invalidCalendarQuery(query.error));
+        const validation = invalidCalendarQuery(query.error);
+        return sendProblem(
+            res,
+            invalidRequestProblem(validation.errors, req.path)
+        );
     }
 
     const { startDate, endDate, tagId } = query.data;
@@ -89,13 +98,18 @@ registry.registerPath({
             }
         },
         500: {
-            description: "Internal server error"
+            description: "Não foi possível concluir a ação",
+            content: {
+                "application/problem+json": {
+                    schema: InternalServerErrorProblemSchema
+                }
+            }
         },
         400: {
-            description: "Invalid calendar filters",
+            description: "Dados da requisição inválidos",
             content: {
-                "application/json": {
-                    schema: ValidationErrorSchema
+                "application/problem+json": {
+                    schema: InvalidRequestProblemSchema
                 }
             }
         }

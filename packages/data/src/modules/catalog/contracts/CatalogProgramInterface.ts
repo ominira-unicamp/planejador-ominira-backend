@@ -1,7 +1,16 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { Capabilities, policies } from "#/auth.js";
+import {
+    CatalogProgramAlreadyExistsProblemSchema,
+    CatalogProgramNotFoundProblemSchema,
+    SpecializationNotInProgramProblemSchema
+} from "#/modules/catalog/problems/CatalogProgramProblems.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { pathSeg, SpecBuilder } from "@pomi/api-core";
+import {
+    pathSeg,
+    ResourceNotFoundProblemSchema,
+    SpecBuilder
+} from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
@@ -182,7 +191,11 @@ const get = {
     }),
     response: new OutputBuilder()
         .ok(catalogProgramEntity, "Catalog program retrieved successfully")
-        .notFound()
+        .problem(
+            404,
+            CatalogProgramNotFoundProblemSchema,
+            "Programa de catálogo não encontrado"
+        )
         .build()
 } satisfies IO;
 
@@ -241,8 +254,21 @@ const create = {
     }),
     response: new OutputBuilder()
         .created(catalogProgramEntity, "Catalog program created successfully")
-        .badRequest()
-        .notFound()
+        .problem(
+            404,
+            ResourceNotFoundProblemSchema,
+            "Recurso relacionado não encontrado"
+        )
+        .problem(
+            409,
+            CatalogProgramAlreadyExistsProblemSchema,
+            "Programa já incluído no catálogo"
+        )
+        .problem(
+            422,
+            SpecializationNotInProgramProblemSchema,
+            "Habilitação não disponível"
+        )
         .build()
 } satisfies IO;
 
@@ -266,8 +292,16 @@ const patch = {
     }),
     response: new OutputBuilder()
         .ok(catalogProgramEntity, "Catalog program updated successfully")
-        .notFound()
-        .badRequest()
+        .problem(
+            404,
+            CatalogProgramNotFoundProblemSchema,
+            "Programa de catálogo não encontrado"
+        )
+        .problem(
+            422,
+            SpecializationNotInProgramProblemSchema,
+            "Habilitação não disponível"
+        )
         .build()
 } satisfies IO;
 
@@ -283,7 +317,11 @@ const remove = {
     }),
     response: new OutputBuilder()
         .noContent("Catalog program deleted successfully")
-        .notFound()
+        .problem(
+            404,
+            CatalogProgramNotFoundProblemSchema,
+            "Programa de catálogo não encontrado"
+        )
         .build()
 } satisfies IO;
 

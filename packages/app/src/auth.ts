@@ -1,3 +1,8 @@
+import {
+    forbiddenProblem,
+    sendProblem,
+    unauthenticatedProblem
+} from "@pomi/api-core";
 import { asValue } from "awilix";
 import { NextFunction, Request, Response } from "express";
 import * as jose from "jose";
@@ -254,14 +259,14 @@ class AuthRegistry {
 
             const authHeader = req.headers.authorization;
             if (!authHeader || !authHeader.startsWith("Bearer ")) {
-                return res.status(401).json({ error: "Unauthorized" });
+                return sendProblem(res, unauthenticatedProblem(req.path));
             }
 
             let payload: TokenPayload;
             try {
                 payload = await verifyAccessToken(authHeader.substring(7));
             } catch {
-                return res.status(401).json({ error: "Unauthorized" });
+                return sendProblem(res, unauthenticatedProblem(req.path));
             }
 
             try {
@@ -278,7 +283,7 @@ class AuthRegistry {
                 return next();
             } catch (error) {
                 if (error instanceof ForbiddenError) {
-                    return res.status(403).json({ error: "Forbidden" });
+                    return sendProblem(res, forbiddenProblem(req.path));
                 }
                 return next(error);
             }
