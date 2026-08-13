@@ -202,23 +202,23 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.get(
     "/student/:sid/course-attempts",
-    buildHandler(IO.list.input, IO.list.output, listFn)
+    buildHandler(IO.list.request, IO.list.response, listFn)
 );
 router.get(
     "/student/:sid/course-attempts/:id",
-    buildHandler(IO.get.input, IO.get.output, getFn)
+    buildHandler(IO.get.request, IO.get.response, getFn)
 );
 router.post(
     "/student/:sid/course-attempts",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 router.patch(
     "/student/:sid/course-attempts/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 router.delete(
     "/student/:sid/course-attempts/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 const registry = new OpenAPIRegistry();
@@ -229,6 +229,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

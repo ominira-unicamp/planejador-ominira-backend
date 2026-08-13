@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -23,25 +24,26 @@ const catalogEntitySchema = z
     .openapi("Catalog");
 
 const get = {
-    specs: {
+    meta: {
         method: "get",
         path: basePath.concat([pathSeg.param("id")]),
-        tags
+        tags,
+        authorization: policies.public
     },
-    input: z.object({
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(catalogEntitySchema, "Catalog retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({
         query: z.object({
             year: z
                 .string()
@@ -50,7 +52,7 @@ const list = {
                 .optional()
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             z.array(catalogEntitySchema),
             "List of catalogs retrieved successfully"
@@ -59,23 +61,29 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: z
             .object({
                 year: z.number().int().min(1900).max(2100)
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(catalogEntitySchema, "Catalog created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
@@ -85,7 +93,7 @@ const patch = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(catalogEntitySchema, "Catalog updated successfully")
         .notFound()
         .badRequest()
@@ -93,14 +101,18 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Catalog deleted successfully")
+        .badRequest()
         .notFound()
         .build()
 } satisfies IO;

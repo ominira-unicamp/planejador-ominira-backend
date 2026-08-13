@@ -23,8 +23,8 @@ type TxType = Omit<
     PrismaClient,
     "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends"
 >;
-type CurriculumBody = z.infer<typeof IO.create.input>["body"];
-type PatchBody = z.infer<typeof IO.patch.input>["body"];
+type CurriculumBody = z.infer<typeof IO.create.request>["body"];
+type PatchBody = z.infer<typeof IO.patch.request>["body"];
 
 function selectionData(selection: CurriculumBody["selection"] | undefined) {
     return {
@@ -458,23 +458,23 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.get(
     "/student/:sid/curricula/:id",
-    buildHandler(IO.get.input, IO.get.output, getFn)
+    buildHandler(IO.get.request, IO.get.response, getFn)
 );
 router.get(
     "/student/:sid/curricula",
-    buildHandler(IO.list.input, IO.list.output, listFn)
+    buildHandler(IO.list.request, IO.list.response, listFn)
 );
 router.post(
     "/student/:sid/curricula",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 router.patch(
     "/student/:sid/curricula/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 router.delete(
     "/student/:sid/curricula/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(studentId: number, curriculumId: number) {
@@ -489,6 +489,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

@@ -6,6 +6,7 @@ export type ControllerDefinition = {
     router?: Router;
     registry?: OpenAPIRegistry;
     authRegistry?: AuthRegistry;
+    contracts?: Record<string, unknown>;
 };
 
 export type ModuleDefinition = {

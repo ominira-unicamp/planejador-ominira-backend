@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -90,8 +91,8 @@ const patchBody = z
     .strict();
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({
         path: z.object({
             id: z
                 .string()
@@ -99,41 +100,47 @@ const get = {
                 .pipe(z.number().int().positive())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(schema, "Calendar event retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({
         query: z.object({
             startDate: dateInput.optional(),
             endDate: dateInput.optional(),
             tagId: tagIdsQuerySchema.optional()
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(z.array(schema), "List of calendar events retrieved successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: createBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(schema, "Calendar event created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z
                 .string()
@@ -142,7 +149,7 @@ const patch = {
         }),
         body: patchBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(schema, "Calendar event updated successfully")
         .notFound()
         .badRequest()
@@ -150,8 +157,11 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z
                 .string()
@@ -159,7 +169,7 @@ const remove = {
                 .pipe(z.number().int().positive())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Calendar event deleted successfully")
         .notFound()
         .build()

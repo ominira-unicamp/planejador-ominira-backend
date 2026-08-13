@@ -9,7 +9,8 @@ export const Capabilities = {
 export type Principal = never;
 
 type Method = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
-type Policy = { kind: "public" } | { kind: "data-admin" };
+export type AuthorizationPolicy = { kind: "public" } | { kind: "data-admin" };
+type Policy = AuthorizationPolicy;
 type Rule = { method: Method; path: string; policy: Policy };
 
 export const policies = {

@@ -1,3 +1,4 @@
+import { policies, StudentCapabilities } from "#/Authorization.js";
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
@@ -134,22 +135,34 @@ const pathWithId = z.object({
 });
 
 const get = {
-    specs: specBuilder.get(),
-    input: z.object({ path: pathWithId }),
-    output: new OutputBuilder()
+    meta: {
+        ...specBuilder.get(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_READ
+        )
+    },
+    request: z.object({ path: pathWithId }),
+    response: new OutputBuilder()
         .ok(curriculumEntity, "Curriculum retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specBuilder.list(),
-    input: z.object({
+    meta: {
+        ...specBuilder.list(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             z.array(curriculumSummaryEntity),
             "Curricula retrieved successfully"
@@ -169,26 +182,38 @@ const createBody = z
     .strict();
 
 const create = {
-    specs: specBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specBuilder.create(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: createBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(curriculumEntity, "Curriculum created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specBuilder.patch(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({
         path: pathWithId,
         body: patchBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(curriculumEntity, "Curriculum updated successfully")
         .notFound()
         .badRequest()
@@ -196,9 +221,15 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specBuilder.remove(),
-    input: z.object({ path: pathWithId }),
-    output: new OutputBuilder()
+    meta: {
+        ...specBuilder.remove(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({ path: pathWithId }),
+    response: new OutputBuilder()
         .noContent("Curriculum deleted successfully")
         .notFound()
         .build()

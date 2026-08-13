@@ -1,6 +1,14 @@
+export * from "./errors/AppError.js";
+export * from "./errors/ProblemDetails.js";
+export * from "./http/ApiResponse.js";
+export * from "./http/CompatibilityAction.js";
+export * from "./http/EndpointContract.js";
+export * from "./http/EndpointRegistry.js";
+export * from "./http/RequestHandler.js";
 export { default as errorHandler } from "./middleware/errorHandler.js";
 export { default as jsonErrorHandler } from "./middleware/jsonErrorHandler.js";
 export { default as sizeLimitMiddleware } from "./middleware/sizeLimitMiddleware.js";
+export * from "./openapi/EndpointOpenApi.js";
 export { default as RequestBuilder } from "./openapi/RequestBuilder.js";
 export { default as ResponseBuilder } from "./openapi/ResponseBuilder.js";
 export * from "./pagination.js";

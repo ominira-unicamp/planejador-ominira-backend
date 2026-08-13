@@ -23,7 +23,7 @@ authRegistry.addException("GET", "/professors/:id");
 
 const list = defaultListHandler(
     (p) => p.professor,
-    IO.list.input.shape.query,
+    IO.list.request.shape.query,
     (query) =>
         query.classId ? { classes: { some: { id: query.classId } } } : {},
     listPath,
@@ -81,17 +81,17 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.post(
     "/professors",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/professors/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/professors/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function listPath({ classId, page, pageSize }: ListQueryParams) {
@@ -120,6 +120,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

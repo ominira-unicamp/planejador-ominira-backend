@@ -1,3 +1,4 @@
+import { policies, StudentCapabilities } from "#/Authorization.js";
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
@@ -80,22 +81,34 @@ const attemptBody = z
     .strict();
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.get(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(attemptEntity, "Student course attempt retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.list(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
@@ -113,7 +126,7 @@ const list = {
                 .optional()
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             z.array(attemptEntity),
             "Student course attempts retrieved successfully"
@@ -122,29 +135,41 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: attemptBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(attemptEntity, "Student course attempt created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: attemptBody.omit({ courseId: true }).partial().strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(attemptEntity, "Student course attempt updated successfully")
         .notFound()
         .badRequest()
@@ -152,14 +177,20 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder().noContent().notFound().build()
+    response: new OutputBuilder().noContent().notFound().build()
 } satisfies IO;
 
 export default {

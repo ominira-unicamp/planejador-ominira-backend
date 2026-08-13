@@ -103,21 +103,21 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.get("/units/:id", get);
 
-router.get("/units", buildHandler(IO.list.input, IO.list.output, listFn));
+router.get("/units", buildHandler(IO.list.request, IO.list.response, listFn));
 
 router.post(
     "/units",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/units/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/units/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(unitId: number) {
@@ -133,6 +133,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

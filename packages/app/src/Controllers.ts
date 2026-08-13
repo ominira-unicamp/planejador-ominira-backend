@@ -1,7 +1,11 @@
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import {
+    isCompatibilityContract,
+    pathSegmentToExpressPath
+} from "@pomi/api-core";
 import { Router } from "express";
 
-import { AuthRegistry } from "#/auth.js";
+import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import identity from "#/modules/identity/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
 import curriculum from "#/modules/planning/controllers/StudentControllers/CurriculumController/CurriculumController.js";
@@ -15,6 +19,23 @@ const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );
 
+const contractAuthRegistry = new AuthRegistry();
+for (const controller of controllers) {
+    for (const contract of Object.values(controller.contracts ?? {})) {
+        if (!isCompatibilityContract(contract)) continue;
+        contractAuthRegistry.addPolicy(
+            contract.meta.method.toUpperCase() as
+                | "GET"
+                | "POST"
+                | "PUT"
+                | "PATCH"
+                | "DELETE",
+            pathSegmentToExpressPath(contract.meta.path),
+            contract.meta.authorization as AuthorizationPolicy
+        );
+    }
+}
+
 export const appControllers = {
     router: Router().use(modules.map((module) => module.router)),
     registry: new OpenAPIRegistry(
@@ -22,9 +43,10 @@ export const appControllers = {
             .filter((controller) => controller.registry)
             .map((controller) => controller.registry!)
     ),
-    authRegistry: new AuthRegistry(
-        modules.map((module) => module.authRegistry)
-    ),
+    authRegistry: new AuthRegistry([
+        identity.authRegistry,
+        contractAuthRegistry
+    ]),
     all: controllers
 };
 

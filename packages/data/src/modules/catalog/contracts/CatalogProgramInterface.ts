@@ -1,12 +1,13 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
 
-const basePath = [pathSeg.literal("catalog-programs")];
-const tags = ["catalog-programs"];
+const basePath = [pathSeg.literal("catalog-program")];
+const tags = ["catalog-program"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
 export const CourseBlockType = {
@@ -173,21 +174,21 @@ const catalogLanguageOperationsSchema = z
     .partial();
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(catalogProgramEntity, "Catalog program retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({
         query: z
             .object({
                 catalogId: z.string().pipe(z.coerce.number()).pipe(z.number()),
@@ -196,7 +197,7 @@ const list = {
             })
             .partial()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             z.array(catalogProgramEntity),
             "List of catalog programs retrieved successfully"
@@ -205,8 +206,11 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: z
             .object({
                 catalogId: z.number().int(),
@@ -235,15 +239,19 @@ const create = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(catalogProgramEntity, "Catalog program created successfully")
         .badRequest()
+        .notFound()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
@@ -256,7 +264,7 @@ const patch = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(catalogProgramEntity, "Catalog program updated successfully")
         .notFound()
         .badRequest()
@@ -264,13 +272,16 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Catalog program deleted successfully")
         .notFound()
         .build()

@@ -1,7 +1,11 @@
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import {
+    isCompatibilityContract,
+    pathSegmentToExpressPath
+} from "@pomi/api-core";
 import { Router } from "express";
 
-import { AuthRegistry } from "#/auth.js";
+import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import course from "#/modules/academic/controllers/CourseController/CourseController.js";
 import professor from "#/modules/academic/controllers/ProfessorController/ProfessorController.js";
 import room from "#/modules/academic/controllers/RoomController/RoomController.js";
@@ -27,6 +31,27 @@ const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );
 
+const contractAuthRegistry = new AuthRegistry();
+for (const controller of controllers) {
+    for (const contract of Object.values(controller.contracts ?? {})) {
+        if (!isCompatibilityContract(contract)) continue;
+        contractAuthRegistry.addPolicy(
+            contract.meta.method.toUpperCase() as
+                | "GET"
+                | "POST"
+                | "PUT"
+                | "PATCH"
+                | "DELETE",
+            pathSegmentToExpressPath(contract.meta.path),
+            contract.meta.authorization as AuthorizationPolicy
+        );
+    }
+}
+
+const standaloneAuthRegistries = controllers
+    .filter((controller) => !controller.contracts && controller.authRegistry)
+    .map((controller) => controller.authRegistry!);
+
 export const dataControllers = {
     router: Router().use(modules.map((module) => module.router)),
     registry: new OpenAPIRegistry(
@@ -34,9 +59,10 @@ export const dataControllers = {
             .filter((controller) => controller.registry)
             .map((controller) => controller.registry!)
     ),
-    authRegistry: new AuthRegistry(
-        modules.map((module) => module.authRegistry)
-    ),
+    authRegistry: new AuthRegistry([
+        contractAuthRegistry,
+        ...standaloneAuthRegistries
+    ]),
     all: controllers
 };
 

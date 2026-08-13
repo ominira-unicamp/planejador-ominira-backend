@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -41,22 +42,22 @@ const patchStudyPeriodBody = studyPeriodBase
     .openapi("PatchStudyPeriodBody");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(studyPeriodEntity, "Study period retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({}),
-    output: new OutputBuilder()
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({}),
+    response: new OutputBuilder()
         .ok(
             z.array(studyPeriodEntity),
             "List of study periods retrieved successfully"
@@ -65,25 +66,31 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: createStudyPeriodBody.strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(studyPeriodEntity, "Study period created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: patchStudyPeriodBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(studyPeriodEntity, "Study period patched successfully")
         .notFound()
         .badRequest()
@@ -91,13 +98,16 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Study period deleted successfully")
         .notFound()
         .build()

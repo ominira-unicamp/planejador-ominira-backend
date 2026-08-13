@@ -1,3 +1,4 @@
+import { policies, StudentCapabilities } from "#/Authorization.js";
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
@@ -51,32 +52,41 @@ const patchStudentBody = studentBase
     .openapi("PatchStudentBody");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.get(),
+        authorization: policies.studentAccess(
+            "id",
+            StudentCapabilities.PROFILE_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(studentEntity, "Student retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({}),
-    output: new OutputBuilder()
+    meta: { ...specsBuilder.list(), authorization: policies.admin },
+    request: z.object({}),
+    response: new OutputBuilder()
         .ok(z.array(studentEntity), "List of students retrieved successfully")
         .build()
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.studentRegistration
+    },
+    request: z.object({
         body: createStudentBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(studentEntity, "Existing student linked successfully")
         .created(studentEntity, "Student created successfully")
         .badRequest()
@@ -89,14 +99,20 @@ const create = {
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.studentAccess(
+            "id",
+            StudentCapabilities.PROFILE_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: patchStudentBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(studentEntity, "Student updated successfully")
         .notFound()
         .badRequest()
@@ -104,8 +120,14 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.studentAccess(
+            "id",
+            StudentCapabilities.PROFILE_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
@@ -115,8 +137,9 @@ const remove = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Student deleted successfully")
+        .badRequest()
         .notFound()
         .build()
 } satisfies IO;

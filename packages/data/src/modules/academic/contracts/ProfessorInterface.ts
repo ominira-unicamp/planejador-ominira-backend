@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -53,49 +54,55 @@ const PageProfessorsSchema =
     getPaginatedSchema(professorEntity).openapi("PageProfessors");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(professorEntity, "Professor retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({
         query: listProfessorsQuery
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(PageProfessorsSchema, "List of professors retrieved successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: createProfessorBody.strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(professorEntity, "Professor created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
         body: patchProfessorBody
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(professorEntity, "Professor updated successfully")
         .notFound()
         .badRequest()
@@ -103,13 +110,16 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Professor deleted successfully")
         .notFound()
         .build()

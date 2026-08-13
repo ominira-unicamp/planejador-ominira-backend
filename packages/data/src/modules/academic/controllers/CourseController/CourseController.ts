@@ -66,7 +66,7 @@ const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
     };
 };
 
-const list = buildHandler(IO.list.input, IO.list.output, listFn);
+const list = buildHandler(IO.list.request, IO.list.response, listFn);
 
 const get = defaultGetHandler(
     (p) => p.course,
@@ -148,7 +148,7 @@ const deleteFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
         };
     }
     await ctx.prisma.course.delete({ where: { id: id } });
-    return { 200: undefined };
+    return { 204: null };
 };
 
 const router = Router();
@@ -161,17 +161,17 @@ router.get("/courses", list);
 
 router.post(
     "/courses",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/courses/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/courses/:id",
-    buildHandler(IO.remove.input, IO.remove.output, deleteFn)
+    buildHandler(IO.remove.request, IO.remove.response, deleteFn)
 );
 
 function entityPath(courseId: number) {
@@ -210,6 +210,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

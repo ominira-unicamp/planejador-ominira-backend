@@ -179,22 +179,22 @@ router.get("/specializations/:id", get);
 
 router.get(
     "/specializations",
-    buildHandler(IO.list.input, IO.list.output, listFn)
+    buildHandler(IO.list.request, IO.list.response, listFn)
 );
 
 router.post(
     "/specializations",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/specializations/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/specializations/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(specializationId: number) {
@@ -210,6 +210,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

@@ -3,16 +3,15 @@ import "dotenv/config";
 import { createBaseApplication, errorHandler } from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 
+import { loadAppConfig } from "#/Config.js";
+import { appScopeMiddleware, createAppContainer } from "#/Container.js";
 import { appControllers } from "#/Controllers.js";
 import openApiRouter from "#/OpenApi.js";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) throw new Error("DATABASE_URL is required");
-
-const database = createDatabaseClient(connectionString);
-const application = createBaseApplication(
-    process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN
-);
+const config = loadAppConfig(process.env);
+const database = createDatabaseClient(config.databaseUrl);
+const container = createAppContainer(config, database);
+const application = createBaseApplication(config.corsOrigins);
 
 for (const path of [
     "/health",
@@ -24,17 +23,14 @@ for (const path of [
     appControllers.authRegistry.addException("GET", path);
 }
 
-application.use((req, _res, next) => {
-    req.prisma = database;
-    next();
-});
+application.use(appScopeMiddleware(container));
 application.get("/health", (_req, res) => res.json({ status: "ok" }));
 application.use(appControllers.authRegistry.middleware());
 application.use(openApiRouter);
 application.use(appControllers.router);
 application.use(errorHandler);
 
-const port = Number(process.env.PORT ?? process.env.POMI_APP_PORT ?? 3001);
+const port = config.port;
 const server = application.listen(port, () => {
     if (process.env.NODE_ENV !== "production") {
         console.log(`POMI App docs: http://localhost:${port}/docs`);

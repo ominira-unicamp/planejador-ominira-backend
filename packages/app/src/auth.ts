@@ -1,6 +1,17 @@
+import { asValue } from "awilix";
 import { NextFunction, Request, Response } from "express";
 import * as jose from "jose";
 import { match } from "path-to-regexp";
+
+import {
+    AuthRoles,
+    policies,
+    type AuthorizationPolicy,
+    type AuthRole,
+    type Capability
+} from "#/Authorization.js";
+
+export * from "#/Authorization.js";
 
 const disabled = process.env.DISABLED_AUTH === "true";
 const isProduction = process.env.NODE_ENV === "production";
@@ -23,29 +34,6 @@ const keySet = issuer
       )
     : undefined;
 
-export const AuthRoles = {
-    STUDENT: "STUDENT",
-    BOT: "BOT",
-    ADMIN: "ADMIN"
-} as const;
-export type AuthRole = (typeof AuthRoles)[keyof typeof AuthRoles];
-
-export const Capabilities = {
-    ACADEMIC_WRITE: "ACADEMIC_WRITE"
-} as const;
-export type Capability = (typeof Capabilities)[keyof typeof Capabilities];
-
-export const StudentCapabilities = {
-    PROFILE_READ: "STUDENT_PROFILE_READ",
-    PROFILE_WRITE: "STUDENT_PROFILE_WRITE",
-    HISTORY_READ: "STUDENT_HISTORY_READ",
-    HISTORY_WRITE: "STUDENT_HISTORY_WRITE",
-    PLANNING_READ: "STUDENT_PLANNING_READ",
-    PLANNING_WRITE: "STUDENT_PLANNING_WRITE"
-} as const;
-export type StudentCapability =
-    (typeof StudentCapabilities)[keyof typeof StudentCapabilities];
-
 export type Principal = {
     authUserId: number;
     issuer: string;
@@ -60,37 +48,6 @@ type TokenPayload = jose.JWTPayload & {
     email?: string;
     email_verified?: boolean;
     name?: string;
-};
-
-export type AuthorizationPolicy =
-    | { kind: "public" }
-    | { kind: "authenticated" }
-    | { kind: "admin" }
-    | { kind: "capability"; capability: Capability }
-    | {
-          kind: "student-access";
-          studentParam: string;
-          capability: StudentCapability;
-      }
-    | { kind: "student-registration" };
-
-export const policies = {
-    public: { kind: "public" } as const,
-    authenticated: { kind: "authenticated" } as const,
-    admin: { kind: "admin" } as const,
-    capability: (capability: Capability): AuthorizationPolicy => ({
-        kind: "capability",
-        capability
-    }),
-    studentAccess: (
-        studentParam: string,
-        capability: StudentCapability
-    ): AuthorizationPolicy => ({
-        kind: "student-access",
-        studentParam,
-        capability
-    }),
-    studentRegistration: { kind: "student-registration" } as const
 };
 
 async function verifyAccessToken(token: string): Promise<TokenPayload> {
@@ -311,6 +268,7 @@ class AuthRegistry {
                 const principal = await resolvePrincipal(payload, req);
                 req.user = payload;
                 req.principal = principal;
+                req.scope.register({ principal: asValue(principal) });
                 await this.authorize(
                     principal,
                     policy,

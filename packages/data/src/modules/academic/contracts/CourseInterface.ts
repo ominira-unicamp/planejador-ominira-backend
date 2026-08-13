@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { getPaginatedSchema, pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -55,44 +56,50 @@ const PageCoursesSchema =
     getPaginatedSchema(courseEntity).openapi("PageCourses");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({
         path: z
             .object({
                 id: z.coerce.number().int()
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(courseEntity, "Course retrieved successfully")
         .notFound()
         .build()
 };
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({
         query: listCourseQuery
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(PageCoursesSchema, "List of courses retrieved successfully")
         .build()
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         body: courseBase.omit({ id: true }).strict().openapi("CreateCourseBody")
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(courseEntity, "Course created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z
             .object({
                 id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -104,22 +111,26 @@ const patch = {
             .strict()
             .openapi("PatchCourseBody")
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(courseEntity, "Course patched successfully")
+        .badRequest()
         .notFound()
         .build()
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z
             .object({
                 id: z.coerce.number().int()
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Course deleted successfully")
         .notFound()
         .build()

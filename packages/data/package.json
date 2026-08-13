@@ -20,6 +20,7 @@
         "@pomi/api-core": "*",
         "@pomi/db": "*",
         "@scalar/express-api-reference": "^0.8.30",
+        "awilix": "^13.0.5",
         "cors": "^2.8.5",
         "dotenv": "^17.2.3",
         "express": "5.1.0",

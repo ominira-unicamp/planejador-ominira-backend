@@ -1,4 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { Capabilities, policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import { CurriculumSuggestionType } from "@pomi/db";
@@ -159,9 +160,9 @@ const listQuerySchema = z
     .openapi("ListCurriculumSuggestionsQuery");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({ path: z.object({ id: pathId }).strict() }),
-    output: new OutputBuilder()
+    meta: { ...specsBuilder.get(), authorization: policies.public },
+    request: z.object({ path: z.object({ id: pathId }).strict() }),
+    response: new OutputBuilder()
         .ok(
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion retrieved successfully"
@@ -171,9 +172,9 @@ const get = {
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({ query: listQuerySchema }),
-    output: new OutputBuilder()
+    meta: { ...specsBuilder.list(), authorization: policies.public },
+    request: z.object({ query: listQuerySchema }),
+    response: new OutputBuilder()
         .ok(
             z.array(curriculumSuggestionEntitySchema),
             "List of curriculum suggestions retrieved successfully"
@@ -183,9 +184,12 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({ body: createBodySchema }),
-    output: new OutputBuilder()
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({ body: createBodySchema }),
+    response: new OutputBuilder()
         .created(
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion created successfully"
@@ -195,12 +199,15 @@ const create = {
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({
         path: z.object({ id: pathId }).strict(),
         body: patchBodySchema
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion updated successfully"
@@ -211,9 +218,12 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({ path: z.object({ id: pathId }).strict() }),
-    output: new OutputBuilder()
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
+    },
+    request: z.object({ path: z.object({ id: pathId }).strict() }),
+    response: new OutputBuilder()
         .noContent("Curriculum suggestion deleted successfully")
         .notFound()
         .build()

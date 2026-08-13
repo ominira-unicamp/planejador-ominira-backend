@@ -19,3 +19,14 @@ export function pathSegmentToOpenApiPath(segments: PathSegment[]): string {
             .join("/")
     );
 }
+
+export function pathSegmentToExpressPath(segments: PathSegment[]): string {
+    return (
+        "/" +
+        segments
+            .map((segment) =>
+                segment.type === "literal" ? segment.value : `:${segment.name}`
+            )
+            .join("/")
+    );
+}

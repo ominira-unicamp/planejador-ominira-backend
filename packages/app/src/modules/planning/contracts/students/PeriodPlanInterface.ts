@@ -1,3 +1,4 @@
+import { policies, StudentCapabilities } from "#/Authorization.js";
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
@@ -93,27 +94,39 @@ const periodPlanningEntity = z
     .openapi("PeriodPlanningEntity");
 
 const get = {
-    specs: specsBuilder.get(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.get(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(periodPlanningEntity, "Period planning retrieved successfully")
         .notFound()
         .build()
 } satisfies IO;
 
 const list = {
-    specs: specsBuilder.list(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.list(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_READ
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(
             z.array(periodPlanningEntity),
             "List of period plannings retrieved successfully"
@@ -122,8 +135,14 @@ const list = {
 } satisfies IO;
 
 const create = {
-    specs: specsBuilder.create(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.create(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number())
         }),
@@ -139,15 +158,21 @@ const create = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .created(periodPlanningEntity, "Period planning created successfully")
         .badRequest()
         .build()
 } satisfies IO;
 
 const patch = {
-    specs: specsBuilder.patch(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.patch(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
@@ -173,7 +198,7 @@ const patch = {
             })
             .strict()
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .ok(periodPlanningEntity, "Period planning updated successfully")
         .notFound()
         .badRequest()
@@ -181,14 +206,20 @@ const patch = {
 } satisfies IO;
 
 const remove = {
-    specs: specsBuilder.remove(),
-    input: z.object({
+    meta: {
+        ...specsBuilder.remove(),
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.PLANNING_WRITE
+        )
+    },
+    request: z.object({
         path: z.object({
             sid: z.string().pipe(z.coerce.number()).pipe(z.number()),
             id: z.string().pipe(z.coerce.number()).pipe(z.number())
         })
     }),
-    output: new OutputBuilder()
+    response: new OutputBuilder()
         .noContent("Period planning deleted successfully")
         .notFound()
         .build()

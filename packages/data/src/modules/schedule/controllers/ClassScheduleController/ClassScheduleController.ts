@@ -25,7 +25,7 @@ authRegistry.addException("GET", "/class-schedules/:id");
 
 const list = defaultListHandler(
     (p) => p.classSchedule,
-    IO.list.input.shape.query,
+    IO.list.request.shape.query,
     (query) => ({
         dayOfWeek: query.dayOfWeek,
         room: whereIdCode(query.roomId, query.roomCode),
@@ -129,17 +129,17 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.post(
     "/class-schedules",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/class-schedules/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/class-schedules/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function listPath({
@@ -178,6 +178,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,

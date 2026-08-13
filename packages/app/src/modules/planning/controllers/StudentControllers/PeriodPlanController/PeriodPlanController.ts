@@ -43,7 +43,9 @@ const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
     return { 200: periodPlanningEntity.build(periodPlanning) };
 };
 
-type GuideInput = NonNullable<z.infer<typeof IO.create.input>["body"]["guide"]>;
+type GuideInput = NonNullable<
+    z.infer<typeof IO.create.request>["body"]["guide"]
+>;
 
 function legacyGuide(curriculumId: number | null | undefined): GuideInput {
     return {
@@ -375,7 +377,7 @@ const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
 };
 
 function buildClassUpdateData(
-    ops: z.infer<typeof IO.patch.input>["body"]["classes"]
+    ops: z.infer<typeof IO.patch.request>["body"]["classes"]
 ) {
     if (ops.set) return { set: [...ops.set].map((id) => ({ id })) };
     return {
@@ -517,48 +519,48 @@ const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
 
 router.get(
     "/student/:sid/period-plannings/:id",
-    buildHandler(IO.get.input, IO.get.output, getFn)
+    buildHandler(IO.get.request, IO.get.response, getFn)
 );
 
 router.get(
     "/student/:sid/period-plannings",
-    buildHandler(IO.list.input, IO.list.output, listFn)
+    buildHandler(IO.list.request, IO.list.response, listFn)
 );
 
 router.post(
     "/student/:sid/period-plannings",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 
 router.patch(
     "/student/:sid/period-plannings/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 
 router.delete(
     "/student/:sid/period-plannings/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 router.get(
     "/student/:sid/period-plan/:id",
-    buildHandler(IO.get.input, IO.get.output, getFn)
+    buildHandler(IO.get.request, IO.get.response, getFn)
 );
 router.get(
     "/student/:sid/period-plan",
-    buildHandler(IO.list.input, IO.list.output, listFn)
+    buildHandler(IO.list.request, IO.list.response, listFn)
 );
 router.post(
     "/student/:sid/period-plan",
-    buildHandler(IO.create.input, IO.create.output, createFn)
+    buildHandler(IO.create.request, IO.create.response, createFn)
 );
 router.patch(
     "/student/:sid/period-plan/:id",
-    buildHandler(IO.patch.input, IO.patch.output, patchFn)
+    buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
 router.delete(
     "/student/:sid/period-plan/:id",
-    buildHandler(IO.remove.input, IO.remove.output, removeFn)
+    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(studentId: number, periodPlanningId: number) {
@@ -574,6 +576,7 @@ registry.registerPath(openApiArgsFromIO(IO.patch));
 registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
+    contracts: IO,
     router,
     registry,
     authRegistry,
