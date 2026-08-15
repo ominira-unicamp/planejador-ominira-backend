@@ -21,6 +21,13 @@ export const StudentCapabilities = {
 export type StudentCapability =
     (typeof StudentCapabilities)[keyof typeof StudentCapabilities];
 
+export function raFromDacEmail(email: string | null): string | undefined {
+    if (!email) return undefined;
+    return /^([a-z])[0-9]{6}@dac\.unicamp\.br$/i.test(email)
+        ? email.slice(1, 7)
+        : undefined;
+}
+
 export type AuthorizationPolicy =
     | { kind: "public" }
     | { kind: "authenticated" }

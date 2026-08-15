@@ -8,10 +8,6 @@ import { Router } from "express";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import identity from "#/modules/identity/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
-import curriculum from "#/modules/planning/controllers/StudentControllers/CurriculumController/CurriculumController.js";
-import periodPlan from "#/modules/planning/controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js";
-import student from "#/modules/planning/controllers/StudentControllers/StudentController/StudentController.js";
-import studentCourse from "#/modules/planning/controllers/StudentControllers/StudentCourseController/StudentCourseController.js";
 import planning from "#/modules/planning/index.js";
 
 const modules = [identity, planning];
@@ -48,16 +44,6 @@ export const appControllers = {
         contractAuthRegistry
     ]),
     all: controllers
-};
-
-export const resourcesPaths = {
-    curriculum: curriculum.paths,
-    periodPlan: periodPlan.paths,
-    student: student.paths,
-    studentCourse: studentCourse.paths,
-    course: { entity: (id: number) => `/courses/${id}` },
-    studyPeriod: { entity: (id: number) => `/study-periods/${id}` },
-    class: { entity: (id: number) => `/classes/${id}` }
 };
 
 export default appControllers;

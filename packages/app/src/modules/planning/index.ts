@@ -1,102 +1,20 @@
-import { AuthRegistry, policies, StudentCapabilities } from "#/auth.js";
+import { AuthRegistry } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
-import CurriculumController from "#/modules/planning/controllers/StudentControllers/CurriculumController/CurriculumController.js";
-import periodPlan from "#/modules/planning/controllers/StudentControllers/PeriodPlanController/PeriodPlanController.js";
-import studentController from "#/modules/planning/controllers/StudentControllers/StudentController/StudentController.js";
-import studentCourse from "#/modules/planning/controllers/StudentControllers/StudentCourseController/StudentCourseController.js";
+import curriculum from "#/modules/planning/curriculum/index.js";
+import periodPlan from "#/modules/planning/period-plan/index.js";
+import periodPlanAlias from "#/modules/planning/period-plan/PeriodPlanAlias.controller.js";
+import studentCourseAttempt from "#/modules/planning/student-course-attempt/index.js";
+import student from "#/modules/planning/student/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 
 const controllers: ModuleDefinition["controllers"] = [
-    studentController,
-    CurriculumController,
+    student,
+    curriculum,
     periodPlan,
-    studentCourse
+    periodPlanAlias,
+    studentCourseAttempt
 ];
-const authRegistry = new AuthRegistry();
-authRegistry.addPolicy("GET", "/students", policies.admin);
-authRegistry.addPolicy(
-    "GET",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_READ)
-);
-authRegistry.addPolicy("POST", "/students", policies.studentRegistration);
-authRegistry.addPolicy(
-    "PATCH",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_WRITE)
-);
-authRegistry.addPolicy(
-    "DELETE",
-    "/students/:id",
-    policies.studentAccess("id", StudentCapabilities.PROFILE_WRITE)
-);
-
-for (const path of [
-    "/student/:sid/course-attempts",
-    "/student/:sid/course-attempts/:id"
-]) {
-    authRegistry.addPolicy(
-        "GET",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.HISTORY_READ)
-    );
-}
-authRegistry.addPolicy(
-    "POST",
-    "/student/:sid/course-attempts",
-    policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-);
-for (const method of ["PATCH", "DELETE"] as const) {
-    authRegistry.addPolicy(
-        method,
-        "/student/:sid/course-attempts/:id",
-        policies.studentAccess("sid", StudentCapabilities.HISTORY_WRITE)
-    );
-}
-
-for (const path of [
-    "/student/:sid/curricula",
-    "/student/:sid/curricula/:id",
-    "/student/:sid/period-plannings",
-    "/student/:sid/period-plannings/:id",
-    "/student/:sid/period-plan",
-    "/student/:sid/period-plan/:id"
-]) {
-    authRegistry.addPolicy(
-        "GET",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_READ)
-    );
-}
-for (const path of [
-    "/student/:sid/curricula",
-    "/student/:sid/period-plannings",
-    "/student/:sid/period-plan"
-]) {
-    authRegistry.addPolicy(
-        "POST",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-}
-for (const path of [
-    "/student/:sid/curricula/:id",
-    "/student/:sid/period-plannings/:id",
-    "/student/:sid/period-plan/:id"
-]) {
-    authRegistry.addPolicy(
-        "PATCH",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        path,
-        policies.studentAccess("sid", StudentCapabilities.PLANNING_WRITE)
-    );
-}
-
 export default {
     router: Router().use(
         controllers
@@ -109,6 +27,10 @@ export default {
             .map((controller) => controller.registry!)
             .flat()
     ),
-    authRegistry,
+    authRegistry: new AuthRegistry(
+        controllers
+            .filter((controller) => controller.authRegistry)
+            .map((controller) => controller.authRegistry!)
+    ),
     controllers
 } satisfies ModuleDefinition;

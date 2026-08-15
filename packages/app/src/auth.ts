@@ -11,6 +11,7 @@ import { match } from "path-to-regexp";
 import {
     AuthRoles,
     policies,
+    raFromDacEmail,
     type AuthorizationPolicy,
     type AuthRole,
     type Capability
@@ -79,13 +80,6 @@ function studentIdentityFromToken(payload: TokenPayload) {
     const match = /^([a-z])([0-9]{6})@dac\.unicamp\.br$/i.exec(email);
     if (!match) return undefined;
     return { email, ra: match[2], displayName: payload.name };
-}
-
-export function raFromDacEmail(email: string | null): string | undefined {
-    if (!email) return undefined;
-    return /^([a-z])[0-9]{6}@dac\.unicamp\.br$/i.test(email)
-        ? email.slice(1, 7)
-        : undefined;
 }
 
 async function resolvePrincipal(payload: TokenPayload, req: Request) {
