@@ -6,11 +6,11 @@ import { buildZodIds } from "#/PrismaValidator.js";
 import {
     createCatalogProgramService,
     type CatalogProgramService
-} from "#/modules/catalog/services/CatalogProgramService.js";
+} from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
 import {
     createClassScheduleService,
     type ClassScheduleService
-} from "#/modules/schedule/services/ClassScheduleService.js";
+} from "#/modules/schedule/class-schedule/ClassSchedule.service.js";
 import type { DatabaseClient } from "@pomi/db";
 
 export type DataCradle = {

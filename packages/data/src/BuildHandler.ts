@@ -1,7 +1,7 @@
 import { buildZodIds } from "#/PrismaValidator.js";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
-import type { CatalogProgramService } from "#/modules/catalog/services/CatalogProgramService.js";
-import type { ClassScheduleService } from "#/modules/schedule/services/ClassScheduleService.js";
+import type { CatalogProgramService } from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
+import type { ClassScheduleService } from "#/modules/schedule/class-schedule/ClassSchedule.service.js";
 import {
     buildCompatibilityHandler,
     createEndpointRegistries,

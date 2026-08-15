@@ -6,25 +6,25 @@ import {
 import { Router } from "express";
 
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
-import course from "#/modules/academic/controllers/CourseController/CourseController.js";
-import professor from "#/modules/academic/controllers/ProfessorController/ProfessorController.js";
-import room from "#/modules/academic/controllers/RoomController/RoomController.js";
-import unit from "#/modules/academic/controllers/UnitController/UnitController.js";
+import course from "#/modules/academic/course/index.js";
 import academic from "#/modules/academic/index.js";
-import catalogController from "#/modules/catalog/controllers/CatalogController/CatalogController.js";
-import catalogProgram from "#/modules/catalog/controllers/CatalogProgramController/CatalogProgramController.js";
-import curriculumSuggestion from "#/modules/catalog/controllers/CurriculumSuggestionController/CurriculumSuggestionController.js";
-import language from "#/modules/catalog/controllers/LanguageController/LanguageController.js";
-import program from "#/modules/catalog/controllers/ProgramController/ProgramController.js";
-import specialization from "#/modules/catalog/controllers/SpecializationController/SpecializationController.js";
+import professor from "#/modules/academic/professor/index.js";
+import room from "#/modules/academic/room/index.js";
+import unit from "#/modules/academic/unit/index.js";
+import catalogProgram from "#/modules/catalog/catalog-program/index.js";
+import catalogController from "#/modules/catalog/catalog/index.js";
+import curriculumSuggestion from "#/modules/catalog/curriculum-suggestion/index.js";
 import catalog from "#/modules/catalog/index.js";
+import language from "#/modules/catalog/language/index.js";
+import program from "#/modules/catalog/program/index.js";
+import specialization from "#/modules/catalog/specialization/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
-import calendarEvent from "#/modules/schedule/controllers/CalendarEventController/CalendarEventController.js";
-import calendarTag from "#/modules/schedule/controllers/CalendarTagController/CalendarTagController.js";
-import classController from "#/modules/schedule/controllers/ClassController/ClassController.js";
-import classSchedule from "#/modules/schedule/controllers/ClassScheduleController/ClassScheduleController.js";
-import studyPeriods from "#/modules/schedule/controllers/StudyPeriodsController/StudyPeriodsController.js";
+import calendarEvent from "#/modules/schedule/calendar-event/index.js";
+import calendarTag from "#/modules/schedule/calendar-tag/index.js";
+import classSchedule from "#/modules/schedule/class-schedule/index.js";
+import classController from "#/modules/schedule/class/index.js";
 import schedule from "#/modules/schedule/index.js";
+import studyPeriods from "#/modules/schedule/study-period/index.js";
 
 const modules = [academic, catalog, schedule];
 const controllers: ControllerDefinition[] = modules.flatMap(

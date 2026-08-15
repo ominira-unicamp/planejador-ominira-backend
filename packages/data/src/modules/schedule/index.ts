@@ -1,11 +1,11 @@
 import { AuthRegistry, Capabilities, policies } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
-import calendar from "#/modules/schedule/controllers/CalendarController/CalendarController.js";
-import calendarEvent from "#/modules/schedule/controllers/CalendarEventController/CalendarEventController.js";
-import calendarTag from "#/modules/schedule/controllers/CalendarTagController/CalendarTagController.js";
-import classController from "#/modules/schedule/controllers/ClassController/ClassController.js";
-import classSchedule from "#/modules/schedule/controllers/ClassScheduleController/ClassScheduleController.js";
-import studyPeriods from "#/modules/schedule/controllers/StudyPeriodsController/StudyPeriodsController.js";
+import calendarEvent from "#/modules/schedule/calendar-event/index.js";
+import calendarTag from "#/modules/schedule/calendar-tag/index.js";
+import calendar from "#/modules/schedule/calendar/index.js";
+import classSchedule from "#/modules/schedule/class-schedule/index.js";
+import classController from "#/modules/schedule/class/index.js";
+import studyPeriods from "#/modules/schedule/study-period/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 

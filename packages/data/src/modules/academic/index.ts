@@ -1,9 +1,9 @@
 import { AuthRegistry, Capabilities, policies } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
-import course from "#/modules/academic/controllers/CourseController/CourseController.js";
-import professor from "#/modules/academic/controllers/ProfessorController/ProfessorController.js";
-import room from "#/modules/academic/controllers/RoomController/RoomController.js";
-import unit from "#/modules/academic/controllers/UnitController/UnitController.js";
+import course from "#/modules/academic/course/index.js";
+import professor from "#/modules/academic/professor/index.js";
+import room from "#/modules/academic/room/index.js";
+import unit from "#/modules/academic/unit/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 

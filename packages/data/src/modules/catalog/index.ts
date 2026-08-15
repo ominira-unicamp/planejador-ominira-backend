@@ -1,11 +1,11 @@
 import { AuthRegistry, Capabilities, policies } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
-import catalog from "#/modules/catalog/controllers/CatalogController/CatalogController.js";
-import catalogProgram from "#/modules/catalog/controllers/CatalogProgramController/CatalogProgramController.js";
-import curriculumSuggestion from "#/modules/catalog/controllers/CurriculumSuggestionController/CurriculumSuggestionController.js";
-import language from "#/modules/catalog/controllers/LanguageController/LanguageController.js";
-import program from "#/modules/catalog/controllers/ProgramController/ProgramController.js";
-import specialization from "#/modules/catalog/controllers/SpecializationController/SpecializationController.js";
+import catalogProgram from "#/modules/catalog/catalog-program/index.js";
+import catalog from "#/modules/catalog/catalog/index.js";
+import curriculumSuggestion from "#/modules/catalog/curriculum-suggestion/index.js";
+import language from "#/modules/catalog/language/index.js";
+import program from "#/modules/catalog/program/index.js";
+import specialization from "#/modules/catalog/specialization/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 
