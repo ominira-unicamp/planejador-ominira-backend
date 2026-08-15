@@ -1,4 +1,5 @@
-import IO, {
+import {
+    classScheduleEntity as classScheduleSchema,
     type ClassScheduleListInput,
     type CreateClassScheduleInput,
     type PatchClassScheduleInput
@@ -13,7 +14,7 @@ import { err, ok, type Result } from "@pomi/api-core";
 import { whereIdCode, type PrismaClient } from "@pomi/db";
 import z from "zod";
 
-type ClassScheduleEntity = z.infer<typeof IO.schema>;
+type ClassScheduleEntity = z.infer<typeof classScheduleSchema>;
 
 export type ClassScheduleListResult = {
     items: ClassScheduleEntity[];
@@ -24,15 +25,27 @@ export type ClassScheduleService = {
     list(input: ClassScheduleListInput): Promise<ClassScheduleListResult>;
     getById(
         id: number
-    ): Promise<Result<ClassScheduleEntity, ClassScheduleProblem>>;
+    ): Promise<
+        Result<
+            ClassScheduleEntity,
+            ReturnType<typeof classScheduleNotFoundProblem>
+        >
+    >;
     create(
         input: CreateClassScheduleInput
-    ): Promise<Result<ClassScheduleEntity, ClassScheduleProblem>>;
+    ): Promise<
+        Result<
+            ClassScheduleEntity,
+            ReturnType<typeof classScheduleReferenceNotFoundProblem>
+        >
+    >;
     patch(
         id: number,
         input: PatchClassScheduleInput
     ): Promise<Result<ClassScheduleEntity, ClassScheduleProblem>>;
-    remove(id: number): Promise<Result<void, ClassScheduleProblem>>;
+    remove(
+        id: number
+    ): Promise<Result<void, ReturnType<typeof classScheduleNotFoundProblem>>>;
 };
 
 async function invalidReferences(

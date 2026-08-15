@@ -21,7 +21,7 @@ const basePath = [pathSeg.literal("class-schedules")];
 const tags = ["class-schedules"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
-const classScheduleEntity = z
+export const classScheduleEntity = z
     .object({
         id: z.number().int(),
         dayOfWeek: z.enum([
@@ -208,14 +208,15 @@ const remove = {
         .build()
 } satisfies IO;
 
-export default {
-    schema: classScheduleEntity,
+const contracts = {
     get,
     list,
     create,
     patch,
     remove
 };
+
+export default contracts;
 
 export type ListQueryParams = {
     unitId?: number;

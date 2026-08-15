@@ -1,7 +1,10 @@
 import type { Request, Response } from "express";
 import type z from "zod";
 
-import { invalidRequestProblem } from "../errors/ProblemDetails.js";
+import {
+    invalidRequestProblem,
+    withProblemInstance
+} from "../errors/ProblemDetails.js";
 import { ZodToApiError } from "../Validation.js";
 import type {
     EndpointContract,
@@ -61,6 +64,15 @@ export function buildEndpointHandler<
             createContext(request, response),
             parsed.data as z.infer<Contract["request"]>
         )) as z.infer<EndpointResponsesSchema>;
+        if (result.status >= 400) {
+            return sendProblem(
+                response,
+                withProblemInstance(
+                    result.body as ReturnType<typeof invalidRequestProblem>,
+                    request.path
+                )
+            );
+        }
         executeEffects(response, result.effects);
         response.status(result.status);
         if (result.status === 204) return response.send();

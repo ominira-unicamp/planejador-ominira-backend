@@ -1,5 +1,5 @@
 import { resourcesPaths } from "#/Controllers.js";
-import IO from "#/modules/schedule/contracts/ClassScheduleInterface.js";
+import { classScheduleEntity } from "#/modules/schedule/contracts/ClassScheduleInterface.js";
 import { MyPrisma, selectIdCode } from "@pomi/db";
 import z from "zod";
 
@@ -47,7 +47,7 @@ function relatedPathsForClassSchedule(
 
 function buildClassScheduleEntity(
     classSchedule: PrismaClassSchedulePayload
-): z.infer<typeof IO.schema> {
+): z.infer<typeof classScheduleEntity> {
     const { room, class: classObj, ...rest } = classSchedule;
     return {
         ...rest,

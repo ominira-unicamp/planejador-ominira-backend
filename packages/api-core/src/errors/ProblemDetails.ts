@@ -36,11 +36,14 @@ export type DomainProblem = {
     detail: string;
 };
 
-export function problemDetails<Problem extends DomainProblem>(
+export function problemDetails<
+    Problem extends DomainProblem,
+    Status extends number
+>(
     problem: Problem,
-    status: number,
+    status: Status,
     instance?: string
-): Problem & { status: number; instance?: string } {
+): Problem & { status: Status; instance?: string } {
     return {
         ...problem,
         status,

@@ -1,89 +1,89 @@
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { Router } from "express";
-import z from "zod";
+    ApiResponse,
+    buildPaginationResponse,
+    type EndpointActions
+} from "@pomi/api-core";
 
-import { AuthRegistry } from "#/auth.js";
-import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
 import IO, {
+    classScheduleEntity,
     type ListQueryParams
 } from "#/modules/schedule/contracts/ClassScheduleInterface.js";
 import { classScheduleProblemDetails } from "#/modules/schedule/problems/ClassScheduleProblems.js";
-import { buildPaginationResponse } from "@pomi/api-core";
 
-extendZodWithOpenApi(z);
+const actions: EndpointActions<typeof IO, unknown, Context> = {
+    list: async (ctx, input) => {
+        const result = await ctx.classScheduleService.list(input.query);
+        return ApiResponse.ok(
+            buildPaginationResponse<typeof classScheduleEntity>(
+                result.items,
+                result.total,
+                input.query,
+                (page) => listPath({ ...input.query, page })
+            )
+        );
+    },
+    get: async (ctx, input) => {
+        const result = await ctx.classScheduleService.getById(input.path.id);
+        return result.match(
+            (value) => ApiResponse.ok(value),
+            (error) => {
+                return ApiResponse.status(
+                    404,
+                    classScheduleProblemDetails(error)
+                );
+            }
+        );
+    },
+    create: async (ctx, input) => {
+        const result = await ctx.classScheduleService.create(input.body);
+        return result.match(
+            (value) => ApiResponse.created(value),
+            (error) =>
+                ApiResponse.status(
+                    400,
+                    classScheduleProblemDetails(error, "body")
+                )
+        );
+    },
+    patch: async (ctx, input) => {
+        const result = await ctx.classScheduleService.patch(
+            input.path.id,
+            input.body
+        );
+        return result.match(
+            (value) => ApiResponse.ok(value),
+            (error) => {
+                if (
+                    error.type ===
+                    "urn:pomi:problem:class-schedule-reference-not-found"
+                ) {
+                    return ApiResponse.status(
+                        400,
+                        classScheduleProblemDetails(error, "body")
+                    );
+                }
 
-const router = Router();
-const authRegistry = new AuthRegistry();
-
-authRegistry.addException("GET", "/class-schedules");
-authRegistry.addException("GET", "/class-schedules/:id");
-
-const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
-    const result = await ctx.classScheduleService.list(input.query);
-    return {
-        200: buildPaginationResponse(
-            result.items,
-            result.total,
-            input.query,
-            (page) => listPath({ ...input.query, page })
-        )
-    };
+                return ApiResponse.status(
+                    404,
+                    classScheduleProblemDetails(error, "body")
+                );
+            }
+        );
+    },
+    remove: async (ctx, input) => {
+        const result = await ctx.classScheduleService.remove(input.path.id);
+        return result.match(
+            () => ApiResponse.noContent(),
+            (error) => {
+                return ApiResponse.status(
+                    404,
+                    classScheduleProblemDetails(error)
+                );
+            }
+        );
+    }
 };
-
-const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
-    const result = await ctx.classScheduleService.getById(input.path.id);
-    return result.isOk()
-        ? { 200: result.value }
-        : { 404: classScheduleProblemDetails(result.error) };
-};
-
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const result = await ctx.classScheduleService.create(input.body);
-    if (result.isOk()) return { 201: result.value };
-    const problem = classScheduleProblemDetails(result.error, "body");
-    return { [problem.status]: problem };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const result = await ctx.classScheduleService.patch(
-        input.path.id,
-        input.body
-    );
-    if (result.isOk()) return { 200: result.value };
-    const problem = classScheduleProblemDetails(result.error, "body");
-    return { [problem.status]: problem };
-};
-
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const result = await ctx.classScheduleService.remove(input.path.id);
-    if (result.isOk()) return { 204: null };
-    const problem = classScheduleProblemDetails(result.error);
-    return { [problem.status]: problem };
-};
-
-router.get(
-    "/class-schedules",
-    buildHandler(IO.list.request, IO.list.response, listFn)
-);
-router.get(
-    "/class-schedules/:id",
-    buildHandler(IO.get.request, IO.get.response, getFn)
-);
-router.post(
-    "/class-schedules",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-router.patch(
-    "/class-schedules/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-router.delete(
-    "/class-schedules/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
-);
 
 function listPath({
     unitId,
@@ -108,22 +108,18 @@ function listPath({
     );
 }
 
-function entityPath(id: number) {
-    return `/class-schedules/${id}`;
-}
-
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    IO,
+    actions
+);
 
 export default {
     contracts: IO,
     router,
     registry,
     authRegistry,
-    paths: { list: listPath, entity: entityPath }
+    paths: {
+        list: listPath,
+        entity: (id: number) => `/class-schedules/${id}`
+    }
 };

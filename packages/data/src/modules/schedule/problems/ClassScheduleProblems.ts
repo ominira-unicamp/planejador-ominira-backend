@@ -47,6 +47,37 @@ export type ClassScheduleProblem =
     | ReturnType<typeof classScheduleReferenceNotFoundProblem>;
 
 export function classScheduleProblemDetails(
+    problem: ReturnType<typeof classScheduleNotFoundProblem>,
+    inputLocation?: "body"
+): ReturnType<
+    typeof problemDetails<ReturnType<typeof classScheduleNotFoundProblem>, 404>
+>;
+export function classScheduleProblemDetails(
+    problem: ReturnType<typeof classScheduleReferenceNotFoundProblem>,
+    inputLocation?: "body"
+): ReturnType<
+    typeof problemDetails<
+        ReturnType<typeof classScheduleReferenceNotFoundProblem>,
+        400
+    >
+>;
+export function classScheduleProblemDetails(
+    problem: ClassScheduleProblem,
+    inputLocation?: "body"
+):
+    | ReturnType<
+          typeof problemDetails<
+              ReturnType<typeof classScheduleNotFoundProblem>,
+              404
+          >
+      >
+    | ReturnType<
+          typeof problemDetails<
+              ReturnType<typeof classScheduleReferenceNotFoundProblem>,
+              400
+          >
+      >;
+export function classScheduleProblemDetails(
     problem: ClassScheduleProblem,
     inputLocation?: "body"
 ) {
