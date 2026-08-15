@@ -4,7 +4,7 @@ import { AppError } from "./AppError.js";
 
 extendZodWithOpenApi(z);
 
-export const problemType = (name: string) =>
+export const problemType = <Name extends string>(name: Name) =>
     `urn:pomi:problem:${name}` as const;
 
 export const ProblemFieldSchema = z
@@ -29,6 +29,24 @@ export const ProblemDetailsSchema = z
 
 export type ProblemDetails = z.infer<typeof ProblemDetailsSchema>;
 export type ProblemField = z.infer<typeof ProblemFieldSchema>;
+
+export type DomainProblem = {
+    type: `urn:pomi:problem:${string}`;
+    title: string;
+    detail: string;
+};
+
+export function problemDetails<Problem extends DomainProblem>(
+    problem: Problem,
+    status: number,
+    instance?: string
+): Problem & { status: number; instance?: string } {
+    return {
+        ...problem,
+        status,
+        ...(instance ? { instance } : {})
+    };
+}
 
 export function appErrorProblem(
     error: AppError,

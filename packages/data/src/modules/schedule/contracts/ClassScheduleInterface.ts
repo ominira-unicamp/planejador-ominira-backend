@@ -1,8 +1,13 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { Capabilities, policies } from "#/auth.js";
+import {
+    ClassScheduleNotFoundProblemSchema,
+    ClassScheduleReferenceNotFoundProblemSchema
+} from "#/modules/schedule/problems/ClassScheduleProblems.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
+    InvalidRequestProblemSchema,
     paginationQuerySchema,
     PaginationQueryType,
     pathSeg,
@@ -111,7 +116,11 @@ const get = {
     }),
     response: new OutputBuilder()
         .ok(classScheduleEntity, "Class schedule retrieved successfully")
-        .notFound()
+        .problem(
+            404,
+            ClassScheduleNotFoundProblemSchema,
+            "Horário de turma não encontrado"
+        )
         .build()
 } satisfies IO;
 
@@ -139,7 +148,14 @@ const create = {
     }),
     response: new OutputBuilder()
         .created(classScheduleEntity, "Class schedule created successfully")
-        .badRequest()
+        .problem(
+            400,
+            z.discriminatedUnion("type", [
+                InvalidRequestProblemSchema,
+                ClassScheduleReferenceNotFoundProblemSchema
+            ]),
+            "Dados da requisição inválidos"
+        )
         .build()
 } satisfies IO;
 
@@ -156,8 +172,19 @@ const patch = {
     }),
     response: new OutputBuilder()
         .ok(classScheduleEntity, "Class schedule updated successfully")
-        .notFound()
-        .badRequest()
+        .problem(
+            404,
+            ClassScheduleNotFoundProblemSchema,
+            "Horário de turma não encontrado"
+        )
+        .problem(
+            400,
+            z.discriminatedUnion("type", [
+                InvalidRequestProblemSchema,
+                ClassScheduleReferenceNotFoundProblemSchema
+            ]),
+            "Dados da requisição inválidos"
+        )
         .build()
 } satisfies IO;
 
@@ -173,7 +200,11 @@ const remove = {
     }),
     response: new OutputBuilder()
         .noContent("Class schedule deleted successfully")
-        .notFound()
+        .problem(
+            404,
+            ClassScheduleNotFoundProblemSchema,
+            "Horário de turma não encontrado"
+        )
         .build()
 } satisfies IO;
 
@@ -192,3 +223,6 @@ export type ListQueryParams = {
     studyPeriodId?: number;
     classId?: number;
 } & Partial<PaginationQueryType>;
+export type ClassScheduleListInput = z.infer<typeof getClassSchedulesQuery>;
+export type CreateClassScheduleInput = z.infer<typeof createClassScheduleBody>;
+export type PatchClassScheduleInput = z.infer<typeof patchClassScheduleBody>;

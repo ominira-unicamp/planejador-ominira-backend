@@ -1,5 +1,9 @@
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { ProblemDetailsSchema, problemType } from "@pomi/api-core";
+import {
+    ProblemDetailsSchema,
+    problemDetails,
+    problemType
+} from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
@@ -17,7 +21,10 @@ const specializationReferenceSchema = z
         id: z.number().int(),
         code: z.string(),
         name: z.string(),
-        path: z.array(z.string())
+        path: z.array(z.string()).openapi({
+            description:
+                "Caminho do campo na requisição HTTP que originou o problema."
+        })
     })
     .strict();
 
@@ -53,36 +60,38 @@ export const SpecializationNotInProgramProblemSchema =
         .strict()
         .openapi("SpecializationNotInProgramProblem");
 
-export function catalogProgramNotFoundProblem(instance?: string) {
+export function catalogProgramNotFoundProblem() {
     return {
         type: problemType("catalog-program-not-found"),
         title: "Programa de catálogo não encontrado",
-        status: 404,
-        detail: "O programa de catálogo solicitado não foi encontrado.",
-        ...(instance ? { instance } : {})
-    } as z.infer<typeof CatalogProgramNotFoundProblemSchema>;
+        detail: "O programa de catálogo solicitado não foi encontrado."
+    } as const;
+}
+
+export function relatedResourceNotFoundProblem(detail: string) {
+    return {
+        type: problemType("resource-not-found"),
+        title: "Recurso não encontrado",
+        detail
+    } as const;
 }
 
 export function catalogProgramAlreadyExistsProblem(
     catalog: { id: number; year: number },
-    program: z.infer<typeof programReferenceSchema>,
-    instance?: string
+    program: z.infer<typeof programReferenceSchema>
 ) {
     return {
         type: problemType("catalog-program-already-exists"),
         title: "Programa já incluído no catálogo",
-        status: 409,
         detail: `O programa ${program.code} - ${program.name} já está incluído no Catálogo ${catalog.year}.`,
-        ...(instance ? { instance } : {}),
         catalog,
         program
-    } as z.infer<typeof CatalogProgramAlreadyExistsProblemSchema>;
+    } as const;
 }
 
 export function specializationNotInProgramProblem(
     program: z.infer<typeof programReferenceSchema>,
-    specializations: z.infer<typeof specializationReferenceSchema>[],
-    instance?: string
+    specializations: z.infer<typeof specializationReferenceSchema>[]
 ) {
     const labels = specializations
         .map(
@@ -93,10 +102,50 @@ export function specializationNotInProgramProblem(
     return {
         type: problemType("specialization-not-in-program"),
         title: "Habilitação não disponível",
-        status: 422,
         detail: `A habilitação ${labels} não pertence ao programa ${program.code} - ${program.name}.`,
-        ...(instance ? { instance } : {}),
         program,
         specializations
-    } as z.infer<typeof SpecializationNotInProgramProblemSchema>;
+    } as const;
+}
+
+export type CatalogProgramProblem =
+    | ReturnType<typeof catalogProgramNotFoundProblem>
+    | ReturnType<typeof relatedResourceNotFoundProblem>
+    | ReturnType<typeof catalogProgramAlreadyExistsProblem>
+    | ReturnType<typeof specializationNotInProgramProblem>;
+
+type ProblemDetailsContext = {
+    instance?: string;
+    inputLocation?: "body" | "query" | "path" | "headers";
+};
+
+export function catalogProgramProblemDetails(
+    problem: CatalogProgramProblem,
+    context: ProblemDetailsContext = {}
+) {
+    switch (problem.type) {
+        case "urn:pomi:problem:resource-not-found":
+            return problemDetails(problem, 404, context.instance);
+        case "urn:pomi:problem:catalog-program-not-found":
+            return problemDetails(problem, 404, context.instance);
+        case "urn:pomi:problem:catalog-program-already-exists":
+            return problemDetails(problem, 409, context.instance);
+        case "urn:pomi:problem:specialization-not-in-program": {
+            const translated = context.inputLocation
+                ? {
+                      ...problem,
+                      specializations: problem.specializations.map(
+                          (specialization) => ({
+                              ...specialization,
+                              path: [
+                                  context.inputLocation,
+                                  ...specialization.path
+                              ]
+                          })
+                      )
+                  }
+                : problem;
+            return problemDetails(translated, 422, context.instance);
+        }
+    }
 }

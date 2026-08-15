@@ -7,13 +7,11 @@ import z from "zod";
 
 import { AuthRegistry } from "#/auth.js";
 import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
 import IO, {
-    ListQueryParams
+    type ListQueryParams
 } from "#/modules/schedule/contracts/ClassScheduleInterface.js";
-import classScheduleEntity from "#/modules/schedule/controllers/ClassScheduleController/Entity.js";
-import { ValidationError, ZodToApiError } from "@pomi/api-core";
-import { whereIdCode } from "@pomi/db";
+import { classScheduleProblemDetails } from "#/modules/schedule/problems/ClassScheduleProblems.js";
+import { buildPaginationResponse } from "@pomi/api-core";
 
 extendZodWithOpenApi(z);
 
@@ -23,120 +21,65 @@ const authRegistry = new AuthRegistry();
 authRegistry.addException("GET", "/class-schedules");
 authRegistry.addException("GET", "/class-schedules/:id");
 
-const list = defaultListHandler(
-    (p) => p.classSchedule,
-    IO.list.request.shape.query,
-    (query) => ({
-        dayOfWeek: query.dayOfWeek,
-        room: whereIdCode(query.roomId, query.roomCode),
-        class: {
-            ...whereIdCode(query.classId, undefined),
-            course: {
-                ...whereIdCode(query.courseId, query.courseCode),
-                unit: whereIdCode(query.unitId, query.unitCode)
-            },
-            studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode)
-        }
-    }),
-    listPath,
-    classScheduleEntity.prismaSelection,
-    classScheduleEntity.build
-);
+const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
+    const result = await ctx.classScheduleService.list(input.query);
+    return {
+        200: buildPaginationResponse(
+            result.items,
+            result.total,
+            input.query,
+            (page) => listPath({ ...input.query, page })
+        )
+    };
+};
 
-router.get("/class-schedules", list);
-
-const get = defaultGetHandler(
-    (p) => p.classSchedule,
-    classScheduleEntity.prismaSelection,
-    classScheduleEntity.build,
-    "Class schedule not found"
-);
-
-router.get("/class-schedules/:id", get);
+const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
+    const result = await ctx.classScheduleService.getById(input.path.id);
+    return result.isOk()
+        ? { 200: result.value }
+        : { 404: classScheduleProblemDetails(result.error) };
+};
 
 const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const { body } = input;
-
-    // Validate foreign keys
-    const validationSchema = z.object({
-        roomId: ctx.zodIds.room.exists,
-        classId: ctx.zodIds.class.exists
-    });
-
-    const validation = await validationSchema.safeParseAsync(body);
-    if (!validation.success) {
-        return {
-            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
-        };
-    }
-
-    const classSchedule = await ctx.prisma.classSchedule.create({
-        data: body,
-        ...classScheduleEntity.prismaSelection
-    });
-    return { 201: classScheduleEntity.build(classSchedule) };
+    const result = await ctx.classScheduleService.create(input.body);
+    if (result.isOk()) return { 201: result.value };
+    const problem = classScheduleProblemDetails(result.error, "body");
+    return { [problem.status]: problem };
 };
 
 const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body
-    } = input;
-
-    const existing = await ctx.prisma.classSchedule.findUnique({
-        where: { id }
-    });
-    if (!existing) return { 404: { description: "Class schedule not found" } };
-
-    // Validate foreign keys if provided
-    const validationSchema = z.object({
-        roomId: ctx.zodIds.room.exists.optional(),
-        classId: ctx.zodIds.class.exists.optional()
-    });
-
-    const validation = await validationSchema.safeParseAsync(body);
-    if (!validation.success) {
-        return {
-            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
-        };
-    }
-
-    const classSchedule = await ctx.prisma.classSchedule.update({
-        where: { id },
-        data: {
-            ...(body.dayOfWeek !== undefined && { dayOfWeek: body.dayOfWeek }),
-            ...(body.start !== undefined && { start: body.start }),
-            ...(body.end !== undefined && { end: body.end }),
-            ...(body.roomId !== undefined && { roomId: body.roomId }),
-            ...(body.classId !== undefined && { classId: body.classId })
-        },
-        ...classScheduleEntity.prismaSelection
-    });
-    return { 200: classScheduleEntity.build(classSchedule) };
+    const result = await ctx.classScheduleService.patch(
+        input.path.id,
+        input.body
+    );
+    if (result.isOk()) return { 200: result.value };
+    const problem = classScheduleProblemDetails(result.error, "body");
+    return { [problem.status]: problem };
 };
 
 const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-    const existing = await ctx.prisma.classSchedule.findUnique({
-        where: { id }
-    });
-    if (!existing) return { 404: { description: "Class schedule not found" } };
-    await ctx.prisma.classSchedule.delete({ where: { id } });
-    return { 204: null };
+    const result = await ctx.classScheduleService.remove(input.path.id);
+    if (result.isOk()) return { 204: null };
+    const problem = classScheduleProblemDetails(result.error);
+    return { [problem.status]: problem };
 };
 
+router.get(
+    "/class-schedules",
+    buildHandler(IO.list.request, IO.list.response, listFn)
+);
+router.get(
+    "/class-schedules/:id",
+    buildHandler(IO.get.request, IO.get.response, getFn)
+);
 router.post(
     "/class-schedules",
     buildHandler(IO.create.request, IO.create.response, createFn)
 );
-
 router.patch(
     "/class-schedules/:id",
     buildHandler(IO.patch.request, IO.patch.response, patchFn)
 );
-
 router.delete(
     "/class-schedules/:id",
     buildHandler(IO.remove.request, IO.remove.response, removeFn)
@@ -182,8 +125,5 @@ export default {
     router,
     registry,
     authRegistry,
-    paths: {
-        list: listPath,
-        entity: entityPath
-    }
+    paths: { list: listPath, entity: entityPath }
 };

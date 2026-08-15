@@ -1,4 +1,6 @@
 import { buildZodIds } from "#/PrismaValidator.js";
+import type { CatalogProgramService } from "#/modules/catalog/services/CatalogProgramService.js";
+import type { ClassScheduleService } from "#/modules/schedule/services/ClassScheduleService.js";
 import {
     buildCompatibilityHandler,
     openApiFromEndpoint,
@@ -11,6 +13,8 @@ import type { PrismaClient } from "@pomi/db";
 export type Context = {
     prisma: PrismaClient;
     zodIds: ReturnType<typeof buildZodIds>;
+    catalogProgramService: CatalogProgramService;
+    classScheduleService: ClassScheduleService;
 };
 
 export type HandlerFn<
@@ -36,7 +40,9 @@ export function buildHandler<
 ) {
     return buildCompatibilityHandler(request, response, action, (req) => ({
         prisma: req.scope.cradle.prisma,
-        zodIds: req.scope.cradle.zodIds
+        zodIds: req.scope.cradle.zodIds,
+        catalogProgramService: req.scope.cradle.catalogProgramService,
+        classScheduleService: req.scope.cradle.classScheduleService
     }));
 }
 

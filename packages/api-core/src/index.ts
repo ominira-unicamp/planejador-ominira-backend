@@ -14,6 +14,7 @@ export { default as RequestBuilder } from "./openapi/RequestBuilder.js";
 export { default as ResponseBuilder } from "./openapi/ResponseBuilder.js";
 export * from "./pagination.js";
 export * from "./PathSegment.js";
+export * from "./Result.js";
 export * from "./server.js";
 export * from "./SpecBuilder.js";
 export * from "./Validation.js";
