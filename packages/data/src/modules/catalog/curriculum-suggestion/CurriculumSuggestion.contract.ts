@@ -1,17 +1,10 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
-import {
-    SpecializationNotAllowedForSuggestionProblem,
-    SpecializationNotAvailableInCatalogProgramProblem,
-    SpecializationRequiredForSuggestionProblem
-} from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.problems.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     pathSeg,
-    ReferenceNotFoundProblemSchema,
     ResourceNotFoundProblemSchema,
-    SpecBuilder,
-    UniqueConstraintConflictProblemSchema
+    SpecBuilder
 } from "@pomi/api-core";
 import { CurriculumSuggestionType } from "@pomi/db";
 import z from "zod";
@@ -87,81 +80,6 @@ const curriculumSuggestionEntitySchema = curriculumSuggestionDataSchema
     .strict()
     .openapi("CurriculumSuggestionEntity");
 
-const suggestionCourseInputSchema = z
-    .object({
-        courseId: positiveId
-    })
-    .strict();
-
-const semesterSuggestionInputSchema = z
-    .object({
-        semester: z.number().int().positive(),
-        electiveCredits: z.number().int().min(0),
-        courses: z.array(suggestionCourseInputSchema)
-    })
-    .strict();
-
-const semestersInputSchema = z
-    .array(semesterSuggestionInputSchema)
-    .min(1)
-    .superRefine((semesters, context) => {
-        const semesterNumbers = new Set<number>();
-        const courseIds = new Set<number>();
-
-        semesters.forEach((semester, semesterIndex) => {
-            if (semesterNumbers.has(semester.semester)) {
-                context.addIssue({
-                    code: "custom",
-                    path: [semesterIndex, "semester"],
-                    message: "semester must be unique within a suggestion"
-                });
-            }
-            semesterNumbers.add(semester.semester);
-
-            semester.courses.forEach((course, courseIndex) => {
-                if (courseIds.has(course.courseId)) {
-                    context.addIssue({
-                        code: "custom",
-                        path: [
-                            semesterIndex,
-                            "courses",
-                            courseIndex,
-                            "courseId"
-                        ],
-                        message: "courseId must be unique within a suggestion"
-                    });
-                }
-                courseIds.add(course.courseId);
-            });
-        });
-    });
-
-const createBodySchema = z
-    .object({
-        catalogProgramId: positiveId,
-        code: z.string().trim().min(1),
-        name: z.string().trim().min(1),
-        type: suggestionType,
-        specializationId: positiveId.nullable().optional(),
-        semesters: semestersInputSchema
-    })
-    .strict()
-    .openapi("CreateCurriculumSuggestionBody");
-
-const patchBodySchema = z
-    .object({
-        code: z.string().trim().min(1).optional(),
-        name: z.string().trim().min(1).optional(),
-        type: suggestionType.optional(),
-        specializationId: positiveId.nullable().optional(),
-        semesters: semestersInputSchema.optional()
-    })
-    .strict()
-    .refine((body) => Object.keys(body).length > 0, {
-        message: "at least one field must be provided"
-    })
-    .openapi("PatchCurriculumSuggestionBody");
-
 const listQuerySchema = z
     .object({
         catalogProgramId: queryId.optional(),
@@ -204,106 +122,16 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({ body: createBodySchema }),
-    response: new OutputBuilder()
-        .created(
-            curriculumSuggestionEntitySchema,
-            "Curriculum suggestion created successfully"
-        )
-        .problem(
-            422,
-            z.discriminatedUnion("type", [
-                ReferenceNotFoundProblemSchema,
-                SpecializationRequiredForSuggestionProblem.schema,
-                SpecializationNotAllowedForSuggestionProblem.schema,
-                SpecializationNotAvailableInCatalogProgramProblem.schema
-            ]),
-            "Referência ou habilitação inválida"
-        )
-        .problem(
-            409,
-            UniqueConstraintConflictProblemSchema,
-            "Código de sugestão já utilizado"
-        )
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({ id: pathId }).strict(),
-        body: patchBodySchema
-    }),
-    response: new OutputBuilder()
-        .ok(
-            curriculumSuggestionEntitySchema,
-            "Curriculum suggestion updated successfully"
-        )
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Sugestão de currículo não encontrada"
-        )
-        .problem(
-            409,
-            UniqueConstraintConflictProblemSchema,
-            "Código de sugestão já utilizado"
-        )
-        .problem(
-            422,
-            z.discriminatedUnion("type", [
-                ReferenceNotFoundProblemSchema,
-                SpecializationRequiredForSuggestionProblem.schema,
-                SpecializationNotAllowedForSuggestionProblem.schema,
-                SpecializationNotAvailableInCatalogProgramProblem.schema
-            ]),
-            "Referência ou habilitação inválida"
-        )
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({ path: z.object({ id: pathId }).strict() }),
-    response: new OutputBuilder()
-        .noContent("Curriculum suggestion deleted successfully")
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Sugestão de currículo não encontrada"
-        )
-        .build()
-} satisfies IO;
-
 export default {
     schema: curriculumSuggestionEntitySchema,
     get,
     list,
-    create,
-    patch,
-    remove,
     schemas: {
         suggestionCourseEntitySchema,
         semesterSuggestionEntitySchema,
         curriculumSuggestionDataSchema,
         specializationSummary,
         curriculumSuggestionEntitySchema,
-        suggestionCourseInputSchema,
-        semesterSuggestionInputSchema,
-        semestersInputSchema,
-        createBodySchema,
-        patchBodySchema,
         listQuerySchema
     }
 };
@@ -311,6 +139,4 @@ export default {
 export type CurriculumSuggestionEntity = z.infer<
     typeof curriculumSuggestionEntitySchema
 >;
-export type CreateCurriculumSuggestionBody = z.infer<typeof createBodySchema>;
-export type PatchCurriculumSuggestionBody = z.infer<typeof patchBodySchema>;
 export type ListCurriculumSuggestionsQuery = z.infer<typeof listQuerySchema>;

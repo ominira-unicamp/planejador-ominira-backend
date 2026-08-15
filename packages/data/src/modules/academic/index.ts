@@ -1,4 +1,4 @@
-import { AuthRegistry, Capabilities, policies } from "#/auth.js";
+import { AuthRegistry } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
 import course from "#/modules/academic/course/index.js";
 import professor from "#/modules/academic/professor/index.js";
@@ -14,30 +14,11 @@ const controllers: ModuleDefinition["controllers"] = [
     room
 ];
 
-const resources = ["/courses", "/professors", "/rooms", "/units"];
 const authRegistry = new AuthRegistry(
     controllers
         .filter((controller) => controller.authRegistry)
         .map((controller) => controller.authRegistry!)
 );
-
-for (const path of resources) {
-    authRegistry.addPolicy(
-        "POST",
-        path,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "PATCH",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-}
 
 export default {
     router: Router().use(

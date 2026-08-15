@@ -2,7 +2,6 @@ import {
     ApiResponse,
     buildPaginationResponse,
     createResultResponder,
-    problemInput,
     type EndpointActions
 } from "@pomi/api-core";
 
@@ -54,25 +53,6 @@ const get: Actions["get"] = async (ctx, input) => {
         (value) => ApiResponse.ok(withPaths(value))
     );
 };
-const create: Actions["create"] = async (ctx, input) => {
-    return respond(
-        await ctx.classScheduleService.create(input.body),
-        (value) => ApiResponse.created(withPaths(value)),
-        problemInput.body
-    );
-};
-const patch: Actions["patch"] = async (ctx, input) => {
-    return respond(
-        await ctx.classScheduleService.patch(input.path.id, input.body),
-        (value) => ApiResponse.ok(withPaths(value)),
-        problemInput.body
-    );
-};
-const remove: Actions["remove"] = async (ctx, input) => {
-    return respond(await ctx.classScheduleService.remove(input.path.id), () =>
-        ApiResponse.noContent()
-    );
-};
 
 function listPath({
     unitId,
@@ -98,10 +78,7 @@ function listPath({
 }
 const actions: Actions = {
     list,
-    get,
-    create,
-    patch,
-    remove
+    get
 };
 const { router, registry, authRegistry } = createDataEndpointRegistries(
     IO,

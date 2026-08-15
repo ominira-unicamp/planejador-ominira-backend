@@ -9,7 +9,6 @@ import { AuthRegistry } from "#/auth.js";
 import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
 import { defaultGetHandler } from "#/defaultEndpoint.js";
 import IO, { roomPaths } from "#/modules/academic/room/Room.contract.js";
-import { ValidationError } from "@pomi/api-core";
 
 extendZodWithOpenApi(z);
 
@@ -36,100 +35,14 @@ const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
 
 const get = defaultGetHandler((p) => p.room, {}, withPaths, "Room not found");
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const { body } = input;
-    const existing = await ctx.prisma.room.findUnique({
-        where: { code: body.code }
-    });
-    if (existing) {
-        return {
-            400: new ValidationError([
-                {
-                    code: "ALREADY_EXISTS",
-                    path: ["body", "code"],
-                    message: "A room with this code already exists"
-                }
-            ])
-        };
-    }
-    const room = await ctx.prisma.room.create({
-        data: {
-            code: body.code
-        }
-    });
-    return { 201: withPaths(room) };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body
-    } = input;
-    const existing = await ctx.prisma.room.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Room not found" } };
-
-    if (body.code !== undefined) {
-        const codeExists = await ctx.prisma.room.findUnique({
-            where: { code: body.code }
-        });
-        if (codeExists && codeExists.id !== id) {
-            return {
-                400: new ValidationError([
-                    {
-                        code: "ALREADY_EXISTS",
-                        path: ["body", "code"],
-                        message: "A room with this code already exists"
-                    }
-                ])
-            };
-        }
-    }
-
-    const room = await ctx.prisma.room.update({
-        where: { id },
-        data: {
-            ...(body.code !== undefined && { code: body.code })
-        }
-    });
-    return { 200: withPaths(room) };
-};
-
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-    const existing = await ctx.prisma.room.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Room not found" } };
-    await ctx.prisma.room.delete({ where: { id } });
-    return { 204: null };
-};
-
 router.get("/rooms/:id", get);
 
 router.get("/rooms", buildHandler(IO.list.request, IO.list.response, listFn));
-
-router.post(
-    "/rooms",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-
-router.patch(
-    "/rooms/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-
-router.delete(
-    "/rooms/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
-);
 
 const registry = new OpenAPIRegistry();
 
 registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     contracts: IO,

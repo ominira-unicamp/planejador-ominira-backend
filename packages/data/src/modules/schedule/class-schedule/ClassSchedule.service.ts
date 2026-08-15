@@ -1,14 +1,8 @@
 import {
     classScheduleDataSchema,
-    type ClassScheduleListInput,
-    type CreateClassScheduleInput,
-    type PatchClassScheduleInput
+    type ClassScheduleListInput
 } from "#/modules/schedule/class-schedule/ClassSchedule.contract.js";
-import {
-    classScheduleNotFoundProblem,
-    classScheduleReferenceNotFoundProblem,
-    type ClassScheduleProblem
-} from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
+import { classScheduleNotFoundProblem } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
 import { err, ok, type Result } from "@pomi/api-core";
 import {
     MyPrisma,
@@ -79,54 +73,7 @@ export type ClassScheduleService = {
             ReturnType<typeof classScheduleNotFoundProblem>
         >
     >;
-    create(
-        input: CreateClassScheduleInput
-    ): Promise<
-        Result<
-            ClassScheduleData,
-            ReturnType<typeof classScheduleReferenceNotFoundProblem>
-        >
-    >;
-    patch(
-        id: number,
-        input: PatchClassScheduleInput
-    ): Promise<Result<ClassScheduleData, ClassScheduleProblem>>;
-    remove(
-        id: number
-    ): Promise<Result<void, ReturnType<typeof classScheduleNotFoundProblem>>>;
 };
-
-async function invalidReferences(
-    prisma: PrismaClient,
-    input: Pick<PatchClassScheduleInput, "roomId" | "classId">
-) {
-    const [room, classEntity] = await Promise.all([
-        input.roomId === undefined
-            ? undefined
-            : prisma.room.findUnique({ where: { id: input.roomId } }),
-        input.classId === undefined
-            ? undefined
-            : prisma.class.findUnique({ where: { id: input.classId } })
-    ]);
-    return [
-        ...(input.roomId !== undefined && !room
-            ? [
-                  {
-                      path: ["roomId"],
-                      message: "A sala informada não foi encontrada."
-                  }
-              ]
-            : []),
-        ...(input.classId !== undefined && !classEntity
-            ? [
-                  {
-                      path: ["classId"],
-                      message: "A turma informada não foi encontrada."
-                  }
-              ]
-            : [])
-    ];
-}
 
 export function createClassScheduleService({
     prisma
@@ -172,41 +119,6 @@ export function createClassScheduleService({
             return schedule
                 ? ok(classScheduleData(schedule))
                 : err(classScheduleNotFoundProblem());
-        },
-        async create(input) {
-            const fields = await invalidReferences(prisma, input);
-            if (fields.length > 0) {
-                return err(classScheduleReferenceNotFoundProblem(fields));
-            }
-            const schedule = await prisma.classSchedule.create({
-                data: input,
-                ...prismaClassScheduleFieldSelection
-            });
-            return ok(classScheduleData(schedule));
-        },
-        async patch(id, input) {
-            const existing = await prisma.classSchedule.findUnique({
-                where: { id }
-            });
-            if (!existing) return err(classScheduleNotFoundProblem());
-            const fields = await invalidReferences(prisma, input);
-            if (fields.length > 0) {
-                return err(classScheduleReferenceNotFoundProblem(fields));
-            }
-            const schedule = await prisma.classSchedule.update({
-                where: { id },
-                data: input,
-                ...prismaClassScheduleFieldSelection
-            });
-            return ok(classScheduleData(schedule));
-        },
-        async remove(id) {
-            const existing = await prisma.classSchedule.findUnique({
-                where: { id }
-            });
-            if (!existing) return err(classScheduleNotFoundProblem());
-            await prisma.classSchedule.delete({ where: { id } });
-            return ok(undefined);
         }
     };
 }

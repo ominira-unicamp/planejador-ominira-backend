@@ -1,4 +1,4 @@
-import { AuthRegistry, Capabilities, policies } from "#/auth.js";
+import { AuthRegistry } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
 import calendarEvent from "#/modules/schedule/calendar-event/index.js";
 import calendarTag from "#/modules/schedule/calendar-tag/index.js";
@@ -18,36 +18,11 @@ const controllers: ModuleDefinition["controllers"] = [
     studyPeriods
 ];
 
-const resources = [
-    "/calendar-events",
-    "/calendar-tags",
-    "/classes",
-    "/class-schedules",
-    "/study-periods"
-];
 const authRegistry = new AuthRegistry(
     controllers
         .filter((controller) => controller.authRegistry)
         .map((controller) => controller.authRegistry!)
 );
-
-for (const path of resources) {
-    authRegistry.addPolicy(
-        "POST",
-        path,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "PATCH",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-    authRegistry.addPolicy(
-        "DELETE",
-        `${path}/:id`,
-        policies.capability(Capabilities.ACADEMIC_WRITE)
-    );
-}
 
 export default {
     router: Router().use(

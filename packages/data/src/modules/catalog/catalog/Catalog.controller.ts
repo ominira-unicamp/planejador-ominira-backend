@@ -10,7 +10,6 @@ import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
 import { defaultGetHandler } from "#/defaultEndpoint.js";
 import IO from "#/modules/catalog/catalog/Catalog.contract.js";
 import catalogEntity from "#/modules/catalog/catalog/Catalog.entity.js";
-import { ValidationError } from "@pomi/api-core";
 
 extendZodWithOpenApi(z);
 
@@ -42,129 +41,11 @@ const get = defaultGetHandler(
     "Catalog not found"
 );
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const {
-        body: { year }
-    } = input;
-
-    const existing = await ctx.prisma.catalog.findFirst({
-        where: { year }
-    });
-
-    if (existing) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["body", "year"],
-            code: "ALREADY_EXISTS",
-            message: `Catalog for year ${year} already exists`
-        });
-        return { 400: error };
-    }
-
-    const catalog = await ctx.prisma.catalog.create({
-        ...catalogEntity.prismaSelection,
-        data: {
-            year
-        }
-    });
-    return { 201: catalogEntity.build(catalog) };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body: { year }
-    } = input;
-
-    const existing = await ctx.prisma.catalog.findUnique({
-        where: { id }
-    });
-
-    if (!existing) {
-        return { 404: { description: "Catalog not found" } };
-    }
-
-    const duplicate = await ctx.prisma.catalog.findFirst({
-        where: {
-            year,
-            id: { not: id }
-        }
-    });
-
-    if (duplicate) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["body", "year"],
-            code: "ALREADY_EXISTS",
-            message: `Catalog for year ${year} already exists`
-        });
-        return { 400: error };
-    }
-
-    const catalog = await ctx.prisma.catalog.update({
-        ...catalogEntity.prismaSelection,
-        where: { id },
-        data: { year }
-    });
-
-    return { 200: catalogEntity.build(catalog) };
-};
-
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-
-    const existing = await ctx.prisma.catalog.findUnique({
-        where: { id },
-        include: {
-            _count: {
-                select: {
-                    students: true,
-                    programs: true
-                }
-            }
-        }
-    });
-
-    if (!existing) {
-        return { 404: { description: "Catalog not found" } };
-    }
-
-    if (existing._count.students > 0 || existing._count.programs > 0) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["path", "id"],
-            code: "REFERENCE_EXISTS",
-            message: `Cannot delete catalog with ${existing._count.students} students and ${existing._count.programs} programs`
-        });
-        return { 400: error };
-    }
-
-    await ctx.prisma.catalog.delete({ where: { id } });
-    return { 204: null };
-};
-
 router.get("/catalogs/:id", get);
 
 router.get(
     "/catalogs",
     buildHandler(IO.list.request, IO.list.response, listFn)
-);
-
-router.post(
-    "/catalogs",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-
-router.patch(
-    "/catalogs/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-
-router.delete(
-    "/catalogs/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(catalogId: number) {
@@ -174,9 +55,6 @@ const registry = new OpenAPIRegistry();
 
 registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     contracts: IO,

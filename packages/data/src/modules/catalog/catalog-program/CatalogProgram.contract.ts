@@ -1,13 +1,10 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
-import { SpecializationNotInProgramProblem } from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     pathSeg,
-    ReferenceNotFoundProblemSchema,
     ResourceNotFoundProblemSchema,
-    SpecBuilder,
-    UniqueConstraintConflictProblemSchema
+    SpecBuilder
 } from "@pomi/api-core";
 import z from "zod";
 
@@ -84,102 +81,6 @@ const catalogProgramEntity = z
     .strict()
     .openapi("CatalogProgramEntity");
 
-const courseRequirementInputSchema = z.object({
-    type: z.enum(CourseRequirementType),
-    courseId: z.number().int().nullable().optional(),
-    prefixId: z.number().int().nullable().optional()
-});
-
-const courseBlockInputSchema = z.object({
-    type: z.enum(CourseBlockType),
-    credits: z.number().int().nullable().optional(),
-    requirements: z.array(courseRequirementInputSchema)
-});
-
-const courseBlockOperationsSchema = z
-    .object({
-        set: z.array(courseBlockInputSchema),
-        add: z.array(courseBlockInputSchema),
-        upsert: z.array(
-            z.object({
-                id: z.number().int(),
-                type: z.enum(CourseBlockType),
-                credits: z.number().int().nullable().optional(),
-                requirements: z.array(courseRequirementInputSchema)
-            })
-        ),
-        update: z.array(
-            z.object({
-                id: z.number().int(),
-                type: z.enum(CourseBlockType).optional(),
-                credits: z.number().int().nullable().optional(),
-                requirements: z.array(courseRequirementInputSchema).optional()
-            })
-        ),
-        remove: z.array(z.number().int())
-    })
-    .partial();
-
-const catalogSpecializationOperationsSchema = z
-    .object({
-        set: z.array(
-            z.object({
-                specializationId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        add: z.array(
-            z.object({
-                specializationId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        upsert: z.array(
-            z.object({
-                specializationId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        update: z.array(
-            z.object({
-                specializationId: z.number().int(),
-                courseBlocks: courseBlockOperationsSchema.optional()
-            })
-        ),
-        remove: z.array(z.number().int())
-    })
-    .partial();
-
-const catalogLanguageOperationsSchema = z
-    .object({
-        set: z.array(
-            z.object({
-                languageId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        add: z.array(
-            z.object({
-                languageId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        upsert: z.array(
-            z.object({
-                languageId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional()
-            })
-        ),
-        update: z.array(
-            z.object({
-                languageId: z.number().int(),
-                courseBlocks: courseBlockOperationsSchema.optional()
-            })
-        ),
-        remove: z.array(z.number().int())
-    })
-    .partial();
-
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -216,120 +117,9 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: z
-            .object({
-                catalogId: z.number().int(),
-                programId: z.number().int(),
-                courseBlocks: z.array(courseBlockInputSchema).optional(),
-                catalogSpecializations: z
-                    .array(
-                        z.object({
-                            specializationId: z.number().int(),
-                            courseBlocks: z
-                                .array(courseBlockInputSchema)
-                                .optional()
-                        })
-                    )
-                    .optional(),
-                catalogLanguages: z
-                    .array(
-                        z.object({
-                            languageId: z.number().int(),
-                            courseBlocks: z
-                                .array(courseBlockInputSchema)
-                                .optional()
-                        })
-                    )
-                    .optional()
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .created(catalogProgramEntity, "Catalog program created successfully")
-        .problem(
-            422,
-            z.discriminatedUnion("type", [
-                ReferenceNotFoundProblemSchema,
-                SpecializationNotInProgramProblem.schema
-            ]),
-            "Referência ou habilitação inválida"
-        )
-        .problem(
-            409,
-            UniqueConstraintConflictProblemSchema,
-            "Programa já incluído no catálogo"
-        )
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: z
-            .object({
-                courseBlocks: courseBlockOperationsSchema.optional(),
-                catalogSpecializations:
-                    catalogSpecializationOperationsSchema.optional(),
-                catalogLanguages: catalogLanguageOperationsSchema.optional()
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .ok(catalogProgramEntity, "Catalog program updated successfully")
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Programa de catálogo não encontrado"
-        )
-        .problem(
-            422,
-            z.discriminatedUnion("type", [
-                ReferenceNotFoundProblemSchema,
-                SpecializationNotInProgramProblem.schema
-            ]),
-            "Referência ou habilitação inválida"
-        )
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Catalog program deleted successfully")
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Programa de catálogo não encontrado"
-        )
-        .build()
-} satisfies IO;
-
 export default {
     get,
     list,
-    create,
-    patch,
-    remove,
     schemas: {
         catalogProgramEntity,
         courseRequirementSchema,
@@ -337,15 +127,3 @@ export default {
         courseBlockSetSchema
     }
 };
-
-export type CourseBlockInput = z.infer<typeof courseBlockInputSchema>;
-export type CourseRequirementInput = z.infer<
-    typeof courseRequirementInputSchema
->;
-export type CourseBlockOperations = z.infer<typeof courseBlockOperationsSchema>;
-export type CatalogSpecializationOperations = z.infer<
-    typeof catalogSpecializationOperationsSchema
->;
-export type CatalogLanguageOperations = z.infer<
-    typeof catalogLanguageOperationsSchema
->;

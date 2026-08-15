@@ -13,8 +13,7 @@ import courseEntity from "#/modules/academic/course/Course.entity.js";
 import {
     buildPaginationResponse,
     PaginationQueryType,
-    prismaPaginationParamsFromQuery,
-    ValidationError
+    prismaPaginationParamsFromQuery
 } from "@pomi/api-core";
 
 extendZodWithOpenApi(z);
@@ -75,82 +74,6 @@ const get = defaultGetHandler(
     "Course not found"
 );
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const { body } = input;
-    const existing = await ctx.prisma.course.findUnique({
-        where: { code: body.code }
-    });
-    if (existing) {
-        return {
-            400: new ValidationError([
-                {
-                    code: "ALREADY_EXISTS",
-                    path: ["body", "code"],
-                    message: "A course with this code already exists"
-                }
-            ])
-        };
-    }
-
-    const course = await ctx.prisma.course.create({
-        ...courseEntity.selection,
-        data: body
-    });
-
-    const entity = courseEntity.build(course);
-    return { 201: entity };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body
-    } = input;
-    if (body.code !== undefined) {
-        const existing = await ctx.prisma.course.findUnique({
-            where: { code: body.code }
-        });
-        if (existing && existing.id !== id) {
-            return {
-                400: new ValidationError([
-                    {
-                        code: "ALREADY_EXISTS",
-                        path: ["body", "code"],
-                        message: "A course with this code already exists"
-                    }
-                ])
-            };
-        }
-    }
-
-    const course = await ctx.prisma.course.update({
-        ...courseEntity.selection,
-        where: { id: id },
-        data: {
-            ...(body.code !== undefined && { code: body.code }),
-            ...(body.name !== undefined && { name: body.name }),
-            ...(body.credits !== undefined && { credits: body.credits })
-        }
-    });
-
-    const entity = courseEntity.build(course);
-    return { 200: entity };
-};
-
-const deleteFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-    const existing = await ctx.prisma.course.findUnique({ where: { id: id } });
-    if (!existing) {
-        return {
-            404: { description: "Course not found" }
-        };
-    }
-    await ctx.prisma.course.delete({ where: { id: id } });
-    return { 204: null };
-};
-
 const router = Router();
 const authRegistry = new AuthRegistry();
 
@@ -158,21 +81,6 @@ router.get("/courses/:id", get);
 
 authRegistry.addException("GET", "/courses");
 router.get("/courses", list);
-
-router.post(
-    "/courses",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-
-router.patch(
-    "/courses/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-
-router.delete(
-    "/courses/:id",
-    buildHandler(IO.remove.request, IO.remove.response, deleteFn)
-);
 
 function entityPath(courseId: number) {
     return `/courses/${courseId}`;
@@ -205,9 +113,6 @@ const registry = new OpenAPIRegistry();
 
 registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     contracts: IO,

@@ -10,7 +10,6 @@ import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
 import { defaultGetHandler } from "#/defaultEndpoint.js";
 import IO from "#/modules/catalog/language/Language.contract.js";
 import languageEntity from "#/modules/catalog/language/Language.entity.js";
-import { ValidationError } from "@pomi/api-core";
 extendZodWithOpenApi(z);
 
 const router = Router();
@@ -37,97 +36,11 @@ const get = defaultGetHandler(
     "Language not found"
 );
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const {
-        body: { name }
-    } = input;
-
-    const language = await ctx.prisma.language.create({
-        ...languageEntity.prismaSelection,
-        data: {
-            name
-        }
-    });
-    return { 201: languageEntity.build(language) };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body: { name }
-    } = input;
-
-    const existing = await ctx.prisma.language.findUnique({
-        where: { id }
-    });
-
-    if (!existing) {
-        return { 404: { description: "Language not found" } };
-    }
-
-    const language = await ctx.prisma.language.update({
-        ...languageEntity.prismaSelection,
-        where: { id },
-        data: { name }
-    });
-
-    return { 200: languageEntity.build(language) };
-};
-
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-
-    const existing = await ctx.prisma.language.findUnique({
-        where: { id },
-        include: {
-            _count: {
-                select: {
-                    catalogLanguages: true
-                }
-            }
-        }
-    });
-
-    if (!existing) {
-        return { 404: { description: "Language not found" } };
-    }
-
-    if (existing._count.catalogLanguages > 0) {
-        const error = new ValidationError();
-        error.addError({
-            path: ["path", "id"],
-            code: "REFERENCE_EXISTS",
-            message: `Cannot delete language with ${existing._count.catalogLanguages} catalog languages`
-        });
-        return { 400: error };
-    }
-
-    await ctx.prisma.language.delete({ where: { id } });
-    return { 204: null };
-};
-
 router.get("/languages/:id", get);
 
 router.get(
     "/languages",
     buildHandler(IO.list.request, IO.list.response, listFn)
-);
-
-router.post(
-    "/languages",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-
-router.patch(
-    "/languages/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-
-router.delete(
-    "/languages/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
 );
 
 function entityPath(languageId: number) {
@@ -138,9 +51,6 @@ const registry = new OpenAPIRegistry();
 
 registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     contracts: IO,

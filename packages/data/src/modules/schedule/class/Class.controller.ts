@@ -1,5 +1,5 @@
 import { AuthRegistry } from "#/auth.js";
-import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
+import { openApiArgsFromIO } from "#/BuildHandler.js";
 import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
 import IO, {
     ListQueryParams
@@ -9,7 +9,6 @@ import {
     extendZodWithOpenApi,
     OpenAPIRegistry
 } from "@asteasolutions/zod-to-openapi";
-import { ValidationError, ZodToApiError } from "@pomi/api-core";
 import { whereIdCode, whereIdName } from "@pomi/db";
 import { Router } from "express";
 import z from "zod";
@@ -65,131 +64,6 @@ const get = defaultGetHandler(
 
 router.get("/classes/:id", get);
 
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const { body } = input;
-
-    // Remove duplicate professor IDs
-    body.professorIds = [...new Set(body.professorIds)];
-
-    // Validate foreign keys
-    const validationSchema = z.object({
-        courseId: ctx.zodIds.course.exists,
-        studyPeriodId: ctx.zodIds.studyPeriod.exists,
-        professorIds: ctx.zodIds.professor.existsMany
-    });
-
-    const validation = await validationSchema.safeParseAsync(body);
-    if (!validation.success) {
-        return {
-            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
-        };
-    }
-
-    const existing = await ctx.prisma.class.findFirst({
-        where: {
-            code: body.code,
-            courseId: body.courseId,
-            studyPeriodId: body.studyPeriodId
-        }
-    });
-    if (existing) {
-        return {
-            400: new ValidationError([
-                {
-                    code: "ALREADY_EXISTS",
-                    path: ["body", "code"],
-                    message:
-                        "A class with the same code, course, and study period already exists"
-                }
-            ])
-        };
-    }
-
-    const classData = await ctx.prisma.class.create({
-        data: {
-            code: body.code,
-            courseId: body.courseId,
-            studyPeriodId: body.studyPeriodId,
-            reservations: body.reservations,
-            professors: {
-                connect: body.professorIds.map((id) => ({ id }))
-            }
-        },
-        ...classEntity.prismaSelection
-    });
-    return { 201: classEntity.build(classData) };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const {
-        path: { id },
-        body
-    } = input;
-
-    const existing = await ctx.prisma.class.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Class not found" } };
-
-    // Validate foreign keys if provided
-    const validationSchema = z.object({
-        courseId: ctx.zodIds.course.exists.optional(),
-        studyPeriodId: ctx.zodIds.studyPeriod.exists.optional(),
-        professorIds: ctx.zodIds.professor.existsMany.optional()
-    });
-
-    const validation = await validationSchema.safeParseAsync(body);
-    if (!validation.success) {
-        return {
-            400: new ValidationError(ZodToApiError(validation.error, ["body"]))
-        };
-    }
-
-    const classData = await ctx.prisma.class.update({
-        where: { id },
-        data: {
-            ...(body.code !== undefined && { code: body.code }),
-            ...(body.courseId !== undefined && { courseId: body.courseId }),
-            ...(body.studyPeriodId !== undefined && {
-                studyPeriodId: body.studyPeriodId
-            }),
-            ...(body.reservations !== undefined && {
-                reservations: body.reservations
-            }),
-            ...(body.professorIds !== undefined && {
-                professors: {
-                    set: body.professorIds.map((id) => ({ id }))
-                }
-            })
-        },
-        ...classEntity.prismaSelection
-    });
-    return { 200: classEntity.build(classData) };
-};
-
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const {
-        path: { id }
-    } = input;
-    const existing = await ctx.prisma.class.findUnique({ where: { id } });
-    if (!existing) return { 404: { description: "Class not found" } };
-    await ctx.prisma.class.delete({ where: { id } });
-    return { 204: null };
-};
-
-router.post(
-    "/classes",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-
-router.patch(
-    "/classes/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-
-router.delete(
-    "/classes/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
-);
-
 function listPath(query: ListQueryParams) {
     return (
         `/classes?` +
@@ -215,9 +89,6 @@ const registry = new OpenAPIRegistry();
 
 registry.registerPath(openApiArgsFromIO(IO.get));
 registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
 
 export default {
     contracts: IO,

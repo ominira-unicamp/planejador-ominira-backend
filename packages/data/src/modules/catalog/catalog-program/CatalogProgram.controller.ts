@@ -1,7 +1,6 @@
 import {
     ApiResponse,
     createResultResponder,
-    problemInput,
     type EndpointActions
 } from "@pomi/api-core";
 
@@ -24,29 +23,7 @@ const get: Actions["get"] = async (ctx, input) => {
     );
 };
 
-const create: Actions["create"] = async (ctx, input) => {
-    return respond(
-        await ctx.catalogProgramService.create(input.body),
-        ApiResponse.created,
-        problemInput.body
-    );
-};
-
-const patch: Actions["patch"] = async (ctx, input) => {
-    return respond(
-        await ctx.catalogProgramService.patch(input.path.id, input.body),
-        ApiResponse.ok,
-        problemInput.body
-    );
-};
-
-const remove: Actions["remove"] = async (ctx, input) => {
-    return respond(await ctx.catalogProgramService.remove(input.path.id), () =>
-        ApiResponse.noContent()
-    );
-};
-
-const actions: Actions = { list, get, create, patch, remove };
+const actions: Actions = { list, get };
 const { router, registry, authRegistry } = createDataEndpointRegistries(
     contracts,
     actions

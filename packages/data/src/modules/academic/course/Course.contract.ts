@@ -84,7 +84,7 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
+const _create = {
     meta: {
         ...specsBuilder.create(),
         authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
@@ -98,7 +98,7 @@ const create = {
         .build()
 } satisfies IO;
 
-const patch = {
+const _patch = {
     meta: {
         ...specsBuilder.patch(),
         authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
@@ -122,7 +122,7 @@ const patch = {
         .build()
 } satisfies IO;
 
-const remove = {
+const _remove = {
     meta: {
         ...specsBuilder.remove(),
         authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
@@ -143,8 +143,5 @@ const remove = {
 export default {
     schema: courseEntity,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };
