@@ -1,15 +1,13 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { Capabilities, policies } from "#/auth.js";
-import {
-    CatalogProgramAlreadyExistsProblemSchema,
-    CatalogProgramNotFoundProblemSchema,
-    SpecializationNotInProgramProblemSchema
-} from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
+import { SpecializationNotInProgramProblem } from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     pathSeg,
+    ReferenceNotFoundProblemSchema,
     ResourceNotFoundProblemSchema,
-    SpecBuilder
+    SpecBuilder,
+    UniqueConstraintConflictProblemSchema
 } from "@pomi/api-core";
 import z from "zod";
 
@@ -193,7 +191,7 @@ const get = {
         .ok(catalogProgramEntity, "Catalog program retrieved successfully")
         .problem(
             404,
-            CatalogProgramNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Programa de catálogo não encontrado"
         )
         .build()
@@ -255,19 +253,17 @@ const create = {
     response: new OutputBuilder()
         .created(catalogProgramEntity, "Catalog program created successfully")
         .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Recurso relacionado não encontrado"
+            422,
+            z.discriminatedUnion("type", [
+                ReferenceNotFoundProblemSchema,
+                SpecializationNotInProgramProblem.schema
+            ]),
+            "Referência ou habilitação inválida"
         )
         .problem(
             409,
-            CatalogProgramAlreadyExistsProblemSchema,
+            UniqueConstraintConflictProblemSchema,
             "Programa já incluído no catálogo"
-        )
-        .problem(
-            422,
-            SpecializationNotInProgramProblemSchema,
-            "Habilitação não disponível"
         )
         .build()
 } satisfies IO;
@@ -294,13 +290,16 @@ const patch = {
         .ok(catalogProgramEntity, "Catalog program updated successfully")
         .problem(
             404,
-            CatalogProgramNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Programa de catálogo não encontrado"
         )
         .problem(
             422,
-            SpecializationNotInProgramProblemSchema,
-            "Habilitação não disponível"
+            z.discriminatedUnion("type", [
+                ReferenceNotFoundProblemSchema,
+                SpecializationNotInProgramProblem.schema
+            ]),
+            "Referência ou habilitação inválida"
         )
         .build()
 } satisfies IO;
@@ -319,7 +318,7 @@ const remove = {
         .noContent("Catalog program deleted successfully")
         .problem(
             404,
-            CatalogProgramNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Programa de catálogo não encontrado"
         )
         .build()

@@ -1,7 +1,18 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { Capabilities, policies } from "#/auth.js";
+import {
+    SpecializationNotAllowedForSuggestionProblem,
+    SpecializationNotAvailableInCatalogProgramProblem,
+    SpecializationRequiredForSuggestionProblem
+} from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.problems.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { pathSeg, SpecBuilder } from "@pomi/api-core";
+import {
+    pathSeg,
+    ReferenceNotFoundProblemSchema,
+    ResourceNotFoundProblemSchema,
+    SpecBuilder,
+    UniqueConstraintConflictProblemSchema
+} from "@pomi/api-core";
 import { CurriculumSuggestionType } from "@pomi/db";
 import z from "zod";
 
@@ -46,7 +57,7 @@ const semesterSuggestionEntitySchema = z
     .strict()
     .openapi("SemesterSuggestionEntity");
 
-const curriculumSuggestionEntitySchema = z
+export const curriculumSuggestionDataSchema = z
     .object({
         id: positiveId,
         catalogProgramId: positiveId,
@@ -58,7 +69,13 @@ const curriculumSuggestionEntitySchema = z
         name: z.string().trim().min(1),
         type: suggestionType,
         specialization: specializationSummary.nullable(),
-        semesters: z.array(semesterSuggestionEntitySchema),
+        semesters: z.array(semesterSuggestionEntitySchema)
+    })
+    .strict()
+    .openapi("CurriculumSuggestionData");
+
+const curriculumSuggestionEntitySchema = curriculumSuggestionDataSchema
+    .extend({
         _paths: z
             .object({
                 self: z.string().min(1),
@@ -167,7 +184,11 @@ const get = {
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion retrieved successfully"
         )
-        .notFound()
+        .problem(
+            404,
+            ResourceNotFoundProblemSchema,
+            "Sugestão de currículo não encontrada"
+        )
         .build()
 } satisfies IO;
 
@@ -194,7 +215,21 @@ const create = {
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion created successfully"
         )
-        .badRequest()
+        .problem(
+            422,
+            z.discriminatedUnion("type", [
+                ReferenceNotFoundProblemSchema,
+                SpecializationRequiredForSuggestionProblem.schema,
+                SpecializationNotAllowedForSuggestionProblem.schema,
+                SpecializationNotAvailableInCatalogProgramProblem.schema
+            ]),
+            "Referência ou habilitação inválida"
+        )
+        .problem(
+            409,
+            UniqueConstraintConflictProblemSchema,
+            "Código de sugestão já utilizado"
+        )
         .build()
 } satisfies IO;
 
@@ -212,8 +247,26 @@ const patch = {
             curriculumSuggestionEntitySchema,
             "Curriculum suggestion updated successfully"
         )
-        .notFound()
-        .badRequest()
+        .problem(
+            404,
+            ResourceNotFoundProblemSchema,
+            "Sugestão de currículo não encontrada"
+        )
+        .problem(
+            409,
+            UniqueConstraintConflictProblemSchema,
+            "Código de sugestão já utilizado"
+        )
+        .problem(
+            422,
+            z.discriminatedUnion("type", [
+                ReferenceNotFoundProblemSchema,
+                SpecializationRequiredForSuggestionProblem.schema,
+                SpecializationNotAllowedForSuggestionProblem.schema,
+                SpecializationNotAvailableInCatalogProgramProblem.schema
+            ]),
+            "Referência ou habilitação inválida"
+        )
         .build()
 } satisfies IO;
 
@@ -225,7 +278,11 @@ const remove = {
     request: z.object({ path: z.object({ id: pathId }).strict() }),
     response: new OutputBuilder()
         .noContent("Curriculum suggestion deleted successfully")
-        .notFound()
+        .problem(
+            404,
+            ResourceNotFoundProblemSchema,
+            "Sugestão de currículo não encontrada"
+        )
         .build()
 } satisfies IO;
 
@@ -239,6 +296,7 @@ export default {
     schemas: {
         suggestionCourseEntitySchema,
         semesterSuggestionEntitySchema,
+        curriculumSuggestionDataSchema,
         specializationSummary,
         curriculumSuggestionEntitySchema,
         suggestionCourseInputSchema,

@@ -1,101 +1,40 @@
 import {
-    ProblemDetailsSchema,
-    ProblemFieldSchema,
-    problemDetails,
-    problemType
+    ReferenceNotFoundProblem,
+    ResourceNotFoundProblem,
+    prefixProblemFields,
+    problemResponse,
+    type ProblemField,
+    type ProblemResponseContext,
+    type ProblemResponseMap
 } from "@pomi/api-core";
-import z from "zod";
-
-export const ClassScheduleNotFoundProblemSchema = ProblemDetailsSchema.extend({
-    type: z.literal(problemType("class-schedule-not-found")),
-    title: z.literal("Horário de turma não encontrado"),
-    status: z.literal(404)
-}).strict();
-
-export const ClassScheduleReferenceNotFoundProblemSchema =
-    ProblemDetailsSchema.extend({
-        type: z.literal(problemType("class-schedule-reference-not-found")),
-        title: z.literal("Referência de horário de turma não encontrada"),
-        status: z.literal(400),
-        fields: z.array(ProblemFieldSchema)
-    }).strict();
 
 export function classScheduleNotFoundProblem() {
-    return {
-        type: problemType("class-schedule-not-found"),
-        title: "Horário de turma não encontrado",
+    return ResourceNotFoundProblem.create({
         detail: "O horário de turma solicitado não foi encontrado."
-    } as const;
+    });
 }
 
 export function classScheduleReferenceNotFoundProblem(
-    fields: Array<{ path: string[]; message: string }>
+    fields: Array<Omit<ProblemField, "code">>
 ) {
-    return {
-        type: problemType("class-schedule-reference-not-found"),
-        title: "Referência de horário de turma não encontrada",
+    return ReferenceNotFoundProblem.create({
         detail: "Revise as referências informadas e tente novamente.",
         fields: fields.map((field) => ({
             code: "REFERENCE_NOT_FOUND",
             ...field
         }))
-    } as const;
+    });
 }
 
 export type ClassScheduleProblem =
     | ReturnType<typeof classScheduleNotFoundProblem>
     | ReturnType<typeof classScheduleReferenceNotFoundProblem>;
 
-export function classScheduleProblemDetails(
-    problem: ReturnType<typeof classScheduleNotFoundProblem>,
-    inputLocation?: "body"
-): ReturnType<
-    typeof problemDetails<ReturnType<typeof classScheduleNotFoundProblem>, 404>
->;
-export function classScheduleProblemDetails(
-    problem: ReturnType<typeof classScheduleReferenceNotFoundProblem>,
-    inputLocation?: "body"
-): ReturnType<
-    typeof problemDetails<
-        ReturnType<typeof classScheduleReferenceNotFoundProblem>,
-        400
-    >
->;
-export function classScheduleProblemDetails(
-    problem: ClassScheduleProblem,
-    inputLocation?: "body"
-):
-    | ReturnType<
-          typeof problemDetails<
-              ReturnType<typeof classScheduleNotFoundProblem>,
-              404
-          >
-      >
-    | ReturnType<
-          typeof problemDetails<
-              ReturnType<typeof classScheduleReferenceNotFoundProblem>,
-              400
-          >
-      >;
-export function classScheduleProblemDetails(
-    problem: ClassScheduleProblem,
-    inputLocation?: "body"
-) {
-    switch (problem.type) {
-        case "urn:pomi:problem:class-schedule-not-found":
-            return problemDetails(problem, 404);
-        case "urn:pomi:problem:class-schedule-reference-not-found":
-            return problemDetails(
-                inputLocation
-                    ? {
-                          ...problem,
-                          fields: problem.fields.map((field) => ({
-                              ...field,
-                              path: [inputLocation, ...field.path]
-                          }))
-                      }
-                    : problem,
-                400
-            );
-    }
-}
+export const classScheduleProblemResponses = {
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem),
+    [ReferenceNotFoundProblem.type]: problemResponse(
+        ReferenceNotFoundProblem,
+        (problem, context: ProblemResponseContext) =>
+            prefixProblemFields(problem, context.inputLocation)
+    )
+} satisfies ProblemResponseMap<ClassScheduleProblem, ProblemResponseContext>;

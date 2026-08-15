@@ -8,9 +8,8 @@ import catalogProgramEntity from "#/modules/catalog/catalog-program/CatalogProgr
 import {
     catalogProgramAlreadyExistsProblem,
     catalogProgramNotFoundProblem,
-    relatedResourceNotFoundProblem,
-    specializationNotInProgramProblem,
-    type CatalogProgramProblem
+    relatedReferenceNotFoundProblem,
+    specializationNotInProgramProblem
 } from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
 import { err, ok, type Result } from "@pomi/api-core";
 import { CourseBlockType, type PrismaClient } from "@pomi/db";
@@ -48,15 +47,36 @@ export type CatalogProgramService = {
     list(input: CatalogProgramListInput): Promise<CatalogProgramEntity[]>;
     getById(
         id: number
-    ): Promise<Result<CatalogProgramEntity, CatalogProgramProblem>>;
+    ): Promise<
+        Result<
+            CatalogProgramEntity,
+            ReturnType<typeof catalogProgramNotFoundProblem>
+        >
+    >;
     create(
         input: CreateCatalogProgramInput
-    ): Promise<Result<CatalogProgramEntity, CatalogProgramProblem>>;
+    ): Promise<
+        Result<
+            CatalogProgramEntity,
+            | ReturnType<typeof relatedReferenceNotFoundProblem>
+            | ReturnType<typeof catalogProgramAlreadyExistsProblem>
+            | ReturnType<typeof specializationNotInProgramProblem>
+        >
+    >;
     patch(
         id: number,
         input: PatchCatalogProgramInput
-    ): Promise<Result<CatalogProgramEntity, CatalogProgramProblem>>;
-    remove(id: number): Promise<Result<void, CatalogProgramProblem>>;
+    ): Promise<
+        Result<
+            CatalogProgramEntity,
+            | ReturnType<typeof catalogProgramNotFoundProblem>
+            | ReturnType<typeof relatedReferenceNotFoundProblem>
+            | ReturnType<typeof specializationNotInProgramProblem>
+        >
+    >;
+    remove(
+        id: number
+    ): Promise<Result<void, ReturnType<typeof catalogProgramNotFoundProblem>>>;
 };
 
 type TransactionClient = Omit<
@@ -100,6 +120,33 @@ function specializationInputsFromOperations(
             ]
         }))
     );
+}
+
+async function missingSpecializationFields(
+    prisma: Pick<TransactionClient, "specialization">,
+    inputs: SpecializationInputReference[]
+) {
+    if (inputs.length === 0) return [];
+    const specializations = await prisma.specialization.findMany({
+        where: {
+            id: {
+                in: [
+                    ...new Set(
+                        inputs.map(({ specializationId }) => specializationId)
+                    )
+                ]
+            }
+        },
+        select: { id: true }
+    });
+    const existingIds = new Set(specializations.map(({ id }) => id));
+    return inputs
+        .filter(({ specializationId }) => !existingIds.has(specializationId))
+        .map(({ path }) => ({
+            code: "REFERENCE_NOT_FOUND",
+            path,
+            message: "A habilitação informada não foi encontrada."
+        }));
 }
 
 function invalidSpecializationReferences(
@@ -436,7 +483,15 @@ export function createCatalogProgramService({
             });
             if (!catalog) {
                 return err(
-                    relatedResourceNotFoundProblem(
+                    relatedReferenceNotFoundProblem(
+                        [
+                            {
+                                code: "REFERENCE_NOT_FOUND",
+                                path: ["catalogId"],
+                                message:
+                                    "O catálogo informado não foi encontrado."
+                            }
+                        ],
                         "O catálogo informado não foi encontrado."
                     )
                 );
@@ -446,7 +501,15 @@ export function createCatalogProgramService({
             });
             if (!program) {
                 return err(
-                    relatedResourceNotFoundProblem(
+                    relatedReferenceNotFoundProblem(
+                        [
+                            {
+                                code: "REFERENCE_NOT_FOUND",
+                                path: ["programId"],
+                                message:
+                                    "O programa informado não foi encontrado."
+                            }
+                        ],
                         "O programa informado não foi encontrado."
                     )
                 );
@@ -463,7 +526,7 @@ export function createCatalogProgramService({
             if (existing) {
                 return err(
                     catalogProgramAlreadyExistsProblem(
-                        { id: catalog.id, year: catalog.year },
+                        { year: catalog.year },
                         {
                             id: program.id,
                             code: program.code,
@@ -473,6 +536,28 @@ export function createCatalogProgramService({
                 );
             }
             const catalogSpecializations = input.catalogSpecializations;
+            const specializationInputs = (catalogSpecializations ?? []).map(
+                ({ specializationId }, index) => ({
+                    specializationId,
+                    path: [
+                        "catalogSpecializations",
+                        String(index),
+                        "specializationId"
+                    ]
+                })
+            );
+            const missingSpecializations = await missingSpecializationFields(
+                prisma,
+                specializationInputs
+            );
+            if (missingSpecializations.length > 0) {
+                return err(
+                    relatedReferenceNotFoundProblem(
+                        missingSpecializations,
+                        "Uma ou mais habilitações informadas não foram encontradas."
+                    )
+                );
+            }
             const invalidSpecializations = catalogSpecializations
                 ? await invalidSpecializationsForProgram(
                       prisma,
@@ -492,16 +577,7 @@ export function createCatalogProgramService({
                         },
                         invalidSpecializationReferences(
                             invalidSpecializations,
-                            catalogSpecializations!.map(
-                                ({ specializationId }, index) => ({
-                                    specializationId,
-                                    path: [
-                                        "catalogSpecializations",
-                                        String(index),
-                                        "specializationId"
-                                    ]
-                                })
-                            )
+                            specializationInputs
                         )
                     )
                 );
@@ -527,6 +603,22 @@ export function createCatalogProgramService({
             });
             if (!existing) return err(catalogProgramNotFoundProblem());
             if (input.catalogSpecializations) {
+                const specializationInputs = specializationInputsFromOperations(
+                    input.catalogSpecializations
+                );
+                const missingSpecializations =
+                    await missingSpecializationFields(
+                        prisma,
+                        specializationInputs
+                    );
+                if (missingSpecializations.length > 0) {
+                    return err(
+                        relatedReferenceNotFoundProblem(
+                            missingSpecializations,
+                            "Uma ou mais habilitações informadas não foram encontradas."
+                        )
+                    );
+                }
                 const invalidSpecializations =
                     await invalidSpecializationsForProgram(
                         prisma,
@@ -545,9 +637,7 @@ export function createCatalogProgramService({
                             program,
                             invalidSpecializationReferences(
                                 invalidSpecializations,
-                                specializationInputsFromOperations(
-                                    input.catalogSpecializations
-                                )
+                                specializationInputs
                             )
                         )
                     );

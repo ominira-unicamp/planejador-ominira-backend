@@ -6,6 +6,7 @@ export * from "./http/EndpointContract.js";
 export * from "./http/EndpointRegistry.js";
 export * from "./http/problemResponse.js";
 export * from "./http/RequestHandler.js";
+export * from "./http/ResultResponse.js";
 export { default as errorHandler } from "./middleware/errorHandler.js";
 export { default as jsonErrorHandler } from "./middleware/jsonErrorHandler.js";
 export { default as sizeLimitMiddleware } from "./middleware/sizeLimitMiddleware.js";

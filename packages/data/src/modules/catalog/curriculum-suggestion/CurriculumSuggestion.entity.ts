@@ -1,4 +1,4 @@
-import IO from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.contract.js";
+import { curriculumSuggestionDataSchema } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.contract.js";
 import { MyPrisma } from "@pomi/db";
 import z from "zod";
 
@@ -53,7 +53,7 @@ type PrismaCurriculumSuggestionPayload =
 
 export function buildCurriculumSuggestionEntity(
     suggestion: PrismaCurriculumSuggestionPayload
-): z.infer<typeof IO.schema> {
+): z.infer<typeof curriculumSuggestionDataSchema> {
     return {
         id: suggestion.id,
         catalogProgramId: suggestion.catalogProgramId,
@@ -79,14 +79,7 @@ export function buildCurriculumSuggestionEntity(
                     }))
                     .sort((left, right) => left.code.localeCompare(right.code))
             }))
-            .sort((left, right) => left.semester - right.semester),
-        _paths: {
-            self: `/curriculum-suggestions/${suggestion.id}`,
-            catalogProgram: `/catalog-program/${suggestion.catalogProgramId}`,
-            specialization: suggestion.catalogSpecialization
-                ? `/specializations/${suggestion.catalogSpecialization.specialization.id}`
-                : null
-        }
+            .sort((left, right) => left.semester - right.semester)
     };
 }
 

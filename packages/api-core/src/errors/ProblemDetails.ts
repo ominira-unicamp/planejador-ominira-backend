@@ -36,6 +36,83 @@ export type DomainProblem = {
     detail: string;
 };
 
+export type ProblemDefinition<
+    Problem extends DomainProblem,
+    Status extends number,
+    Schema extends z.ZodType
+> = {
+    type: Problem["type"];
+    title: Problem["title"];
+    status: Status;
+    schema: Schema;
+    create(input: Omit<Problem, "type" | "title">): Problem;
+};
+
+export function defineProblem<
+    const TypeName extends string,
+    const Title extends string,
+    const Status extends number,
+    Extensions extends z.ZodRawShape
+>(definition: {
+    schemaName: string;
+    typeName: TypeName;
+    title: Title;
+    status: Status;
+    extensions: Extensions;
+}) {
+    const type = problemType(definition.typeName);
+    type ExtensionsOutput = keyof Extensions extends never
+        ? object
+        : z.output<z.ZodObject<Extensions>>;
+    type Problem = {
+        type: typeof type;
+        title: Title;
+        detail: string;
+    } & ExtensionsOutput;
+    const schema = ProblemDetailsSchema.extend({
+        type: z.literal(type),
+        title: z.literal(definition.title),
+        status: z.literal(definition.status),
+        ...definition.extensions
+    })
+        .strict()
+        .openapi(definition.schemaName);
+
+    return {
+        type,
+        title: definition.title,
+        status: definition.status,
+        schema,
+        create(input: Omit<Problem, "type" | "title">): Problem {
+            return {
+                type,
+                title: definition.title,
+                ...input
+            } as Problem;
+        }
+    } as ProblemDefinition<Problem, Status, typeof schema>;
+}
+
+export function prefixPaths<Item extends { path: string[] }>(
+    items: Item[],
+    prefix?: string
+): Item[] {
+    if (!prefix) return items;
+    return items.map((item) => ({
+        ...item,
+        path: [prefix, ...item.path]
+    }));
+}
+
+export function prefixProblemFields<Problem extends { fields: ProblemField[] }>(
+    problem: Problem,
+    prefix?: string
+): Problem {
+    return prefix
+        ? { ...problem, fields: prefixPaths(problem.fields, prefix) }
+        : problem;
+}
+
 export function problemDetails<
     Problem extends DomainProblem,
     Status extends number
@@ -97,13 +174,36 @@ export const ForbiddenProblemSchema = ProblemDetailsSchema.extend({
     .strict()
     .openapi("ForbiddenProblem");
 
-export const ResourceNotFoundProblemSchema = ProblemDetailsSchema.extend({
-    type: z.literal(problemType("resource-not-found")),
-    title: z.literal("Recurso não encontrado"),
-    status: z.literal(404)
-})
-    .strict()
-    .openapi("ResourceNotFoundProblem");
+export const ResourceNotFoundProblem = defineProblem({
+    schemaName: "ResourceNotFoundProblem",
+    typeName: "resource-not-found",
+    title: "Recurso não encontrado",
+    status: 404,
+    extensions: {}
+});
+
+export const ResourceNotFoundProblemSchema = ResourceNotFoundProblem.schema;
+
+export const ReferenceNotFoundProblem = defineProblem({
+    schemaName: "ReferenceNotFoundProblem",
+    typeName: "reference-not-found",
+    title: "Referência não encontrada",
+    status: 422,
+    extensions: { fields: z.array(ProblemFieldSchema) }
+});
+
+export const ReferenceNotFoundProblemSchema = ReferenceNotFoundProblem.schema;
+
+export const UniqueConstraintConflictProblem = defineProblem({
+    schemaName: "UniqueConstraintConflictProblem",
+    typeName: "unique-constraint-conflict",
+    title: "Informação já utilizada",
+    status: 409,
+    extensions: { fields: z.array(ProblemFieldSchema) }
+});
+
+export const UniqueConstraintConflictProblemSchema =
+    UniqueConstraintConflictProblem.schema;
 
 export const ConflictProblemSchema = ProblemDetailsSchema.extend({
     type: z.literal(problemType("conflict")),
@@ -200,13 +300,11 @@ export function forbiddenProblem(instance?: string) {
 }
 
 export function resourceNotFoundProblem(detail: string, instance?: string) {
-    return {
-        type: problemType("resource-not-found"),
-        title: "Recurso não encontrado",
-        status: 404,
-        detail,
-        ...(instance ? { instance } : {})
-    } as z.infer<typeof ResourceNotFoundProblemSchema>;
+    return problemDetails(
+        ResourceNotFoundProblem.create({ detail }),
+        ResourceNotFoundProblem.status,
+        instance
+    );
 }
 
 export function conflictProblem(detail: string, instance?: string) {

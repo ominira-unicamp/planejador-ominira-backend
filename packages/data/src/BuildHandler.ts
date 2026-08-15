@@ -1,6 +1,7 @@
 import { buildZodIds } from "#/PrismaValidator.js";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import type { CatalogProgramService } from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
+import type { CurriculumSuggestionService } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.service.js";
 import type { ClassScheduleService } from "#/modules/schedule/class-schedule/ClassSchedule.service.js";
 import {
     buildCompatibilityHandler,
@@ -18,6 +19,7 @@ export type Context = {
     prisma: PrismaClient;
     zodIds: ReturnType<typeof buildZodIds>;
     catalogProgramService: CatalogProgramService;
+    curriculumSuggestionService: CurriculumSuggestionService;
     classScheduleService: ClassScheduleService;
 };
 
@@ -46,6 +48,8 @@ export function buildHandler<
         prisma: req.scope.cradle.prisma,
         zodIds: req.scope.cradle.zodIds,
         catalogProgramService: req.scope.cradle.catalogProgramService,
+        curriculumSuggestionService:
+            req.scope.cradle.curriculumSuggestionService,
         classScheduleService: req.scope.cradle.classScheduleService
     }));
 }
@@ -68,6 +72,8 @@ export function createDataEndpointRegistries<
             prisma: request.scope.cradle.prisma,
             zodIds: request.scope.cradle.zodIds,
             catalogProgramService: request.scope.cradle.catalogProgramService,
+            curriculumSuggestionService:
+                request.scope.cradle.curriculumSuggestionService,
             classScheduleService: request.scope.cradle.classScheduleService
         }),
         registerAuthorization: (method, path, authorization) =>

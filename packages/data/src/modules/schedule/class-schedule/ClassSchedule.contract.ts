@@ -1,9 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { Capabilities, policies } from "#/auth.js";
-import {
-    ClassScheduleNotFoundProblemSchema,
-    ClassScheduleReferenceNotFoundProblemSchema
-} from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -11,6 +7,8 @@ import {
     paginationQuerySchema,
     PaginationQueryType,
     pathSeg,
+    ReferenceNotFoundProblemSchema,
+    ResourceNotFoundProblemSchema,
     SpecBuilder
 } from "@pomi/api-core";
 import z from "zod";
@@ -124,7 +122,7 @@ const get = {
         .ok(classScheduleEntity, "Class schedule retrieved successfully")
         .problem(
             404,
-            ClassScheduleNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Horário de turma não encontrado"
         )
         .build()
@@ -154,13 +152,11 @@ const create = {
     }),
     response: new OutputBuilder()
         .created(classScheduleEntity, "Class schedule created successfully")
+        .problem(400, InvalidRequestProblemSchema, "Dados inválidos")
         .problem(
-            400,
-            z.discriminatedUnion("type", [
-                InvalidRequestProblemSchema,
-                ClassScheduleReferenceNotFoundProblemSchema
-            ]),
-            "Dados da requisição inválidos"
+            422,
+            ReferenceNotFoundProblemSchema,
+            "Referência não encontrada"
         )
         .build()
 } satisfies IO;
@@ -180,16 +176,14 @@ const patch = {
         .ok(classScheduleEntity, "Class schedule updated successfully")
         .problem(
             404,
-            ClassScheduleNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Horário de turma não encontrado"
         )
+        .problem(400, InvalidRequestProblemSchema, "Dados inválidos")
         .problem(
-            400,
-            z.discriminatedUnion("type", [
-                InvalidRequestProblemSchema,
-                ClassScheduleReferenceNotFoundProblemSchema
-            ]),
-            "Dados da requisição inválidos"
+            422,
+            ReferenceNotFoundProblemSchema,
+            "Referência não encontrada"
         )
         .build()
 } satisfies IO;
@@ -208,7 +202,7 @@ const remove = {
         .noContent("Class schedule deleted successfully")
         .problem(
             404,
-            ClassScheduleNotFoundProblemSchema,
+            ResourceNotFoundProblemSchema,
             "Horário de turma não encontrado"
         )
         .build()

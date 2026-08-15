@@ -1,110 +1,67 @@
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { Router } from "express";
-import z from "zod";
+    ApiResponse,
+    createResultResponder,
+    problemInput,
+    type EndpointActions
+} from "@pomi/api-core";
 
-import { AuthRegistry } from "#/auth.js";
-import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
+import type { AuthorizationPolicy } from "#/auth.js";
 import IO from "#/modules/catalog/catalog-program/CatalogProgram.contract.js";
-import { catalogProgramProblemDetails } from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
+import { catalogProgramProblemResponses } from "#/modules/catalog/catalog-program/CatalogProgram.problems.js";
 
-extendZodWithOpenApi(z);
+const { schemas: _schemas, ...contracts } = IO;
+type Actions = EndpointActions<typeof contracts, AuthorizationPolicy, Context>;
+const respond = createResultResponder(catalogProgramProblemResponses);
 
-const router = Router();
-const authRegistry = new AuthRegistry();
+const list: Actions["list"] = async (ctx, input) =>
+    ApiResponse.ok(await ctx.catalogProgramService.list(input.query));
 
-authRegistry.addException("GET", "/catalog-program");
-authRegistry.addException("GET", "/catalog-program/:id");
-
-const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
-    const {
-        query: { catalogId, programId, programCode }
-    } = input;
-    return {
-        200: await ctx.catalogProgramService.list({
-            catalogId,
-            programId,
-            programCode
-        })
-    };
-};
-
-const getFn: HandlerFn<typeof IO.get> = async (ctx, input) => {
-    const result = await ctx.catalogProgramService.getById(input.path.id);
-    return result.isOk()
-        ? { 200: result.value }
-        : { 404: catalogProgramProblemDetails(result.error) };
-};
-
-const createFn: HandlerFn<typeof IO.create> = async (ctx, input) => {
-    const result = await ctx.catalogProgramService.create(input.body);
-    if (result.isOk()) return { 201: result.value };
-    const problem = catalogProgramProblemDetails(result.error, {
-        inputLocation: "body"
-    });
-    return { [problem.status]: problem };
-};
-
-const patchFn: HandlerFn<typeof IO.patch> = async (ctx, input) => {
-    const result = await ctx.catalogProgramService.patch(
-        input.path.id,
-        input.body
+const get: Actions["get"] = async (ctx, input) => {
+    return respond(
+        await ctx.catalogProgramService.getById(input.path.id),
+        ApiResponse.ok
     );
-    if (result.isOk()) return { 200: result.value };
-    const problem = catalogProgramProblemDetails(result.error, {
-        inputLocation: "body"
-    });
-    return { [problem.status]: problem };
 };
 
-const removeFn: HandlerFn<typeof IO.remove> = async (ctx, input) => {
-    const result = await ctx.catalogProgramService.remove(input.path.id);
-    if (result.isOk()) return { 204: null };
-    const problem = catalogProgramProblemDetails(result.error);
-    return { [problem.status]: problem };
+const create: Actions["create"] = async (ctx, input) => {
+    return respond(
+        await ctx.catalogProgramService.create(input.body),
+        ApiResponse.created,
+        problemInput.body
+    );
 };
 
-router.get(
-    "/catalog-program",
-    buildHandler(IO.list.request, IO.list.response, listFn)
-);
-router.get(
-    "/catalog-program/:id",
-    buildHandler(IO.get.request, IO.get.response, getFn)
-);
-router.post(
-    "/catalog-program/:id",
-    buildHandler(IO.create.request, IO.create.response, createFn)
-);
-router.patch(
-    "/catalog-program/:id",
-    buildHandler(IO.patch.request, IO.patch.response, patchFn)
-);
-router.delete(
-    "/catalog-program/:id",
-    buildHandler(IO.remove.request, IO.remove.response, removeFn)
-);
+const patch: Actions["patch"] = async (ctx, input) => {
+    return respond(
+        await ctx.catalogProgramService.patch(input.path.id, input.body),
+        ApiResponse.ok,
+        problemInput.body
+    );
+};
 
-function entityPath(programId: number) {
-    return `/catalog-program/${programId}`;
-}
+const remove: Actions["remove"] = async (ctx, input) => {
+    return respond(await ctx.catalogProgramService.remove(input.path.id), () =>
+        ApiResponse.noContent()
+    );
+};
+
+const actions: Actions = { list, get, create, patch, remove };
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    contracts,
+    actions
+);
 
 function listPath() {
-    return "/catalog-programs";
+    return "/catalog-program";
 }
 
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
-registry.registerPath(openApiArgsFromIO(IO.create));
-registry.registerPath(openApiArgsFromIO(IO.patch));
-registry.registerPath(openApiArgsFromIO(IO.remove));
+function entityPath(id: number) {
+    return `/catalog-program/${id}`;
+}
 
 export default {
-    contracts: IO,
+    contracts,
     router,
     registry,
     authRegistry,

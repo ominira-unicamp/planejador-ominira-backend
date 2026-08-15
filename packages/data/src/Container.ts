@@ -8,6 +8,10 @@ import {
     type CatalogProgramService
 } from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
 import {
+    createCurriculumSuggestionService,
+    type CurriculumSuggestionService
+} from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.service.js";
+import {
     createClassScheduleService,
     type ClassScheduleService
 } from "#/modules/schedule/class-schedule/ClassSchedule.service.js";
@@ -18,6 +22,7 @@ export type DataCradle = {
     prisma: DatabaseClient;
     zodIds: ReturnType<typeof buildZodIds>;
     catalogProgramService: CatalogProgramService;
+    curriculumSuggestionService: CurriculumSuggestionService;
     classScheduleService: ClassScheduleService;
 };
 
@@ -32,6 +37,9 @@ export function createDataContainer(
         prisma: asValue(prisma),
         zodIds: asFunction(buildZodIds).scoped(),
         catalogProgramService: asFunction(createCatalogProgramService).scoped(),
+        curriculumSuggestionService: asFunction(
+            createCurriculumSuggestionService
+        ).scoped(),
         classScheduleService: asFunction(createClassScheduleService).scoped()
     });
 }

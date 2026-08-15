@@ -1,6 +1,8 @@
 import {
     ApiResponse,
     buildPaginationResponse,
+    createResultResponder,
+    problemInput,
     type EndpointActions
 } from "@pomi/api-core";
 
@@ -13,7 +15,7 @@ import IO, {
     classSchedulePaths,
     type ListQueryParams
 } from "#/modules/schedule/class-schedule/ClassSchedule.contract.js";
-import { classScheduleProblemDetails } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
+import { classScheduleProblemResponses } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
 import { classPaths } from "#/modules/schedule/class/Class.contract.js";
 import { studyPeriodPaths } from "#/modules/schedule/study-period/StudyPeriod.contract.js";
 import type z from "zod";
@@ -32,79 +34,44 @@ function withPaths(
         }
     };
 }
+type Actions = EndpointActions<typeof IO, unknown, Context>;
+const respond = createResultResponder(classScheduleProblemResponses);
 
-const actions: EndpointActions<typeof IO, unknown, Context> = {
-    list: async (ctx, input) => {
-        const result = await ctx.classScheduleService.list(input.query);
-        return ApiResponse.ok(
-            buildPaginationResponse<typeof classScheduleEntity>(
-                result.items.map(withPaths),
-                result.total,
-                input.query,
-                (page) => listPath({ ...input.query, page })
-            )
-        );
-    },
-    get: async (ctx, input) => {
-        const result = await ctx.classScheduleService.getById(input.path.id);
-        return result.match(
-            (value) => ApiResponse.ok(withPaths(value)),
-            (error) => {
-                return ApiResponse.status(
-                    404,
-                    classScheduleProblemDetails(error)
-                );
-            }
-        );
-    },
-    create: async (ctx, input) => {
-        const result = await ctx.classScheduleService.create(input.body);
-        return result.match(
-            (value) => ApiResponse.created(withPaths(value)),
-            (error) =>
-                ApiResponse.status(
-                    400,
-                    classScheduleProblemDetails(error, "body")
-                )
-        );
-    },
-    patch: async (ctx, input) => {
-        const result = await ctx.classScheduleService.patch(
-            input.path.id,
-            input.body
-        );
-        return result.match(
-            (value) => ApiResponse.ok(withPaths(value)),
-            (error) => {
-                if (
-                    error.type ===
-                    "urn:pomi:problem:class-schedule-reference-not-found"
-                ) {
-                    return ApiResponse.status(
-                        400,
-                        classScheduleProblemDetails(error, "body")
-                    );
-                }
-
-                return ApiResponse.status(
-                    404,
-                    classScheduleProblemDetails(error, "body")
-                );
-            }
-        );
-    },
-    remove: async (ctx, input) => {
-        const result = await ctx.classScheduleService.remove(input.path.id);
-        return result.match(
-            () => ApiResponse.noContent(),
-            (error) => {
-                return ApiResponse.status(
-                    404,
-                    classScheduleProblemDetails(error)
-                );
-            }
-        );
-    }
+const list: Actions["list"] = async (ctx, input) => {
+    const result = await ctx.classScheduleService.list(input.query);
+    return ApiResponse.ok(
+        buildPaginationResponse<typeof classScheduleEntity>(
+            result.items.map(withPaths),
+            result.total,
+            input.query,
+            (page) => listPath({ ...input.query, page })
+        )
+    );
+};
+const get: Actions["get"] = async (ctx, input) => {
+    return respond(
+        await ctx.classScheduleService.getById(input.path.id),
+        (value) => ApiResponse.ok(withPaths(value))
+    );
+};
+const create: Actions["create"] = async (ctx, input) => {
+    return respond(
+        await ctx.classScheduleService.create(input.body),
+        (value) => ApiResponse.created(withPaths(value)),
+        problemInput.body
+    );
+};
+const patch: Actions["patch"] = async (ctx, input) => {
+    return respond(
+        await ctx.classScheduleService.patch(input.path.id, input.body),
+        (value) => ApiResponse.ok(withPaths(value)),
+        problemInput.body
+    );
+};
+const remove: Actions["remove"] = async (ctx, input) => {
+    return respond(await ctx.classScheduleService.remove(input.path.id), () =>
+        ApiResponse.noContent()
+    );
 };
 
 function listPath({
@@ -129,7 +96,13 @@ function listPath({
             .join("&")
     );
 }
-
+const actions: Actions = {
+    list,
+    get,
+    create,
+    patch,
+    remove
+};
 const { router, registry, authRegistry } = createDataEndpointRegistries(
     IO,
     actions

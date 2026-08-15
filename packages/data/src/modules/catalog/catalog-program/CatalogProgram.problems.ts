@@ -1,12 +1,16 @@
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
-    ProblemDetailsSchema,
-    problemDetails,
-    problemType
+    ReferenceNotFoundProblem,
+    ResourceNotFoundProblem,
+    UniqueConstraintConflictProblem,
+    defineProblem,
+    prefixPaths,
+    prefixProblemFields,
+    problemResponse,
+    type ProblemField,
+    type ProblemResponseContext,
+    type ProblemResponseMap
 } from "@pomi/api-core";
 import z from "zod";
-
-extendZodWithOpenApi(z);
 
 const programReferenceSchema = z
     .object({
@@ -21,72 +25,53 @@ const specializationReferenceSchema = z
         id: z.number().int(),
         code: z.string(),
         name: z.string(),
-        path: z.array(z.string()).openapi({
-            description:
-                "Caminho do campo na requisição HTTP que originou o problema."
-        })
+        path: z.array(z.string())
     })
     .strict();
 
-export const CatalogProgramNotFoundProblemSchema = ProblemDetailsSchema.extend({
-    type: z.literal(problemType("catalog-program-not-found")),
-    title: z.literal("Programa de catálogo não encontrado"),
-    status: z.literal(404)
-})
-    .strict()
-    .openapi("CatalogProgramNotFoundProblem");
-
-export const CatalogProgramAlreadyExistsProblemSchema =
-    ProblemDetailsSchema.extend({
-        type: z.literal(problemType("catalog-program-already-exists")),
-        title: z.literal("Programa já incluído no catálogo"),
-        status: z.literal(409),
-        catalog: z
-            .object({ id: z.number().int(), year: z.number().int() })
-            .strict(),
-        program: programReferenceSchema
-    })
-        .strict()
-        .openapi("CatalogProgramAlreadyExistsProblem");
-
-export const SpecializationNotInProgramProblemSchema =
-    ProblemDetailsSchema.extend({
-        type: z.literal(problemType("specialization-not-in-program")),
-        title: z.literal("Habilitação não disponível"),
-        status: z.literal(422),
+export const SpecializationNotInProgramProblem = defineProblem({
+    schemaName: "SpecializationNotInProgramProblem",
+    typeName: "specialization-not-in-program",
+    title: "Habilitação não disponível",
+    status: 422,
+    extensions: {
         program: programReferenceSchema,
         specializations: z.array(specializationReferenceSchema)
-    })
-        .strict()
-        .openapi("SpecializationNotInProgramProblem");
+    }
+});
 
 export function catalogProgramNotFoundProblem() {
-    return {
-        type: problemType("catalog-program-not-found"),
-        title: "Programa de catálogo não encontrado",
+    return ResourceNotFoundProblem.create({
         detail: "O programa de catálogo solicitado não foi encontrado."
-    } as const;
+    });
 }
 
-export function relatedResourceNotFoundProblem(detail: string) {
-    return {
-        type: problemType("resource-not-found"),
-        title: "Recurso não encontrado",
-        detail
-    } as const;
+export function relatedReferenceNotFoundProblem(
+    fields: ProblemField[],
+    detail = "Uma ou mais referências informadas não foram encontradas."
+) {
+    return ReferenceNotFoundProblem.create({ detail, fields });
 }
 
 export function catalogProgramAlreadyExistsProblem(
-    catalog: { id: number; year: number },
+    catalog: { year: number },
     program: z.infer<typeof programReferenceSchema>
 ) {
-    return {
-        type: problemType("catalog-program-already-exists"),
-        title: "Programa já incluído no catálogo",
+    return UniqueConstraintConflictProblem.create({
         detail: `O programa ${program.code} - ${program.name} já está incluído no Catálogo ${catalog.year}.`,
-        catalog,
-        program
-    } as const;
+        fields: [
+            {
+                code: "ALREADY_EXISTS",
+                path: ["catalogId"],
+                message: "Este catálogo já possui o programa informado."
+            },
+            {
+                code: "ALREADY_EXISTS",
+                path: ["programId"],
+                message: "Este programa já está incluído no catálogo informado."
+            }
+        ]
+    });
 }
 
 export function specializationNotInProgramProblem(
@@ -99,53 +84,39 @@ export function specializationNotInProgramProblem(
                 `${specialization.code} - ${specialization.name}`
         )
         .join(", ");
-    return {
-        type: problemType("specialization-not-in-program"),
-        title: "Habilitação não disponível",
+    return SpecializationNotInProgramProblem.create({
         detail: `A habilitação ${labels} não pertence ao programa ${program.code} - ${program.name}.`,
         program,
         specializations
-    } as const;
+    });
 }
 
 export type CatalogProgramProblem =
     | ReturnType<typeof catalogProgramNotFoundProblem>
-    | ReturnType<typeof relatedResourceNotFoundProblem>
+    | ReturnType<typeof relatedReferenceNotFoundProblem>
     | ReturnType<typeof catalogProgramAlreadyExistsProblem>
     | ReturnType<typeof specializationNotInProgramProblem>;
 
-type ProblemDetailsContext = {
-    instance?: string;
-    inputLocation?: "body" | "query" | "path" | "headers";
-};
-
-export function catalogProgramProblemDetails(
-    problem: CatalogProgramProblem,
-    context: ProblemDetailsContext = {}
-) {
-    switch (problem.type) {
-        case "urn:pomi:problem:resource-not-found":
-            return problemDetails(problem, 404, context.instance);
-        case "urn:pomi:problem:catalog-program-not-found":
-            return problemDetails(problem, 404, context.instance);
-        case "urn:pomi:problem:catalog-program-already-exists":
-            return problemDetails(problem, 409, context.instance);
-        case "urn:pomi:problem:specialization-not-in-program": {
-            const translated = context.inputLocation
-                ? {
-                      ...problem,
-                      specializations: problem.specializations.map(
-                          (specialization) => ({
-                              ...specialization,
-                              path: [
-                                  context.inputLocation,
-                                  ...specialization.path
-                              ]
-                          })
-                      )
-                  }
-                : problem;
-            return problemDetails(translated, 422, context.instance);
-        }
-    }
-}
+export const catalogProgramProblemResponses = {
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem),
+    [ReferenceNotFoundProblem.type]: problemResponse(
+        ReferenceNotFoundProblem,
+        (problem, context: ProblemResponseContext) =>
+            prefixProblemFields(problem, context.inputLocation)
+    ),
+    [UniqueConstraintConflictProblem.type]: problemResponse(
+        UniqueConstraintConflictProblem,
+        (problem, context: ProblemResponseContext) =>
+            prefixProblemFields(problem, context.inputLocation)
+    ),
+    [SpecializationNotInProgramProblem.type]: problemResponse(
+        SpecializationNotInProgramProblem,
+        (problem, context: ProblemResponseContext) => ({
+            ...problem,
+            specializations: prefixPaths(
+                problem.specializations,
+                context.inputLocation
+            )
+        })
+    )
+} satisfies ProblemResponseMap<CatalogProgramProblem, ProblemResponseContext>;
