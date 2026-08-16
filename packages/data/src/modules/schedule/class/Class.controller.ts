@@ -1,102 +1,52 @@
-import { AuthRegistry } from "#/auth.js";
-import { openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
-import IO, {
-    ListQueryParams
-} from "#/modules/schedule/class/Class.contract.js";
-import classEntity from "#/modules/schedule/class/Class.entity.js";
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
+import IO, { classPaths } from "#/modules/schedule/class/Class.contract.js";
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { whereIdCode, whereIdName } from "@pomi/db";
-import { Router } from "express";
-import z from "zod";
-
-extendZodWithOpenApi(z);
-
-const router = Router();
-const authRegistry = new AuthRegistry();
-
-authRegistry.addException("GET", "/classes");
-authRegistry.addException("GET", "/classes/:id");
-
-const list = defaultListHandler(
-    (p) => p.class,
-    IO.list.request.shape.query,
-    (query) => ({
-        ...(query.classCode
-            ? {
-                  code: {
-                      contains: query.classCode,
-                      mode: "insensitive" as const
-                  }
-              }
-            : {}),
-        course: {
-            ...whereIdCode(query.courseId, query.courseCode),
-            unit: whereIdCode(query.unitId, query.unitCode)
-        },
-        studyPeriod: whereIdCode(query.studyPeriodId, query.studyPeriodCode),
-        ...(query.professorId || query.professorName
-            ? {
-                  professors: {
-                      some: {
-                          ...whereIdName(query.professorId, query.professorName)
-                      }
-                  }
-              }
-            : {})
-    }),
-    listPath,
-    classEntity.prismaSelection,
-    classEntity.build
+    ApiResponse,
+    buildPaginationResponse,
+    createResultResponder,
+    problemResponse,
+    ResourceNotFoundProblem,
+    type EndpointActions
+} from "@pomi/api-core";
+const { schema: _schema, ...contracts } = IO;
+type Actions = EndpointActions<typeof contracts, unknown, Context>;
+const respond = createResultResponder({
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
+});
+const actions: Actions = {
+    list: async (ctx, input) => {
+        const result = await ctx.classService.list(input.query);
+        const page = input.query.page ?? 1;
+        const pageSize = input.query.pageSize ?? Math.max(result.total, 1);
+        return ApiResponse.ok(
+            buildPaginationResponse<typeof IO.schema>(
+                result.items,
+                result.total,
+                { page, pageSize },
+                (next) => `/classes?page=${next}&pageSize=${pageSize}`
+            )
+        );
+    },
+    get: async (ctx, input) =>
+        respond(await ctx.classService.getById(input.path.id), ApiResponse.ok)
+};
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    contracts,
+    actions
 );
-
-router.get("/classes", list);
-
-const get = defaultGetHandler(
-    (p) => p.class,
-    classEntity.prismaSelection,
-    classEntity.build,
-    "Class not found"
-);
-
-router.get("/classes/:id", get);
-
-function listPath(query: ListQueryParams) {
-    return (
-        `/classes?` +
-        [
-            query.unitId ? "unitId=" + query.unitId : undefined,
-            query.courseId ? "courseId=" + query.courseId : undefined,
-            query.studyPeriodId
-                ? "studyPeriodId=" + query.studyPeriodId
-                : undefined,
-            query.professorId ? "professorId=" + query.professorId : undefined,
-            query.page ? "page=" + query.page : undefined,
-            query.pageSize ? "pageSize=" + query.pageSize : undefined
-        ]
-            .filter(Boolean)
-            .join("&")
-    );
-}
-
-function entityPath(id: number) {
-    return `/classes/${id}`;
-}
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
-
 export default {
-    contracts: IO,
+    contracts,
     router,
     registry,
     authRegistry,
     paths: {
-        list: listPath,
-        entity: entityPath
+        entity: classPaths.entity,
+        list: (query: Record<string, unknown>) => {
+            const params = new URLSearchParams();
+            for (const [key, value] of Object.entries(query))
+                if (value !== undefined) params.set(key, String(value));
+            const search = params.toString();
+            return `/classes${search ? `?${search}` : ""}`;
+        }
     }
 };

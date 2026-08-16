@@ -29,41 +29,7 @@ async function getCalendar(req: Request, res: Response) {
         );
     }
 
-    const { startDate, endDate, tagId } = query.data;
-    const events = await req.prisma.calendarEvent.findMany({
-        select: {
-            id: true,
-            startDate: true,
-            endDate: true,
-            description: true,
-            tags: {
-                select: {
-                    name: true
-                },
-                orderBy: {
-                    name: "asc"
-                }
-            }
-        },
-        where: {
-            ...(endDate ? { startDate: { lte: endDate } } : {}),
-            ...(startDate
-                ? {
-                      OR: [{ endDate: { gte: startDate } }, { endDate: null }]
-                  }
-                : {}),
-            ...(tagId !== undefined
-                ? {
-                      tags: {
-                          some: {
-                              id: { in: tagId }
-                          }
-                      }
-                  }
-                : {})
-        },
-        orderBy: [{ startDate: "asc" }, { endDate: "asc" }, { id: "asc" }]
-    });
+    const events = await req.scope.cradle.calendarService.feed(query.data);
 
     const feed = serializeCalendarFeed(events);
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");

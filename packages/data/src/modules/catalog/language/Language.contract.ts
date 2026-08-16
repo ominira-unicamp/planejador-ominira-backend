@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -44,68 +44,8 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: z
-            .object({
-                name: z.string().min(1)
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .created(schema, "Language created successfully")
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: z
-            .object({
-                name: z.string().min(1)
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .ok(schema, "Language updated successfully")
-        .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Language deleted successfully")
-        .badRequest()
-        .notFound()
-        .build()
-};
-
 export default {
     schema,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };

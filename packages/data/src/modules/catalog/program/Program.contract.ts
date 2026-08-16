@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -58,72 +58,8 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: z
-            .object({
-                code: z.number().int().positive(),
-                name: z.string().min(1),
-                unitId: z.number().int()
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .created(schema, "Program created successfully")
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: z
-            .object({
-                code: z.number().int().positive().optional(),
-                name: z.string().min(1).optional(),
-                unitId: z.number().int().optional()
-            })
-            .strict()
-    }),
-    response: new OutputBuilder()
-        .ok(schema, "Program updated successfully")
-        .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Program deleted successfully")
-        .badRequest()
-        .notFound()
-        .build()
-} satisfies IO;
-
 export default {
     schema,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };

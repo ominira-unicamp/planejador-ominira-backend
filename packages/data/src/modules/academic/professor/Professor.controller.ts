@@ -1,81 +1,58 @@
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { Router } from "express";
-import z from "zod";
+    ApiResponse,
+    buildPaginationResponse,
+    createResultResponder,
+    type EndpointActions
+} from "@pomi/api-core";
 
-import { AuthRegistry } from "#/auth.js";
-import { openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler, defaultListHandler } from "#/defaultEndpoint.js";
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
 import IO, {
-    ListQueryParams,
-    professorPaths
+    professorPaths,
+    type ListQueryParams
 } from "#/modules/academic/professor/Professor.contract.js";
+import { ResourceNotFoundProblem, problemResponse } from "@pomi/api-core";
 
-extendZodWithOpenApi(z);
+const { schema: _schema, ...contracts } = IO;
+type Actions = EndpointActions<typeof contracts, unknown, Context>;
+const respond = createResultResponder({
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
+});
 
-function withPaths(professor: { id: number; name: string }) {
-    return {
-        ...professor,
-        _paths: {
-            entity: professorPaths.entity(professor.id)
-        }
-    };
-}
-
-const router = Router();
-const authRegistry = new AuthRegistry();
-
-authRegistry.addException("GET", "/professors");
-authRegistry.addException("GET", "/professors/:id");
-
-const list = defaultListHandler(
-    (p) => p.professor,
-    IO.list.request.shape.query,
-    (query) =>
-        query.classId ? { classes: { some: { id: query.classId } } } : {},
-    listPath,
-    {},
-    withPaths
-);
-
-router.get("/professors", list);
-
-const get = defaultGetHandler(
-    (p) => p.professor,
-    {},
-    withPaths,
-    "Professor not found"
-);
-
-router.get("/professors/:id", get);
-
-function listPath({ classId, page, pageSize }: ListQueryParams) {
-    return (
-        `/professors?` +
-        [
-            classId ? "classId=" + classId : undefined,
-            page ? "page=" + page : undefined,
-            pageSize ? "pageSize=" + pageSize : undefined
-        ]
-            .filter(Boolean)
-            .join("&")
+const list: Actions["list"] = async (ctx, input) => {
+    const result = await ctx.professorService.list(input.query);
+    const page = input.query.page ?? 1;
+    const pageSize = input.query.pageSize ?? Math.max(result.total, 1);
+    return ApiResponse.ok(
+        buildPaginationResponse<typeof IO.schema>(
+            result.items,
+            result.total,
+            { page, pageSize },
+            (pageNumber) =>
+                listPath({ ...input.query, page: pageNumber, pageSize })
+        )
     );
+};
+
+const get: Actions["get"] = async (ctx, input) =>
+    respond(await ctx.professorService.getById(input.path.id), ApiResponse.ok);
+
+function listPath(query: ListQueryParams) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+        if (value !== undefined) params.set(key, String(value));
+    const search = params.toString();
+    return `/professors${search ? `?${search}` : ""}`;
 }
 
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    contracts,
+    { list, get }
+);
 
 export default {
-    contracts: IO,
+    contracts,
     router,
     registry,
     authRegistry,
-    paths: {
-        list: listPath,
-        entity: professorPaths.entity
-    }
+    paths: { list: listPath, entity: professorPaths.entity }
 };

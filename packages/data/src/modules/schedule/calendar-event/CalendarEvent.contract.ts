@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -22,13 +22,6 @@ const calendarTagSchema = z
         name: z.string()
     })
     .strict();
-
-const tagIdsSchema = z
-    .array(z.number().int().positive())
-    .min(1)
-    .refine((ids) => new Set(ids).size === ids.length, {
-        message: "tagIds must not contain duplicates"
-    });
 
 const tagIdsQuerySchema = z
     .union([z.string(), z.array(z.string())])
@@ -60,36 +53,6 @@ const schema = z
     })
     .strict()
     .openapi("CalendarEvent");
-
-const eventFields = {
-    startDate: dateInput,
-    endDate: dateInput.optional(),
-    description: z.string().trim().min(1),
-    tagIds: tagIdsSchema
-};
-
-const createBody = z
-    .object(eventFields)
-    .strict()
-    .superRefine((event, context) => {
-        if (event.endDate && event.startDate > event.endDate) {
-            context.addIssue({
-                code: "custom",
-                path: ["startDate"],
-                message: "startDate must be before or equal to endDate"
-            });
-        }
-    });
-
-const patchBody = z
-    .object({
-        startDate: dateInput.optional(),
-        endDate: dateInput.nullable().optional(),
-        description: z.string().trim().min(1).optional(),
-        tagIds: tagIdsSchema.optional()
-    })
-    .strict();
-
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -121,65 +84,8 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: createBody
-    }),
-    response: new OutputBuilder()
-        .created(schema, "Calendar event created successfully")
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z
-                .string()
-                .pipe(z.coerce.number())
-                .pipe(z.number().int().positive())
-        }),
-        body: patchBody
-    }),
-    response: new OutputBuilder()
-        .ok(schema, "Calendar event updated successfully")
-        .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z
-                .string()
-                .pipe(z.coerce.number())
-                .pipe(z.number().int().positive())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Calendar event deleted successfully")
-        .notFound()
-        .build()
-} satisfies IO;
-
 export default {
     schema,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };

@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -28,20 +28,6 @@ const unitEntity = z
     .strict()
     .openapi("UnitEntity");
 
-const unitBase = z
-    .object({
-        id: z.number().int(),
-        code: z.string().min(1)
-    })
-    .strict();
-
-const createUnitBody = unitBase.omit({ id: true }).openapi("CreateUnitBody");
-
-const patchUnitBody = unitBase
-    .omit({ id: true })
-    .partial()
-    .strict()
-    .openapi("PatchUnitBody");
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -63,59 +49,8 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: createUnitBody.strict()
-    }),
-    response: new OutputBuilder()
-        .created(unitEntity, "Unit created successfully")
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: patchUnitBody
-    }),
-    response: new OutputBuilder()
-        .ok(unitEntity, "Unit updated successfully")
-        .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Unit deleted successfully")
-        .notFound()
-        .build()
-} satisfies IO;
-
 export default {
     schema: unitEntity,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };

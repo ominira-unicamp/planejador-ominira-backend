@@ -1,13 +1,11 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
-    InvalidRequestProblemSchema,
     paginationQuerySchema,
     PaginationQueryType,
     pathSeg,
-    ReferenceNotFoundProblemSchema,
     ResourceNotFoundProblemSchema,
     SpecBuilder
 } from "@pomi/api-core";
@@ -74,25 +72,6 @@ const daysOfWeekEnum = z
     ])
     .openapi("DaysOfWeekEnum");
 
-const classScheduleBase = z
-    .object({
-        id: z.number().int(),
-        dayOfWeek: daysOfWeekEnum,
-        start: z.string().min(1),
-        end: z.string().min(1),
-        roomId: z.number().int(),
-        classId: z.number().int()
-    })
-    .strict();
-
-const createClassScheduleBody = classScheduleBase
-    .omit({ id: true })
-    .openapi("CreateClassScheduleBody");
-
-const patchClassScheduleBody = classScheduleBase
-    .partial()
-    .openapi("PatchClassScheduleBody");
-
 const getClassSchedulesQuery = paginationQuerySchema
     .extend({
         studyPeriodId: z.coerce.number().int().optional(),
@@ -142,72 +121,6 @@ const list = {
         .build()
 } satisfies IO;
 
-const _create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: createClassScheduleBody
-    }),
-    response: new OutputBuilder()
-        .created(classScheduleEntity, "Class schedule created successfully")
-        .problem(400, InvalidRequestProblemSchema, "Dados inválidos")
-        .problem(
-            422,
-            ReferenceNotFoundProblemSchema,
-            "Referência não encontrada"
-        )
-        .build()
-} satisfies IO;
-
-const _patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: patchClassScheduleBody
-    }),
-    response: new OutputBuilder()
-        .ok(classScheduleEntity, "Class schedule updated successfully")
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Horário de turma não encontrado"
-        )
-        .problem(400, InvalidRequestProblemSchema, "Dados inválidos")
-        .problem(
-            422,
-            ReferenceNotFoundProblemSchema,
-            "Referência não encontrada"
-        )
-        .build()
-} satisfies IO;
-
-const _remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Class schedule deleted successfully")
-        .problem(
-            404,
-            ResourceNotFoundProblemSchema,
-            "Horário de turma não encontrado"
-        )
-        .build()
-} satisfies IO;
-
 const contracts = {
     get,
     list
@@ -222,8 +135,6 @@ export type ListQueryParams = {
     classId?: number;
 } & Partial<PaginationQueryType>;
 export type ClassScheduleListInput = z.infer<typeof getClassSchedulesQuery>;
-export type CreateClassScheduleInput = z.infer<typeof createClassScheduleBody>;
-export type PatchClassScheduleInput = z.infer<typeof patchClassScheduleBody>;
 
 export const classSchedulePaths = {
     entity: (id: number) => `/class-schedules/${id}`

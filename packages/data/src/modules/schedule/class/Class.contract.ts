@@ -1,5 +1,5 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
-import { Capabilities, policies } from "#/auth.js";
+import { policies } from "#/auth.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -54,23 +54,6 @@ const classEntity = z
     .strict()
     .openapi("ClassEntity");
 
-const classBaseSchema = z
-    .object({
-        id: z.number().int(),
-        code: z.string().min(1),
-        reservations: z.array(z.number().int()),
-        courseId: z.number().int(),
-        studyPeriodId: z.number().int(),
-        professorIds: z.array(z.number().int())
-    })
-    .strict();
-
-const createClassBody = classBaseSchema
-    .omit({ id: true })
-    .openapi("CreateClassBody");
-
-const patchClassBody = classBaseSchema.partial().openapi("PatchClassBody");
-
 const listClassesQuery = paginationQuerySchema
     .extend({
         classCode: z.string().optional(),
@@ -111,61 +94,10 @@ const list = {
         .build()
 } satisfies IO;
 
-const create = {
-    meta: {
-        ...specsBuilder.create(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        body: createClassBody.strict()
-    }),
-    response: new OutputBuilder()
-        .created(classEntity, "Class created successfully")
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const patch = {
-    meta: {
-        ...specsBuilder.patch(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        }),
-        body: patchClassBody
-    }),
-    response: new OutputBuilder()
-        .ok(classEntity, "Class updated successfully")
-        .notFound()
-        .badRequest()
-        .build()
-} satisfies IO;
-
-const remove = {
-    meta: {
-        ...specsBuilder.remove(),
-        authorization: policies.capability(Capabilities.ACADEMIC_WRITE)
-    },
-    request: z.object({
-        path: z.object({
-            id: z.string().pipe(z.coerce.number()).pipe(z.number())
-        })
-    }),
-    response: new OutputBuilder()
-        .noContent("Class deleted successfully")
-        .notFound()
-        .build()
-} satisfies IO;
-
 export default {
     schema: classEntity,
     get,
-    list,
-    create,
-    patch,
-    remove
+    list
 };
 
 export type ListQueryParams = {

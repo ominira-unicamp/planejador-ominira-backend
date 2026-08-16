@@ -1,57 +1,35 @@
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
+import IO, {
+    studyPeriodPaths
+} from "#/modules/schedule/study-period/StudyPeriod.contract.js";
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { Router } from "express";
-import z from "zod";
-
-import { AuthRegistry } from "#/auth.js";
-import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler } from "#/defaultEndpoint.js";
-import IO from "#/modules/schedule/study-period/StudyPeriod.contract.js";
-import studyPeriodEntity from "#/modules/schedule/study-period/StudyPeriod.entity.js";
-
-extendZodWithOpenApi(z);
-
-const router = Router();
-const authRegistry = new AuthRegistry();
-
-authRegistry.addException("GET", "/study-periods");
-const listFn: HandlerFn<typeof IO.list> = async (ctx, _input) => {
-    const studyPeriods = await ctx.prisma.studyPeriod.findMany();
-    const entities = studyPeriods.map(studyPeriodEntity.build);
-    return { 200: entities };
+    ApiResponse,
+    createResultResponder,
+    problemResponse,
+    ResourceNotFoundProblem,
+    type EndpointActions
+} from "@pomi/api-core";
+const { schema: _schema, ...contracts } = IO;
+type Actions = EndpointActions<typeof contracts, unknown, Context>;
+const respond = createResultResponder({
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
+});
+const actions: Actions = {
+    list: async (ctx) => ApiResponse.ok(await ctx.studyPeriodService.list()),
+    get: async (ctx, input) =>
+        respond(
+            await ctx.studyPeriodService.getById(input.path.id),
+            ApiResponse.ok
+        )
 };
-
-const get = defaultGetHandler(
-    (p) => p.studyPeriod,
-    {},
-    studyPeriodEntity.build,
-    "Study period not found"
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    contracts,
+    actions
 );
-
-router.get("/study-periods/:id", get);
-
-router.get(
-    "/study-periods",
-    buildHandler(IO.list.request, IO.list.response, listFn)
-);
-
-function entityPath(studyPeriodId: number) {
-    return `/study-periods/${studyPeriodId}`;
-}
-
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
-
 export default {
-    contracts: IO,
+    contracts,
     router,
     registry,
     authRegistry,
-    paths: {
-        entity: entityPath
-    }
+    paths: { entity: studyPeriodPaths.entity }
 };

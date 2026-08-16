@@ -1,127 +1,62 @@
 import {
-    extendZodWithOpenApi,
-    OpenAPIRegistry
-} from "@asteasolutions/zod-to-openapi";
-import { Router } from "express";
-import z from "zod";
-
-import { AuthRegistry } from "#/auth.js";
-import { buildHandler, HandlerFn, openApiArgsFromIO } from "#/BuildHandler.js";
-import { defaultGetHandler } from "#/defaultEndpoint.js";
-import IO from "#/modules/academic/course/Course.contract.js";
-import courseEntity from "#/modules/academic/course/Course.entity.js";
-import {
+    ApiResponse,
     buildPaginationResponse,
-    PaginationQueryType,
-    prismaPaginationParamsFromQuery
+    createResultResponder,
+    type EndpointActions
 } from "@pomi/api-core";
 
-extendZodWithOpenApi(z);
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
+import IO, {
+    coursePaths,
+    type ListQueryParams
+} from "#/modules/academic/course/Course.contract.js";
+import { courseProblemResponses } from "#/modules/academic/course/Course.problems.js";
+import z from "zod";
 
-const listFn: HandlerFn<typeof IO.list> = async (ctx, input) => {
-    const { query } = input;
-    const where = {
-        code: {
-            contains: query.courseCode,
-            mode: "insensitive" as const
-        },
-        unit: {
-            ...(query.unitId ? { id: query.unitId } : {}),
-            ...(query.unitCode ? { code: query.unitCode } : {})
-        }
-    };
-    const delegate = ctx.prisma.course;
-    const total = await delegate.count({ where });
-    const hasExplicitPagination =
-        query.page !== undefined || query.pageSize !== undefined;
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 20;
-    const data = await delegate.findMany({
-        ...(hasExplicitPagination
-            ? prismaPaginationParamsFromQuery({ page, pageSize })
-            : {}),
-        ...courseEntity.selection,
-        where
-    });
-    const paginationQuery: PaginationQueryType = {
-        page: hasExplicitPagination ? page : 1,
-        pageSize: hasExplicitPagination ? pageSize : Math.max(total, 1)
-    };
-    const entities = data.map(courseEntity.build) as Array<
-        z.infer<typeof IO.schema>
-    >;
-    return {
-        200: buildPaginationResponse<typeof IO.schema>(
-            entities,
-            total,
-            paginationQuery,
+const { schema: _schema, ...contracts } = IO;
+type Actions = EndpointActions<typeof contracts, unknown, Context>;
+const respond = createResultResponder(courseProblemResponses);
+
+const list: Actions["list"] = async (ctx, input) => {
+    const result = await ctx.courseService.list(input.query);
+    const page = input.query.page ?? 1;
+    const pageSize = input.query.pageSize ?? Math.max(result.total, 1);
+    return ApiResponse.ok(
+        buildPaginationResponse<typeof IO.schema>(
+            result.items as Array<z.infer<typeof IO.schema>>,
+            result.total,
+            { page, pageSize },
             (pageNumber) =>
-                listPath({
-                    ...query,
-                    page: pageNumber,
-                    pageSize: paginationQuery.pageSize
-                })
+                listPath({ ...input.query, page: pageNumber, pageSize })
         )
-    };
+    );
 };
 
-const list = buildHandler(IO.list.request, IO.list.response, listFn);
-
-const get = defaultGetHandler(
-    (p) => p.course,
-    courseEntity.selection,
-    courseEntity.build,
-    "Course not found"
-);
-
-const router = Router();
-const authRegistry = new AuthRegistry();
-
-router.get("/courses/:id", get);
-
-authRegistry.addException("GET", "/courses");
-router.get("/courses", list);
-
-function entityPath(courseId: number) {
-    return `/courses/${courseId}`;
-}
-
-type ListQueryParams = {
-    unitId?: number;
-    unitCode?: string;
-    courseCode?: string;
-} & Partial<PaginationQueryType>;
+const get: Actions["get"] = async (ctx, input) =>
+    respond(await ctx.courseService.getById(input.path.id), ApiResponse.ok);
 
 function listPath(query: ListQueryParams) {
-    return (
-        `/courses?` +
-        [
-            query.unitId ? "unitId=" + query.unitId : undefined,
-            query.unitCode ? "unitCode=" + query.unitCode : undefined,
-            query.courseCode ? "courseCode=" + query.courseCode : undefined,
-            query.page ? "page=" + query.page : undefined,
-            query.pageSize ? "pageSize=" + query.pageSize : undefined
-        ]
-            .filter(Boolean)
-            .join("&")
-    );
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined) params.set(key, String(value));
+    }
+    const search = params.toString();
+    return `/courses${search ? `?${search}` : ""}`;
 }
 
-authRegistry.addException("GET", "/courses/:id");
-
-const registry = new OpenAPIRegistry();
-
-registry.registerPath(openApiArgsFromIO(IO.get));
-registry.registerPath(openApiArgsFromIO(IO.list));
+const actions: Actions = { list, get };
+const { router, registry, authRegistry } = createDataEndpointRegistries(
+    contracts,
+    actions
+);
 
 export default {
-    contracts: IO,
+    contracts,
     router,
     registry,
     authRegistry,
     paths: {
         list: listPath,
-        entity: entityPath
-    },
-    entity: courseEntity
+        entity: coursePaths.entity
+    }
 };
