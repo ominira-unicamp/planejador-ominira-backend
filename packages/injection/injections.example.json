@@ -1,0 +1,43 @@
+{
+    "version": 1,
+    "rootDirectory": "../..",
+    "injections": [
+        {
+            "name": "academic-data",
+            "description": "Dados acadêmicos",
+            "schedule": { "intervalMs": 86400000 },
+            "obtain": {
+                "command": "<obtain-command>",
+                "args": [],
+                "cwd": ".",
+                "env": {},
+                "timeoutMs": 3600000
+            },
+            "input": {
+                "directory": "data/injections/academic-data",
+                "fileName": "academic-data.json"
+            },
+            "options": { "databaseConcurrency": 8 }
+        },
+        {
+            "name": "calendar",
+            "description": "Calendário acadêmico",
+            "schedule": { "intervalMs": 86400000 },
+            "obtain": {
+                "command": "<obtain-command>",
+                "args": [],
+                "cwd": ".",
+                "env": {},
+                "timeoutMs": 1800000
+            },
+            "input": {
+                "directory": "data/injections/calendar",
+                "fileName": "calendario.json"
+            },
+            "options": {
+                "transactionTimeout": 600000,
+                "transactionMaxWait": 60000
+            }
+        }
+    ]
+}

@@ -1,20 +1,11 @@
-import { createDatabaseClient } from "@pomi/db";
-import dotenv from "dotenv";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
-dotenv.config();
-
-const prisma = createDatabaseClient(process.env.DATABASE_URL!);
-const calendarJsonPath = join(process.cwd(), ".local", "calendario.json");
-const transactionTimeout = Number(
-    process.env.CALENDAR_TRANSACTION_TIMEOUT_MS ?? "600000"
-);
-if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
-    throw new Error(
-        "CALENDAR_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
-    );
+export type CalendarInjectionOptions = {
+    transactionTimeout?: number;
+    transactionMaxWait?: number;
+};
 
 interface CalendarJsonEvent {
     dataInicio: string;
@@ -59,7 +50,9 @@ function parseDate(value: string, field: string, index: number) {
     return date;
 }
 
-function readCalendarEvents(): ParsedCalendarJsonEvent[] {
+function readCalendarEvents(
+    calendarJsonPath: string
+): ParsedCalendarJsonEvent[] {
     const raw = readFileSync(calendarJsonPath, "utf-8");
     const parsed = unwrapScrapeData(JSON.parse(raw));
 
@@ -76,7 +69,7 @@ function readCalendarEvents(): ParsedCalendarJsonEvent[] {
             CalendarJsonEvent & NativeCalendarJsonEvent
         >;
         const dataInicio = event.startDate ?? event.dataInicio;
-        const dataFim = event.endDate ?? event.dataFim;
+        const dataFim = "endDate" in event ? event.endDate : event.dataFim;
         const categoria = event.category ?? event.categoria;
         const descricao = event.description ?? event.descricao;
         if (
@@ -117,8 +110,18 @@ function readCalendarEvents(): ParsedCalendarJsonEvent[] {
     });
 }
 
-async function main() {
-    const calendarEvents = readCalendarEvents();
+export async function injectCalendar(
+    { prisma, inputPath }: InjectionContext,
+    {
+        transactionTimeout = 600_000,
+        transactionMaxWait = 60_000
+    }: CalendarInjectionOptions = {}
+) {
+    if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+        throw new Error("transactionTimeout deve ser um inteiro positivo");
+    if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
+        throw new Error("transactionMaxWait deve ser um inteiro positivo");
+    const calendarEvents = readCalendarEvents(inputPath);
     const normalizedEvents = calendarEvents.map((calendarEvent, index) => ({
         ...calendarEvent,
         startDate: parseDate(calendarEvent.dataInicio, "dataInicio", index),
@@ -275,18 +278,8 @@ async function main() {
                 `✨ Calendário sincronizado: ${createdEvents} eventos criados, ${updatedEvents} eventos enriquecidos.`
             );
         },
-        { timeout: transactionTimeout, maxWait: 60_000 }
+        { timeout: transactionTimeout, maxWait: transactionMaxWait }
     );
 
     console.log("✨ Injeção incremental concluída com sucesso!");
 }
-
-main()
-    .then(async () => {
-        await prisma.$disconnect();
-    })
-    .catch(async (error) => {
-        console.error("❌ Erro durante a injeção do calendário:", error);
-        await prisma.$disconnect();
-        process.exit(1);
-    });

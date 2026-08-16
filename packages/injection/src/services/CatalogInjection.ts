@@ -1,29 +1,17 @@
 import {
     CourseBlockType,
     CourseRequirementType,
-    createDatabaseClient,
     Prisma,
     PrismaClient
 } from "@pomi/db";
-import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
-dotenv.config();
-
-const fetchConcurrency = Number(process.env.CATALOG_FETCH_CONCURRENCY ?? "6");
-const transactionTimeout = Number(
-    process.env.CATALOG_TRANSACTION_TIMEOUT_MS ?? "600000"
-);
-
-if (!Number.isInteger(fetchConcurrency) || fetchConcurrency < 1)
-    throw new Error("CATALOG_FETCH_CONCURRENCY deve ser um inteiro positivo");
-if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
-    throw new Error(
-        "CATALOG_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
-    );
+export type CatalogInjectionOptions = {
+    transactionTimeout?: number;
+    transactionMaxWait?: number;
+};
 
 type CatalogSource = {
     year: number;
@@ -374,7 +362,13 @@ async function importCatalog(
     prisma: PrismaClient,
     source: CatalogSource,
     courseIds: Map<string, number>,
-    prefixIds: Map<string, number>
+    prefixIds: Map<string, number>,
+    options: Required<
+        Pick<
+            CatalogInjectionOptions,
+            "transactionTimeout" | "transactionMaxWait"
+        >
+    >
 ) {
     const programs = source.programs ?? [];
     if (programs.length === 0) {
@@ -534,7 +528,10 @@ async function importCatalog(
                 missingRequirements: [...missingRequirements]
             };
         },
-        { timeout: transactionTimeout, maxWait: 60_000 }
+        {
+            timeout: options.transactionTimeout,
+            maxWait: options.transactionMaxWait
+        }
     );
     if (result.missingRequirements.length > 0)
         console.warn(
@@ -545,43 +542,38 @@ async function importCatalog(
     );
 }
 
-async function main() {
-    const prisma = createDatabaseClient(process.env.DATABASE_URL!);
-    try {
-        const [courses, prefixes] = await Promise.all([
-            prisma.course.findMany({ select: { id: true, code: true } }),
-            prisma.prefixes.findMany({ select: { id: true, prefix: true } })
-        ]);
-        const courseIds = new Map(
-            courses.map((course) => [course.code.toUpperCase(), course.id])
-        );
-        const prefixIds = new Map(
-            prefixes.map((prefix) => [prefix.prefix.toUpperCase(), prefix.id])
-        );
-        const inputPath = resolve(
-            process.env.CATALOG_INPUT ??
-                resolve(process.cwd(), ".local", "catalogo_curriculos.json")
-        );
-        const catalogs = normalizeCatalogs(
-            JSON.parse(await readFile(inputPath, "utf8"))
-        );
-        if (catalogs.length === 0)
-            throw new Error("Nenhum catálogo foi encontrado na página da DAC");
-        console.log(
-            `Importando ${catalogs.length} catálogos: ${catalogs.map(({ year }) => year).join(", ")}`
-        );
-        for (const catalog of catalogs)
-            await importCatalog(prisma, catalog, courseIds, prefixIds);
-    } finally {
-        await prisma.$disconnect();
-    }
+export async function injectCatalogs(
+    { prisma, inputPath }: InjectionContext,
+    {
+        transactionTimeout = 600_000,
+        transactionMaxWait = 60_000
+    }: CatalogInjectionOptions = {}
+) {
+    if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+        throw new Error("transactionTimeout deve ser um inteiro positivo");
+    if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
+        throw new Error("transactionMaxWait deve ser um inteiro positivo");
+    const [courses, prefixes] = await Promise.all([
+        prisma.course.findMany({ select: { id: true, code: true } }),
+        prisma.prefixes.findMany({ select: { id: true, prefix: true } })
+    ]);
+    const courseIds = new Map(
+        courses.map((course) => [course.code.toUpperCase(), course.id])
+    );
+    const prefixIds = new Map(
+        prefixes.map((prefix) => [prefix.prefix.toUpperCase(), prefix.id])
+    );
+    const catalogs = normalizeCatalogs(
+        JSON.parse(await readFile(inputPath, "utf8"))
+    );
+    if (catalogs.length === 0)
+        throw new Error("Nenhum catálogo foi encontrado na página da DAC");
+    console.log(
+        `Importando ${catalogs.length} catálogos: ${catalogs.map(({ year }) => year).join(", ")}`
+    );
+    for (const catalog of catalogs)
+        await importCatalog(prisma, catalog, courseIds, prefixIds, {
+            transactionTimeout,
+            transactionMaxWait
+        });
 }
-
-if (
-    process.argv[1] &&
-    import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-)
-    main().catch((error: unknown) => {
-        console.error("Falha na importação dos catálogos:", error);
-        process.exitCode = 1;
-    });

@@ -1,31 +1,13 @@
-import { createDatabaseClient, CurriculumSuggestionType } from "@pomi/db";
-import dotenv from "dotenv";
+import { CurriculumSuggestionType } from "@pomi/db";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
-dotenv.config();
-
-const defaultInput = resolve(
-    process.cwd(),
-    ".local",
-    "sugestao_curriculo.json"
-);
-const inputPath = resolve(process.env.SUGGESTION_INPUT ?? defaultInput);
-const transactionTimeout = Number(
-    process.env.SUGGESTION_TRANSACTION_TIMEOUT_MS ?? "120000"
-);
-const transactionMaxWait = Number(
-    process.env.SUGGESTION_TRANSACTION_MAX_WAIT_MS ?? "60000"
-);
-if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
-    throw new Error(
-        "SUGGESTION_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
-    );
-if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
-    throw new Error(
-        "SUGGESTION_TRANSACTION_MAX_WAIT_MS deve ser um inteiro positivo"
-    );
+export type SuggestionsInjectionOptions = {
+    concurrency?: number;
+    transactionTimeout?: number;
+    transactionMaxWait?: number;
+};
 
 type CourseInput = { code: string };
 type SemesterInput = {
@@ -49,8 +31,6 @@ type CatalogProgramLookup = {
     id: number;
     specializations: Map<string, number>;
 };
-
-const prisma = createDatabaseClient(process.env.DATABASE_URL!);
 
 function normalizeCode(code: string) {
     return code.replace(/\s+/g, "").toUpperCase();
@@ -83,7 +63,10 @@ async function importSuggestion(
     program: ProgramInput,
     suggestion: SuggestionInput,
     catalogPrograms: Map<string, CatalogProgramLookup>,
-    courseIds: Map<string, number>
+    courseIds: Map<string, number>,
+    transactionTimeout: number,
+    transactionMaxWait: number,
+    prisma: InjectionContext["prisma"]
 ) {
     const catalogProgram = catalogPrograms.get(
         `${catalog.year}:${program.code}`
@@ -221,7 +204,20 @@ async function runWithConcurrency<T>(
     );
 }
 
-async function main() {
+export async function injectSuggestions(
+    { prisma, inputPath }: InjectionContext,
+    {
+        concurrency = 4,
+        transactionTimeout = 120_000,
+        transactionMaxWait = 60_000
+    }: SuggestionsInjectionOptions = {}
+) {
+    if (!Number.isInteger(concurrency) || concurrency < 1)
+        throw new Error("concurrency deve ser um inteiro positivo");
+    if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+        throw new Error("transactionTimeout deve ser um inteiro positivo");
+    if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
+        throw new Error("transactionMaxWait deve ser um inteiro positivo");
     const input = unwrapScrapeData(
         JSON.parse(await readFile(inputPath, "utf8"))
     ) as Input;
@@ -284,13 +280,6 @@ async function main() {
             }))
         )
     );
-    const concurrency = Number(
-        process.env.SUGGESTION_INJECTION_CONCURRENCY ?? "4"
-    );
-    if (!Number.isInteger(concurrency) || concurrency < 1)
-        throw new Error(
-            "SUGGESTION_INJECTION_CONCURRENCY deve ser um inteiro positivo"
-        );
     let importedSuggestions = 0;
     let importedCourses = 0;
     let missingCourses = 0;
@@ -304,7 +293,10 @@ async function main() {
                     program,
                     suggestion,
                     catalogPrograms,
-                    courseIds
+                    courseIds,
+                    transactionTimeout,
+                    transactionMaxWait,
+                    prisma
                 );
                 importedSuggestions += result.semesters > 0 ? 1 : 0;
                 importedCourses += result.courses;
@@ -324,12 +316,3 @@ async function main() {
         )
     );
 }
-
-main()
-    .catch((error: unknown) => {
-        console.error("Falha na importação das sugestões:", error);
-        process.exitCode = 1;
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });

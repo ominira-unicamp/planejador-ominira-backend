@@ -1,20 +1,11 @@
-import { createDatabaseClient, DayOfWeek } from "@pomi/db";
-import dotenv from "dotenv";
+import { DayOfWeek } from "@pomi/db";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
-dotenv.config();
-const databaseConcurrency = Number(
-    process.env.ACADEMIC_INJECTION_CONCURRENCY ?? "8"
-);
-if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
-    throw new Error(
-        "ACADEMIC_INJECTION_CONCURRENCY deve ser um inteiro positivo"
-    );
-const prisma = createDatabaseClient(process.env.DATABASE_URL!, {
-    max: databaseConcurrency
-});
+export type AcademicDataInjectionOptions = {
+    databaseConcurrency?: number;
+};
 interface Aula {
     weekday: string;
     time: {
@@ -77,13 +68,13 @@ async function mapWithConcurrency<T, R>(
     return results;
 }
 
-async function main() {
+export async function injectAcademicData(
+    { prisma, inputPath }: InjectionContext,
+    { databaseConcurrency = 8 }: AcademicDataInjectionOptions = {}
+) {
+    if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
+        throw new Error("databaseConcurrency deve ser um inteiro positivo");
     console.log("🌱 Iniciando injeção dos dados acadêmicos...");
-
-    const inputPath = resolve(
-        process.env.ACADEMIC_DATA_INPUT ??
-            resolve(import.meta.dirname, "../../../db/prisma/seed.json")
-    );
     const parsedInput = unwrapScrapeData(
         JSON.parse(await readFile(inputPath, "utf-8"))
     );
@@ -432,13 +423,3 @@ async function main() {
         )
     );
 }
-
-main()
-    .then(async () => {
-        await prisma.$disconnect();
-    })
-    .catch(async (e) => {
-        console.error("❌ Erro durante a injeção:", e);
-        await prisma.$disconnect();
-        process.exit(1);
-    });

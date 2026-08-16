@@ -6,17 +6,17 @@
     "scripts": {
         "build": "tsc -b",
         "test": "tsx --test test/**/*.test.ts",
-        "inject:calendar": "tsx src/scripts/calendar-injection.ts",
-        "inject:catalogs": "tsx src/scripts/catalog-injection.ts",
-        "inject:catalog-disciplines": "tsx src/scripts/catalog-discipline-injection.ts",
-        "inject:suggestions": "tsx src/scripts/suggestion-injection.ts",
-        "inject:academic-data": "tsx src/scripts/academic-data-injection.ts"
+        "pomi-injection": "tsx src/cli.ts"
     },
     "dependencies": {
         "@prisma/adapter-pg": "7.8.0",
         "@pomi/db": "*",
         "dotenv": "^17.2.3",
         "pg": "^8.16.3",
-        "zod": "^4.2.1"
+        "zod": "^4.2.1",
+        "commander": "^14.0.2"
+    },
+    "bin": {
+        "pomi-injection": "./dist/cli.js"
     }
 }

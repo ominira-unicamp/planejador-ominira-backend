@@ -90,14 +90,26 @@ dois repositórios devem estar lado a lado. O realm `pomi`, o client público
 `pomi-frontend` e a audiência `pomi-api` são reconciliados pelo serviço
 transitório `keycloak-config`. O console local fica em `http://localhost:8080`.
 
-### Injeção de dados acadêmicos
+### Orquestração de obtenções e injeções
 
-O injetor lê por padrão `./packages/db/prisma/seed.json`. Outro arquivo pode ser
-informado por `ACADEMIC_DATA_INPUT`.
+O pacote `@pomi/injection` fornece o CLI `pomi-injection`. Cada injection é
+predefinida no registry do pacote: a obtenção roda em um subprocesso externo e
+a persistência é executada pelo serviço correspondente. O JSON configura a
+agenda, o comando de obtenção, o arquivo de entrada e as opções tipadas da função.
+
+Copie `packages/injection/injections.example.json`, ajuste os comandos e use:
 
 ```bash
-npm run inject:academic-data
+npm run injection:validate
+npm run injection:list
+npm run injection:run -- academic-data
+npm run injection:watch
 ```
+
+O `watch` executa uma injection por vez, registra falhas e continua no próximo
+intervalo. O diretório de dados e o lock do scheduler ficam sob a raiz
+configurada, sem remover arquivos existentes. Os tipos predefinidos são
+`academic-data`, `calendar`, `catalogs`, `catalog-disciplines` e `suggestions`.
 
 ### Acessando a Documentação
 

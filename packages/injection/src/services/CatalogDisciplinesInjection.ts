@@ -1,24 +1,13 @@
-import { createDatabaseClient, Prisma } from "@pomi/db";
-import dotenv from "dotenv";
+import { Prisma } from "@pomi/db";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
-dotenv.config();
-
-const inputPath = resolve(
-    process.env.CATALOG_DISCIPLINES_INPUT ??
-        resolve(process.cwd(), ".local", "catalogo_disciplinas.json")
-);
-const unitCode = process.env.CATALOG_DISCIPLINES_UNIT_CODE ?? "DAC";
-const transactionTimeout = Number(
-    process.env.CATALOG_DISCIPLINES_TRANSACTION_TIMEOUT_MS ?? "1800000"
-);
-if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
-    throw new Error(
-        "CATALOG_DISCIPLINES_TRANSACTION_TIMEOUT_MS deve ser um inteiro positivo"
-    );
-const prisma = createDatabaseClient(process.env.DATABASE_URL!);
+export type CatalogDisciplinesInjectionOptions = {
+    unitCode?: string;
+    transactionTimeout?: number;
+    transactionMaxWait?: number;
+};
 
 type CourseInput = { code: string; name: string; credits: number };
 type PrefixInput = { prefix: string; courses: CourseInput[] };
@@ -35,7 +24,19 @@ function normalize(value: string) {
     return value.replace(/\s+/g, "").toUpperCase();
 }
 
-async function main() {
+export async function injectCatalogDisciplines(
+    { prisma, inputPath }: InjectionContext,
+    {
+        unitCode = "DAC",
+        transactionTimeout = 1_800_000,
+        transactionMaxWait = 60_000
+    }: CatalogDisciplinesInjectionOptions = {}
+) {
+    if (!unitCode.trim()) throw new Error("unitCode deve ser informado");
+    if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
+        throw new Error("transactionTimeout deve ser um inteiro positivo");
+    if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
+        throw new Error("transactionMaxWait deve ser um inteiro positivo");
     const input = unwrapScrapeData(
         JSON.parse(await readFile(inputPath, "utf8"))
     ) as Input | LegacyInput;
@@ -124,16 +125,7 @@ async function main() {
                 unitCode
             };
         },
-        { timeout: transactionTimeout, maxWait: 60_000 }
+        { timeout: transactionTimeout, maxWait: transactionMaxWait }
     );
     console.log(JSON.stringify(result, null, 2));
 }
-
-main()
-    .catch((error: unknown) => {
-        console.error("Falha na injeção das disciplinas:", error);
-        process.exitCode = 1;
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
