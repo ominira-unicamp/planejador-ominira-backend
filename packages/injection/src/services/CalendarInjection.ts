@@ -111,7 +111,7 @@ function readCalendarEvents(
 }
 
 export async function injectCalendar(
-    { prisma, inputPath }: InjectionContext,
+    { prisma, inputPath, logger }: InjectionContext,
     {
         transactionTimeout = 600_000,
         transactionMaxWait = 60_000
@@ -141,12 +141,28 @@ export async function injectCalendar(
         `📅 Sincronizando ${calendarEvents.length} eventos e ${tagNames.size} tags...`
     );
 
+    const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     await prisma.$transaction(
         async (transaction) => {
+            const existingTagNames = new Set(
+                (
+                    await transaction.calendarTag.findMany({
+                        where: { name: { in: [...tagNames] } },
+                        select: { name: true }
+                    })
+                ).map(({ name }) => name)
+            );
             await transaction.calendarTag.createMany({
                 data: Array.from(tagNames, (name) => ({ name })),
                 skipDuplicates: true
             });
+            for (const name of tagNames)
+                if (!existingTagNames.has(name))
+                    changes.push({
+                        entity: "CalendarTag",
+                        operation: "create",
+                        key: { name }
+                    });
 
             const calendarTags = await transaction.calendarTag.findMany({
                 select: { id: true, name: true }
@@ -250,6 +266,12 @@ export async function injectCalendar(
                         existingEvent.tags.push(
                             ...missingTagIds.map((id) => ({ id }))
                         );
+                        changes.push({
+                            entity: "CalendarEvent",
+                            operation: "update",
+                            key: { id: existingEvent.id },
+                            changedFields: ["tags"]
+                        });
                         updatedEvents += 1;
                     }
                 } else {
@@ -270,6 +292,11 @@ export async function injectCalendar(
                         id: createdEvent.id,
                         tags: tagIds.map((id) => ({ id }))
                     });
+                    changes.push({
+                        entity: "CalendarEvent",
+                        operation: "create",
+                        key: { id: createdEvent.id }
+                    });
                     createdEvents += 1;
                 }
             }
@@ -280,6 +307,8 @@ export async function injectCalendar(
         },
         { timeout: transactionTimeout, maxWait: transactionMaxWait }
     );
+
+    for (const change of changes) logger.change(change);
 
     console.log("✨ Injeção incremental concluída com sucesso!");
 }

@@ -6,6 +6,7 @@ export type ProcessSpec = {
     cwd: string;
     env: Record<string, string>;
     timeoutMs: number;
+    stderrToStdout?: boolean;
 };
 
 export async function runProcess(
@@ -16,9 +17,15 @@ export async function runProcess(
         const child = spawn(spec.command, spec.args, {
             cwd: spec.cwd,
             env: { ...process.env, ...spec.env },
-            stdio: "inherit",
+            stdio: spec.stderrToStdout
+                ? ["inherit", "inherit", "pipe"]
+                : "inherit",
             shell: false
         });
+        if (spec.stderrToStdout)
+            child.stderr?.on("data", (chunk: Buffer) => {
+                process.stdout.write(chunk);
+            });
         let settled = false;
         const finish = (error?: Error) => {
             if (settled) return;

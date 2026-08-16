@@ -25,7 +25,7 @@ function normalize(value: string) {
 }
 
 export async function injectCatalogDisciplines(
-    { prisma, inputPath }: InjectionContext,
+    { prisma, inputPath, logger }: InjectionContext,
     {
         unitCode = "DAC",
         transactionTimeout = 1_800_000,
@@ -60,18 +60,37 @@ export async function injectCatalogDisciplines(
     }
     if (latestCourses.size === 0)
         throw new Error("Nenhuma disciplina encontrada nos catálogos");
+    const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     const result = await prisma.$transaction(
         async (tx) => {
+            const existingUnit = await tx.unit.findUnique({
+                where: { code: unitCode },
+                select: { id: true }
+            });
             const unit = await tx.unit.upsert({
                 where: { code: unitCode },
                 create: { code: unitCode },
                 update: {}
             });
+            if (!existingUnit)
+                changes.push({
+                    entity: "Unit",
+                    operation: "create",
+                    key: { code: unitCode }
+                });
             const prefixCodes = [
                 ...new Set(
                     [...latestCourses.values()].map(({ prefix }) => prefix)
                 )
             ];
+            const existingPrefixCodes = new Set(
+                (
+                    await tx.prefixes.findMany({
+                        where: { prefix: { in: prefixCodes } },
+                        select: { prefix: true }
+                    })
+                ).map(({ prefix }) => prefix)
+            );
             await tx.prefixes.createMany({
                 data: prefixCodes.map((prefix) => ({
                     prefix,
@@ -79,6 +98,13 @@ export async function injectCatalogDisciplines(
                 })),
                 skipDuplicates: true
             });
+            for (const prefix of prefixCodes)
+                if (!existingPrefixCodes.has(prefix))
+                    changes.push({
+                        entity: "Prefixes",
+                        operation: "create",
+                        key: { prefix }
+                    });
             const persistedPrefixes = new Map(
                 (
                     await tx.prefixes.findMany({
@@ -100,6 +126,22 @@ export async function injectCatalogDisciplines(
                     };
                 }
             );
+            const existingCourses = new Map(
+                (
+                    await tx.course.findMany({
+                        where: {
+                            code: { in: courses.map(({ code }) => code) }
+                        },
+                        select: {
+                            id: true,
+                            code: true,
+                            name: true,
+                            credits: true,
+                            prefixId: true
+                        }
+                    })
+                ).map((course) => [course.code, course])
+            );
             for (let start = 0; start < courses.length; start += 500) {
                 const rows = courses
                     .slice(start, start + 500)
@@ -116,6 +158,33 @@ export async function injectCatalogDisciplines(
                         "prefixId" = EXCLUDED."prefixId"
                 `;
             }
+            for (const course of courses) {
+                const existing = existingCourses.get(course.code);
+                if (!existing)
+                    changes.push({
+                        entity: "Course",
+                        operation: "create",
+                        key: { code: course.code }
+                    });
+                else {
+                    const changedFields = [
+                        ...(existing.name !== course.name ? ["name"] : []),
+                        ...(existing.credits !== course.credits
+                            ? ["credits"]
+                            : []),
+                        ...(existing.prefixId !== course.prefixId
+                            ? ["prefixId"]
+                            : [])
+                    ];
+                    if (changedFields.length > 0)
+                        changes.push({
+                            entity: "Course",
+                            operation: "update",
+                            key: { id: existing.id, code: course.code },
+                            changedFields
+                        });
+                }
+            }
             const years = catalogs.map(({ year }) => year);
             return {
                 firstYear: Math.min(...years),
@@ -127,5 +196,6 @@ export async function injectCatalogDisciplines(
         },
         { timeout: transactionTimeout, maxWait: transactionMaxWait }
     );
+    for (const change of changes) logger.change(change);
     console.log(JSON.stringify(result, null, 2));
 }

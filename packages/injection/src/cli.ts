@@ -3,9 +3,16 @@ import { Command } from "commander";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { loadInjectionConfig } from "./config.js";
+import { injectionNames } from "./registry.js";
 import { runInjection } from "./runner.js";
 
 const program = new Command().name("pomi-injection").version("0.1.0");
+program.addHelpText(
+    "after",
+    `\nInjections predefinidas:\n${injectionNames
+        .map((name) => `  - ${name}`)
+        .join("\n")}\n`
+);
 program.option(
     "--config <file>",
     "arquivo de configuração",
@@ -24,12 +31,15 @@ program.command("validate").action(async () => {
     console.log(`${config.injections.length} injection(s) válida(s)`);
 });
 
-program.command("run <name>").action(async (name: string) => {
-    const config = await loadInjectionConfig(program.opts().config);
-    const injection = config.injections.find((item) => item.name === name);
-    if (!injection) throw new Error(`Injection não encontrada: ${name}`);
-    await runInjection(config, injection);
-});
+program
+    .command("run <name>")
+    .description(`executa uma injection (${injectionNames.join(", ")})`)
+    .action(async (name: string) => {
+        const config = await loadInjectionConfig(program.opts().config);
+        const injection = config.injections.find((item) => item.name === name);
+        if (!injection) throw new Error(`Injection não encontrada: ${name}`);
+        await runInjection(config, injection);
+    });
 
 program.command("watch").action(async () => {
     const config = await loadInjectionConfig(program.opts().config);

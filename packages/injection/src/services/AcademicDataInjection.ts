@@ -69,12 +69,13 @@ async function mapWithConcurrency<T, R>(
 }
 
 export async function injectAcademicData(
-    { prisma, inputPath }: InjectionContext,
+    { prisma, inputPath, logger }: InjectionContext,
     { databaseConcurrency = 8 }: AcademicDataInjectionOptions = {}
 ) {
     if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
         throw new Error("databaseConcurrency deve ser um inteiro positivo");
     console.log("🌱 Iniciando injeção dos dados acadêmicos...");
+    const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     const parsedInput = unwrapScrapeData(
         JSON.parse(await readFile(inputPath, "utf-8"))
     );
@@ -148,6 +149,12 @@ export async function injectAcademicData(
     );
     if (newProfessors.length > 0)
         await prisma.professor.createMany({ data: newProfessors });
+    for (const professor of newProfessors)
+        changes.push({
+            entity: "Professor",
+            operation: "create",
+            key: { name: professor.name }
+        });
 
     console.log(`🚪 Inserindo ${allRooms.size} salas...`);
     await prisma.room.createMany({
@@ -290,6 +297,22 @@ export async function injectAcademicData(
                       },
                       include: { course: true, studyPeriod: true }
                   });
+            if (!existingClass)
+                changes.push({
+                    entity: "Class",
+                    operation: "create",
+                    key: { id: persisted.id, code: classData.code }
+                });
+            else if (
+                existingClass.reservations.join(",") !==
+                classData.reservations.join(",")
+            )
+                changes.push({
+                    entity: "Class",
+                    operation: "update",
+                    key: { id: persisted.id, code: classData.code },
+                    changedFields: ["reservations"]
+                });
             return [classData.turmaKey, persisted] as const;
         }
     );
@@ -406,6 +429,18 @@ export async function injectAcademicData(
     console.log(`📅 Inserindo ${newSchedules.length} horários novos...`);
     if (newSchedules.length > 0)
         await prisma.classSchedule.createMany({ data: newSchedules });
+    for (const schedule of newSchedules)
+        changes.push({
+            entity: "ClassSchedule",
+            operation: "create",
+            key: {
+                classId: schedule.classId,
+                roomId: schedule.roomId,
+                dayOfWeek: schedule.dayOfWeek,
+                start: schedule.start,
+                end: schedule.end
+            }
+        });
 
     console.log(
         JSON.stringify(
@@ -422,4 +457,5 @@ export async function injectAcademicData(
             2
         )
     );
+    for (const change of changes) logger.change(change);
 }

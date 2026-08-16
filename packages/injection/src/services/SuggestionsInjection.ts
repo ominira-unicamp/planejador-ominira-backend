@@ -66,7 +66,8 @@ async function importSuggestion(
     courseIds: Map<string, number>,
     transactionTimeout: number,
     transactionMaxWait: number,
-    prisma: InjectionContext["prisma"]
+    prisma: InjectionContext["prisma"],
+    changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
     const catalogProgram = catalogPrograms.get(
         `${catalog.year}:${program.code}`
@@ -100,6 +101,20 @@ async function importSuggestion(
                     type = CurriculumSuggestionType.GENERAL;
                 }
             }
+            const existing = await tx.curriculumSuggestion.findUnique({
+                where: {
+                    catalogProgramId_code: {
+                        catalogProgramId: catalogProgram.id,
+                        code
+                    }
+                },
+                select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    catalogSpecializationId: true
+                }
+            });
             const persisted = await tx.curriculumSuggestion.upsert({
                 where: {
                     catalogProgramId_code: {
@@ -121,6 +136,29 @@ async function importSuggestion(
                 },
                 select: { id: true }
             });
+            if (!existing)
+                changes.push({
+                    entity: "CurriculumSuggestion",
+                    operation: "create",
+                    key: { id: persisted.id, code }
+                });
+            else {
+                const changedFields = [
+                    ...(existing.name !== name ? ["name"] : []),
+                    ...(existing.type !== type ? ["type"] : []),
+                    ...(existing.catalogSpecializationId !==
+                    catalogSpecializationId
+                        ? ["catalogSpecializationId"]
+                        : [])
+                ];
+                if (changedFields.length > 0)
+                    changes.push({
+                        entity: "CurriculumSuggestion",
+                        operation: "update",
+                        key: { id: existing.id, code },
+                        changedFields
+                    });
+            }
             await tx.semesterSuggestion.deleteMany({
                 where: { suggestionId: persisted.id }
             });
@@ -205,7 +243,7 @@ async function runWithConcurrency<T>(
 }
 
 export async function injectSuggestions(
-    { prisma, inputPath }: InjectionContext,
+    { prisma, inputPath, logger }: InjectionContext,
     {
         concurrency = 4,
         transactionTimeout = 120_000,
@@ -280,6 +318,7 @@ export async function injectSuggestions(
             }))
         )
     );
+    const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     let importedSuggestions = 0;
     let importedCourses = 0;
     let missingCourses = 0;
@@ -296,7 +335,8 @@ export async function injectSuggestions(
                     courseIds,
                     transactionTimeout,
                     transactionMaxWait,
-                    prisma
+                    prisma,
+                    changes
                 );
                 importedSuggestions += result.semesters > 0 ? 1 : 0;
                 importedCourses += result.courses;
@@ -308,6 +348,7 @@ export async function injectSuggestions(
             }
         }
     );
+    for (const change of changes) logger.change(change);
     console.log(
         JSON.stringify(
             { importedSuggestions, importedCourses, missingCourses },

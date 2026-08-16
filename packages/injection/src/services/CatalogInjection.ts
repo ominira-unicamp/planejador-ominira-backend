@@ -368,7 +368,8 @@ async function importCatalog(
             CatalogInjectionOptions,
             "transactionTimeout" | "transactionMaxWait"
         >
-    >
+    >,
+    changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
     const programs = source.programs ?? [];
     if (programs.length === 0) {
@@ -387,11 +388,18 @@ async function importCatalog(
     }
     const result = await prisma.$transaction(
         async (tx) => {
+            const existingCatalog = await tx.catalog.findFirst({
+                where: { year: source.year }
+            });
             const catalog =
-                (await tx.catalog.findFirst({
-                    where: { year: source.year }
-                })) ??
+                existingCatalog ??
                 (await tx.catalog.create({ data: { year: source.year } }));
+            if (!existingCatalog)
+                changes.push({
+                    entity: "Catalog",
+                    operation: "create",
+                    key: { id: catalog.id, year: source.year }
+                });
             let programsLinked = 0;
             let specializationsLinked = 0;
             let languagesLinked = 0;
@@ -407,6 +415,10 @@ async function importCatalog(
                     missingRequirements.add(missing);
             };
             for (const program of details) {
+                const existingProgram = await tx.program.findUnique({
+                    where: { code: program.code },
+                    select: { id: true, name: true, unitId: true }
+                });
                 const unit = await tx.unit.upsert({
                     where: { code: program.unitCode },
                     create: { code: program.unitCode },
@@ -421,6 +433,29 @@ async function importCatalog(
                     },
                     update: { name: program.name, unitId: unit.id }
                 });
+                if (!existingProgram)
+                    changes.push({
+                        entity: "Program",
+                        operation: "create",
+                        key: { id: persisted.id, code: program.code }
+                    });
+                else {
+                    const changedFields = [
+                        ...(existingProgram.name !== program.name
+                            ? ["name"]
+                            : []),
+                        ...(existingProgram.unitId !== unit.id
+                            ? ["unitId"]
+                            : [])
+                    ];
+                    if (changedFields.length > 0)
+                        changes.push({
+                            entity: "Program",
+                            operation: "update",
+                            key: { id: persisted.id, code: program.code },
+                            changedFields
+                        });
+                }
                 const catalogProgram = await tx.catalogProgram.upsert({
                     where: {
                         catalogId_programId: {
@@ -543,7 +578,7 @@ async function importCatalog(
 }
 
 export async function injectCatalogs(
-    { prisma, inputPath }: InjectionContext,
+    { prisma, inputPath, logger }: InjectionContext,
     {
         transactionTimeout = 600_000,
         transactionMaxWait = 60_000
@@ -571,9 +606,18 @@ export async function injectCatalogs(
     console.log(
         `Importando ${catalogs.length} catálogos: ${catalogs.map(({ year }) => year).join(", ")}`
     );
+    const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     for (const catalog of catalogs)
-        await importCatalog(prisma, catalog, courseIds, prefixIds, {
-            transactionTimeout,
-            transactionMaxWait
-        });
+        await importCatalog(
+            prisma,
+            catalog,
+            courseIds,
+            prefixIds,
+            {
+                transactionTimeout,
+                transactionMaxWait
+            },
+            changes
+        );
+    for (const change of changes) logger.change(change);
 }

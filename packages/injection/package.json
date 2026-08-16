@@ -9,12 +9,13 @@
         "pomi-injection": "tsx src/cli.ts"
     },
     "dependencies": {
-        "@prisma/adapter-pg": "7.8.0",
         "@pomi/db": "*",
+        "@prisma/adapter-pg": "7.8.0",
+        "commander": "^14.0.2",
         "dotenv": "^17.2.3",
         "pg": "^8.16.3",
-        "zod": "^4.2.1",
-        "commander": "^14.0.2"
+        "pino": "^10.3.1",
+        "zod": "^4.2.1"
     },
     "bin": {
         "pomi-injection": "./dist/cli.js"

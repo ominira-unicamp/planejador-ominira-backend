@@ -65,6 +65,8 @@ const services: Record<
         )
 };
 
+export const injectionNames = Object.keys(services);
+
 export function createInjectionService(definition: InjectionDefinition) {
     const factory = services[definition.name];
     if (!factory)

@@ -11,6 +11,7 @@ import {
     type InjectionDefinition
 } from "./config.js";
 import { loadInjectionEnv } from "./env.js";
+import { createInjectionLogger } from "./logger.js";
 import { runProcess } from "./process.js";
 import { createInjectionService, type InjectionService } from "./registry.js";
 
@@ -28,6 +29,7 @@ export async function runInjection(
             "DATABASE_URL deve ser configurada para executar a injection"
         );
     const runId = randomUUID();
+    const logger = createInjectionLogger(definition.name, runId);
     const inputPath = resolveInputPath(
         definition,
         config.rootDirectory,
@@ -68,7 +70,8 @@ export async function runInjection(
                         )
                     )
                 },
-                timeoutMs: definition.obtain.timeoutMs
+                timeoutMs: definition.obtain.timeoutMs,
+                stderrToStdout: true
             },
             signal
         );
@@ -77,7 +80,15 @@ export async function runInjection(
         const service = serviceFactory(definition);
         const prisma = createDatabaseClient(process.env.DATABASE_URL);
         try {
-            await service.run({ prisma, inputPath, runId, signal });
+            try {
+                await service.run({ prisma, inputPath, runId, logger, signal });
+            } catch (error) {
+                logger.error(
+                    { err: error },
+                    "Falha na persistência da injection"
+                );
+                throw error;
+            }
         } finally {
             await prisma.$disconnect();
         }
