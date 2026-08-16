@@ -26,14 +26,24 @@ export function createCourseService({
     return {
         async list(query) {
             const where = {
-                code: {
-                    contains: query.courseCode,
-                    mode: "insensitive" as const
-                },
-                unit: {
-                    ...(query.unitId ? { id: query.unitId } : {}),
-                    ...(query.unitCode ? { code: query.unitCode } : {})
-                }
+                ...(query.courseCode
+                    ? {
+                          code: {
+                              contains: query.courseCode,
+                              mode: "insensitive" as const
+                          }
+                      }
+                    : {}),
+                ...(query.unitId || query.unitCode
+                    ? {
+                          unit: {
+                              ...(query.unitId ? { id: query.unitId } : {}),
+                              ...(query.unitCode
+                                  ? { code: query.unitCode }
+                                  : {})
+                          }
+                      }
+                    : {})
             };
             const total = await prisma.course.count({ where });
             const courses = await prisma.course.findMany({

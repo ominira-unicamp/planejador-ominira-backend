@@ -50,7 +50,7 @@ export type AppCradle = {
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
     return createContainer<AppCradle>({
-        injectionMode: InjectionMode.CLASSIC
+        injectionMode: InjectionMode.PROXY
     }).register({
         config: asValue(config),
         prisma: asValue(prisma),

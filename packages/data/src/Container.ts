@@ -96,7 +96,7 @@ export function createDataContainer(
     prisma: DatabaseClient
 ) {
     return createContainer<DataCradle>({
-        injectionMode: InjectionMode.CLASSIC
+        injectionMode: InjectionMode.PROXY
     }).register({
         config: asValue(config),
         prisma: asValue(prisma),

@@ -42,7 +42,7 @@ const buildZodSchemas = (
         })
 });
 
-const buildZodIds = (prisma: PrismaClient) => ({
+const buildZodIds = ({ prisma }: { prisma: PrismaClient }) => ({
     course: buildZodSchemas(
         prisma.course,
         "Course not found",
