@@ -74,7 +74,7 @@ export async function injectAcademicData(
 ) {
     if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
         throw new Error("databaseConcurrency deve ser um inteiro positivo");
-    console.log("🌱 Iniciando injeção dos dados acadêmicos...");
+    logger.info("🌱 Iniciando injeção dos dados acadêmicos...");
     const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
     const parsedInput = unwrapScrapeData(
         JSON.parse(await readFile(inputPath, "utf-8"))
@@ -94,7 +94,7 @@ export async function injectAcademicData(
     > = new Map();
     const studyPeriods = new Map<string, { code: string; startDate: Date }>();
 
-    console.log("📊 Coletando dados...");
+    logger.info("📊 Coletando dados...");
     for (const period of academicData) {
         const studyPeriod = {
             code: `${period.year}s${period.semester}`,
@@ -132,13 +132,13 @@ export async function injectAcademicData(
         }
     }
 
-    console.log(`\n🏛️  Inserindo ${allUnits.size} institutos...`);
+    logger.info(`🏛️  Inserindo ${allUnits.size} institutos...`);
     await prisma.unit.createMany({
         data: Array.from(allUnits.values()),
         skipDuplicates: true
     });
 
-    console.log(`👨‍🏫 Inserindo ${allProfessors.size} professores...`);
+    logger.info(`👨‍🏫 Inserindo ${allProfessors.size} professores...`);
     const existingProfessorNames = new Set(
         (await prisma.professor.findMany({ select: { name: true } })).map(
             ({ name }) => name
@@ -158,13 +158,13 @@ export async function injectAcademicData(
             after: professor
         });
 
-    console.log(`🚪 Inserindo ${allRooms.size} salas...`);
+    logger.info(`🚪 Inserindo ${allRooms.size} salas...`);
     await prisma.room.createMany({
         data: Array.from(allRooms.values()),
         skipDuplicates: true
     });
 
-    console.log(`📅 Inserindo ${studyPeriods.size} períodos de estudo...`);
+    logger.info(`📅 Inserindo ${studyPeriods.size} períodos de estudo...`);
     await mapWithConcurrency(
         [...studyPeriods.values()],
         databaseConcurrency,
@@ -180,7 +180,7 @@ export async function injectAcademicData(
         (await prisma.unit.findMany()).map((i) => [i.code, i])
     );
 
-    console.log(`📚 Inserindo ${allCourses.size} cursos...`);
+    logger.info(`📚 Inserindo ${allCourses.size} cursos...`);
     await mapWithConcurrency(
         [...allCourses.values()],
         databaseConcurrency,
@@ -214,7 +214,7 @@ export async function injectAcademicData(
         (await prisma.studyPeriod.findMany()).map((sp) => [sp.code, sp])
     );
 
-    console.log("\n👥 Coletando turmas...");
+    logger.info("\n👥 Coletando turmas...");
     const allClasses: Array<{
         code: string;
         courseId: number;
@@ -269,7 +269,7 @@ export async function injectAcademicData(
     const uniqueClasses = [
         ...new Map(allClasses.map((item) => [item.turmaKey, item])).values()
     ];
-    console.log(`👥 Inserindo ${uniqueClasses.length} turmas...`);
+    logger.info(`👥 Inserindo ${uniqueClasses.length} turmas...`);
     const createdClassesArray = await prisma.class.findMany({
         include: { course: true, studyPeriod: true }
     });
@@ -330,7 +330,7 @@ export async function injectAcademicData(
     for (const [key, persisted] of persistedClasses)
         classesMap.set(key, persisted);
 
-    console.log("🔗 Conectando professores às turmas...");
+    logger.info("🔗 Conectando professores às turmas...");
     const professorConnections: Array<{ A: number; B: number }> = [];
 
     for (const classData of uniqueClasses) {
@@ -345,7 +345,7 @@ export async function injectAcademicData(
         }
     }
 
-    console.log(
+    logger.info(
         `🔗 Inserindo ${professorConnections.length} conexões professor-turma...`
     );
     for (let start = 0; start < professorConnections.length; start += 1_000) {
@@ -358,7 +358,7 @@ export async function injectAcademicData(
         );
     }
 
-    console.log("📅 Coletando horários...");
+    logger.info("📅 Coletando horários...");
     const allSchedules: Array<{
         classId: number;
         roomId: number;
@@ -437,7 +437,7 @@ export async function injectAcademicData(
                 `${schedule.classId}:${schedule.roomId}:${schedule.dayOfWeek}:${schedule.start}:${schedule.end}`
             )
     );
-    console.log(`📅 Inserindo ${newSchedules.length} horários novos...`);
+    logger.info(`📅 Inserindo ${newSchedules.length} horários novos...`);
     if (newSchedules.length > 0)
         await prisma.classSchedule.createMany({ data: newSchedules });
     for (const schedule of newSchedules)
@@ -455,7 +455,7 @@ export async function injectAcademicData(
             after: schedule
         });
 
-    console.log(
+    logger.info(
         JSON.stringify(
             {
                 units: allUnits.size,

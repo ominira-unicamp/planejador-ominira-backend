@@ -2,11 +2,16 @@
 import { Command } from "commander";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import pino from "pino";
 import { loadInjectionConfig } from "./config.js";
 import { injectionNames } from "./registry.js";
 import { runInjection } from "./runner.js";
 
 const program = new Command().name("pomi-injection").version("0.1.0");
+const cliLogger = pino({
+    level:
+        process.env.LOG_LEVEL ?? process.env.POMI_INJECTION_LOG_LEVEL ?? "info"
+});
 program.addHelpText(
     "after",
     `\nInjections predefinidas:\n${injectionNames
@@ -23,12 +28,16 @@ program.option(
 program.command("list").action(async () => {
     const config = await loadInjectionConfig(program.opts().config);
     for (const injection of config.injections)
-        console.log(`${injection.name}\t${injection.description ?? ""}`);
+        process.stdout.write(
+            `${injection.name}\t${injection.description ?? ""}\n`
+        );
 });
 
 program.command("validate").action(async () => {
     const config = await loadInjectionConfig(program.opts().config);
-    console.log(`${config.injections.length} injection(s) válida(s)`);
+    process.stdout.write(
+        `${config.injections.length} injection(s) válida(s)\n`
+    );
 });
 
 program
@@ -75,7 +84,10 @@ program.command("watch").action(async () => {
                 try {
                     await runInjection(config, injection, controller.signal);
                 } catch (error) {
-                    console.error(`[${injection.name}]`, error);
+                    cliLogger.error(
+                        { err: error, event: "injection.run.issue" },
+                        "Falha na execução da injection"
+                    );
                 }
             }
             await new Promise((resolve) => setTimeout(resolve, 1_000));
@@ -86,6 +98,9 @@ program.command("watch").action(async () => {
 });
 
 program.parseAsync().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error));
+    cliLogger.error(
+        { err: error, event: "injection.cli.error" },
+        "Falha ao executar o CLI"
+    );
     process.exitCode = 1;
 });

@@ -369,11 +369,12 @@ async function importCatalog(
             "transactionTimeout" | "transactionMaxWait"
         >
     >,
+    logger: InjectionContext["logger"],
     changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
     const programs = source.programs ?? [];
     if (programs.length === 0) {
-        console.warn(
+        logger.warn(
             `Catálogo ${source.year}: nenhum programa foi encontrado; ignorando.`
         );
         return;
@@ -381,7 +382,7 @@ async function importCatalog(
 
     const details = programs;
     if (details.length === 0) {
-        console.warn(
+        logger.warn(
             `Catálogo ${source.year}: nenhum programa pôde ser importado; ignorando.`
         );
         return;
@@ -591,10 +592,10 @@ async function importCatalog(
         }
     );
     if (result.missingRequirements.length > 0)
-        console.warn(
+        logger.warn(
             `Catálogo ${source.year}: ${result.missingRequirements.length} requisitos ausentes (${result.missingRequirements.join(", ")}); ignorados.`
         );
-    console.log(
+    logger.info(
         `Catálogo ${source.year}: ${result.programsLinked} programas, ${result.specializationsLinked} especializações, ${result.languagesLinked} línguas, ${result.blocksCreated} blocos e ${result.requirementsCreated} requisitos vinculados.`
     );
 }
@@ -625,7 +626,7 @@ export async function injectCatalogs(
     );
     if (catalogs.length === 0)
         throw new Error("Nenhum catálogo foi encontrado na página da DAC");
-    console.log(
+    logger.info(
         `Importando ${catalogs.length} catálogos: ${catalogs.map(({ year }) => year).join(", ")}`
     );
     const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
@@ -639,6 +640,7 @@ export async function injectCatalogs(
                 transactionTimeout,
                 transactionMaxWait
             },
+            logger,
             changes
         );
     for (const change of changes) logger.change(change);

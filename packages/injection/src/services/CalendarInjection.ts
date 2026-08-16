@@ -137,7 +137,7 @@ export async function injectCalendar(
         ])
     );
 
-    console.log(
+    logger.info(
         `📅 Sincronizando ${calendarEvents.length} eventos e ${tagNames.size} tags...`
     );
 
@@ -316,7 +316,7 @@ export async function injectCalendar(
                 }
             }
 
-            console.log(
+            logger.info(
                 `✨ Calendário sincronizado: ${createdEvents} eventos criados, ${updatedEvents} eventos enriquecidos.`
             );
         },
@@ -325,5 +325,5 @@ export async function injectCalendar(
 
     for (const change of changes) logger.change(change);
 
-    console.log("✨ Injeção incremental concluída com sucesso!");
+    logger.info("✨ Injeção incremental concluída com sucesso!");
 }

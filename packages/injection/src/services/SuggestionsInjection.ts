@@ -67,13 +67,14 @@ async function importSuggestion(
     transactionTimeout: number,
     transactionMaxWait: number,
     prisma: InjectionContext["prisma"],
+    logger: InjectionContext["logger"],
     changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
     const catalogProgram = catalogPrograms.get(
         `${catalog.year}:${program.code}`
     );
     if (!catalogProgram) {
-        console.warn(
+        logger.warn(
             `[${catalog.year}] programa ${program.code}: CatalogProgram ausente; sugestão ignorada.`
         );
         return { semesters: 0, courses: 0, missingCourses: 0 };
@@ -236,7 +237,7 @@ async function importSuggestion(
                     skipDuplicates: true
                 });
             if (missing.size > 0)
-                console.warn(
+                logger.warn(
                     `[${catalog.year}] programa ${program.code}, sugestão ${suggestion.name}: ${missing.size} disciplinas ausentes (${[...missing].join(", ")}); ignoradas.`
                 );
             return {
@@ -363,20 +364,21 @@ export async function injectSuggestions(
                     transactionTimeout,
                     transactionMaxWait,
                     prisma,
+                    logger,
                     changes
                 );
                 importedSuggestions += result.semesters > 0 ? 1 : 0;
                 importedCourses += result.courses;
                 missingCourses += result.missingCourses;
             } catch (error) {
-                console.warn(
+                logger.warn(
                     `[${catalog.year}] programa ${program.code}, sugestão ${suggestion.code ?? suggestion.name}: importação ignorada: ${error}`
                 );
             }
         }
     );
     for (const change of changes) logger.change(change);
-    console.log(
+    logger.info(
         JSON.stringify(
             { importedSuggestions, importedCourses, missingCourses },
             null,

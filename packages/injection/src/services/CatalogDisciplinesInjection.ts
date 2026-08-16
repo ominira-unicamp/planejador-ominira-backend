@@ -215,5 +215,5 @@ export async function injectCatalogDisciplines(
         { timeout: transactionTimeout, maxWait: transactionMaxWait }
     );
     for (const change of changes) logger.change(change);
-    console.log(JSON.stringify(result, null, 2));
+    logger.info({ result }, "Injeção de disciplinas concluída");
 }
