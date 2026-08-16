@@ -19,7 +19,8 @@ const injectionSchema = z.object({
         directory: z.string().min(1),
         fileName: z.string().min(1)
     }),
-    options: z.record(z.string(), z.unknown()).default({})
+    options: z.record(z.string(), z.unknown()).default({}),
+    allowIssues: z.boolean().default(false)
 });
 
 export const injectionConfigSchema = z.object({

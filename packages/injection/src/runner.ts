@@ -71,7 +71,8 @@ export async function runInjection(
                     )
                 },
                 timeoutMs: definition.obtain.timeoutMs,
-                stderrToStdout: true
+                stderrToStdout: true,
+                allowedExitCodes: definition.allowIssues ? [1] : undefined
             },
             signal
         );

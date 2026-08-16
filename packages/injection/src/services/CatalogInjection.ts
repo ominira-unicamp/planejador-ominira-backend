@@ -398,7 +398,9 @@ async function importCatalog(
                 changes.push({
                     entity: "Catalog",
                     operation: "create",
-                    key: { id: catalog.id, year: source.year }
+                    key: { id: catalog.id, year: source.year },
+                    before: null,
+                    after: { id: catalog.id, year: source.year }
                 });
             let programsLinked = 0;
             let specializationsLinked = 0;
@@ -437,7 +439,13 @@ async function importCatalog(
                     changes.push({
                         entity: "Program",
                         operation: "create",
-                        key: { id: persisted.id, code: program.code }
+                        key: { id: persisted.id, code: program.code },
+                        before: null,
+                        after: {
+                            code: program.code,
+                            name: program.name,
+                            unitId: unit.id
+                        }
                     });
                 else {
                     const changedFields = [
@@ -453,7 +461,21 @@ async function importCatalog(
                             entity: "Program",
                             operation: "update",
                             key: { id: persisted.id, code: program.code },
-                            changedFields
+                            changedFields,
+                            before: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    field === "name"
+                                        ? existingProgram.name
+                                        : existingProgram.unitId
+                                ])
+                            ),
+                            after: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    field === "name" ? program.name : unit.id
+                                ])
+                            )
                         });
                 }
                 const catalogProgram = await tx.catalogProgram.upsert({

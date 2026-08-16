@@ -76,7 +76,9 @@ export async function injectCatalogDisciplines(
                 changes.push({
                     entity: "Unit",
                     operation: "create",
-                    key: { code: unitCode }
+                    key: { code: unitCode },
+                    before: null,
+                    after: { code: unitCode }
                 });
             const prefixCodes = [
                 ...new Set(
@@ -103,7 +105,9 @@ export async function injectCatalogDisciplines(
                     changes.push({
                         entity: "Prefixes",
                         operation: "create",
-                        key: { prefix }
+                        key: { prefix },
+                        before: null,
+                        after: { prefix, unitId: unit.id }
                     });
             const persistedPrefixes = new Map(
                 (
@@ -164,7 +168,9 @@ export async function injectCatalogDisciplines(
                     changes.push({
                         entity: "Course",
                         operation: "create",
-                        key: { code: course.code }
+                        key: { code: course.code },
+                        before: null,
+                        after: course
                     });
                 else {
                     const changedFields = [
@@ -181,7 +187,19 @@ export async function injectCatalogDisciplines(
                             entity: "Course",
                             operation: "update",
                             key: { id: existing.id, code: course.code },
-                            changedFields
+                            changedFields,
+                            before: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    existing[field as keyof typeof existing]
+                                ])
+                            ),
+                            after: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    course[field as keyof typeof course]
+                                ])
+                            )
                         });
                 }
             }

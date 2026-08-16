@@ -7,6 +7,7 @@ export type ProcessSpec = {
     env: Record<string, string>;
     timeoutMs: number;
     stderrToStdout?: boolean;
+    allowedExitCodes?: number[];
 };
 
 export async function runProcess(
@@ -45,7 +46,8 @@ export async function runProcess(
         signal?.addEventListener("abort", abort, { once: true });
         child.once("error", (error) => finish(error));
         child.once("exit", (code, reason) => {
-            if (code === 0) finish();
+            if (code === 0 || spec.allowedExitCodes?.includes(code ?? -1))
+                finish();
             else finish(new Error(`Processo terminou com ${code ?? reason}`));
         });
     });

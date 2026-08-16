@@ -153,7 +153,9 @@ export async function injectAcademicData(
         changes.push({
             entity: "Professor",
             operation: "create",
-            key: { name: professor.name }
+            key: { name: professor.name },
+            before: null,
+            after: professor
         });
 
     console.log(`🚪 Inserindo ${allRooms.size} salas...`);
@@ -301,7 +303,14 @@ export async function injectAcademicData(
                 changes.push({
                     entity: "Class",
                     operation: "create",
-                    key: { id: persisted.id, code: classData.code }
+                    key: { id: persisted.id, code: classData.code },
+                    before: null,
+                    after: {
+                        code: classData.code,
+                        courseId: classData.courseId,
+                        studyPeriodId: classData.studyPeriodId,
+                        reservations: classData.reservations
+                    }
                 });
             else if (
                 existingClass.reservations.join(",") !==
@@ -311,7 +320,9 @@ export async function injectAcademicData(
                     entity: "Class",
                     operation: "update",
                     key: { id: persisted.id, code: classData.code },
-                    changedFields: ["reservations"]
+                    changedFields: ["reservations"],
+                    before: { reservations: existingClass.reservations },
+                    after: { reservations: classData.reservations }
                 });
             return [classData.turmaKey, persisted] as const;
         }
@@ -439,7 +450,9 @@ export async function injectAcademicData(
                 dayOfWeek: schedule.dayOfWeek,
                 start: schedule.start,
                 end: schedule.end
-            }
+            },
+            before: null,
+            after: schedule
         });
 
     console.log(

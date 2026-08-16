@@ -161,7 +161,9 @@ export async function injectCalendar(
                     changes.push({
                         entity: "CalendarTag",
                         operation: "create",
-                        key: { name }
+                        key: { name },
+                        before: null,
+                        after: { name }
                     });
 
             const calendarTags = await transaction.calendarTag.findMany({
@@ -270,7 +272,13 @@ export async function injectCalendar(
                             entity: "CalendarEvent",
                             operation: "update",
                             key: { id: existingEvent.id },
-                            changedFields: ["tags"]
+                            changedFields: ["tags"],
+                            before: {
+                                tags: [...existingTagIds].sort((a, b) => a - b)
+                            },
+                            after: {
+                                tags: [...new Set(tagIds)].sort((a, b) => a - b)
+                            }
                         });
                         updatedEvents += 1;
                     }
@@ -295,7 +303,14 @@ export async function injectCalendar(
                     changes.push({
                         entity: "CalendarEvent",
                         operation: "create",
-                        key: { id: createdEvent.id }
+                        key: { id: createdEvent.id },
+                        before: null,
+                        after: {
+                            startDate: startDate.toISOString(),
+                            endDate: endDate?.toISOString() ?? null,
+                            description: calendarEvent.descricao,
+                            tags: tagIds
+                        }
                     });
                     createdEvents += 1;
                 }

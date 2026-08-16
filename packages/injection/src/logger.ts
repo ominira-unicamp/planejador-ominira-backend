@@ -4,6 +4,8 @@ export type InjectionChange = {
     entity: string;
     operation: "create" | "update";
     key: Record<string, string | number>;
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown>;
     changedFields?: string[];
 };
 

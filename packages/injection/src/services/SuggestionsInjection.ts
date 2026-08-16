@@ -140,7 +140,14 @@ async function importSuggestion(
                 changes.push({
                     entity: "CurriculumSuggestion",
                     operation: "create",
-                    key: { id: persisted.id, code }
+                    key: { id: persisted.id, code },
+                    before: null,
+                    after: {
+                        code,
+                        name,
+                        type,
+                        catalogSpecializationId
+                    }
                 });
             else {
                 const changedFields = [
@@ -156,7 +163,27 @@ async function importSuggestion(
                         entity: "CurriculumSuggestion",
                         operation: "update",
                         key: { id: existing.id, code },
-                        changedFields
+                        changedFields,
+                        before: Object.fromEntries(
+                            changedFields.map((field) => [
+                                field,
+                                field === "name"
+                                    ? existing.name
+                                    : field === "type"
+                                      ? existing.type
+                                      : existing.catalogSpecializationId
+                            ])
+                        ),
+                        after: Object.fromEntries(
+                            changedFields.map((field) => [
+                                field,
+                                field === "name"
+                                    ? name
+                                    : field === "type"
+                                      ? type
+                                      : catalogSpecializationId
+                            ])
+                        )
                     });
             }
             await tx.semesterSuggestion.deleteMany({
