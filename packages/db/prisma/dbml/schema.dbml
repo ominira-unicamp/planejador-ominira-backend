@@ -57,6 +57,12 @@ Table Unit {
   programs Program [not null]
 }
 
+Table Coordinator {
+  id Int [pk, increment]
+  name String [unique, not null]
+  catalogCourses CatalogCourse [not null]
+}
+
 Table Prefixes {
   id Int [pk, increment]
   prefix String [unique, not null]
@@ -64,6 +70,7 @@ Table Prefixes {
   unitId Int [not null]
   courseRequirements CourseRequirement [not null]
   courses Course [not null]
+  catalogPrerequisiteItems CatalogCoursePrerequisiteItem [not null]
 }
 
 Table Course {
@@ -71,23 +78,78 @@ Table Course {
   code String [unique, not null]
   name String [not null]
   credits Int [not null]
-  unit Unit [not null]
-  unitId Int [not null]
+  unit Unit
+  unitId Int
   prefix Prefixes
   prefixId Int
   classes Class [not null]
+  catalogCourses CatalogCourse [not null]
   studentCourseAttempts StudentCourseAttempt [not null]
   curriculumCourses CurriculumCourse [not null]
   courseRequirements CourseRequirement [not null]
   suggestionCourses SuggestionCourse [not null]
   periodPlanningManualCourses PeriodPlanningManualCourse [not null]
+  catalogPrerequisiteItems CatalogCoursePrerequisiteItem [not null]
 }
 
 Table Catalog {
   id Int [pk, increment]
-  year Int [not null]
+  year Int [unique, not null]
   programs CatalogProgram [not null]
+  courses CatalogCourse [not null]
   students Student [not null]
+}
+
+Table CatalogCourse {
+  id Int [pk, increment]
+  catalog Catalog [not null]
+  catalogId Int [not null]
+  course Course [not null]
+  courseId Int [not null]
+  name String [not null]
+  coordinator Coordinator
+  coordinatorId Int
+  theoreticalHours Int
+  practicalHours Int
+  laboratoryHours Int
+  guidedActivityHours Int
+  distanceHours Int
+  guidedExtensionHours Int
+  practicalExtensionHours Int
+  weeks Int
+  weeklyClassHours Int
+  classroomHours Int
+  offeringPeriod CourseOfferingPeriod
+  evaluation CourseEvaluationMode
+  finalExam Boolean
+  minimumAttendancePercent Int
+  syllabus String
+  bibliography String
+  sourceUrl String
+  prerequisites CatalogCoursePrerequisiteGroup [not null]
+
+  indexes {
+    (catalogId, courseId) [unique]
+  }
+}
+
+Table CatalogCoursePrerequisiteGroup {
+  id Int [pk, increment]
+  catalogCourse CatalogCourse [not null]
+  catalogCourseId Int [not null]
+  items CatalogCoursePrerequisiteItem [not null]
+}
+
+Table CatalogCoursePrerequisiteItem {
+  id Int [pk, increment]
+  group CatalogCoursePrerequisiteGroup [not null]
+  groupId Int [not null]
+  code String [not null]
+  kind CatalogCoursePrerequisiteKind [not null]
+  courseId Int
+  prefixId Int
+  course Course
+  prefix Prefixes
 }
 
 Table Program {
@@ -281,6 +343,7 @@ Table ClassSchedule {
   roomId Int [not null]
   class Class [not null]
   classId Int [not null]
+  studentAbsences StudentAbsence [not null]
 }
 
 Table Student {
@@ -335,6 +398,22 @@ Table StudentCourseAttempt {
   grade Decimal
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
+  absences StudentAbsence [not null]
+}
+
+Table StudentAbsence {
+  id Int [pk, increment]
+  studentCourseAttempt StudentCourseAttempt [not null]
+  studentCourseAttemptId Int [not null]
+  classSchedule ClassSchedule [not null]
+  classScheduleId Int [not null]
+  date DateTime [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (studentCourseAttemptId, classScheduleId, date) [unique]
+  }
 }
 
 Table Curriculum {
@@ -462,6 +541,25 @@ Enum YearPeriods {
   SECOND_SEMESTER
 }
 
+Enum CourseOfferingPeriod {
+  ALL_PERIODS
+  ODD_PERIODS
+  EVEN_PERIODS
+  UNIT_DISCRETION
+}
+
+Enum CourseEvaluationMode {
+  GRADE_AND_ATTENDANCE
+  CONCEPT
+  ATTENDANCE
+}
+
+Enum CatalogCoursePrerequisiteKind {
+  FULL
+  PARTIAL
+  SPECIAL
+}
+
 Enum PeriodPlanningGuideMode {
   CURRICULUM
   PROGRAM
@@ -541,6 +639,20 @@ Ref: Course.unitId > Unit.id
 
 Ref: Course.prefixId > Prefixes.id
 
+Ref: CatalogCourse.catalogId > Catalog.id [delete: Cascade]
+
+Ref: CatalogCourse.courseId > Course.id
+
+Ref: CatalogCourse.coordinatorId > Coordinator.id
+
+Ref: CatalogCoursePrerequisiteGroup.catalogCourseId > CatalogCourse.id [delete: Cascade]
+
+Ref: CatalogCoursePrerequisiteItem.groupId > CatalogCoursePrerequisiteGroup.id [delete: Cascade]
+
+Ref: CatalogCoursePrerequisiteItem.courseId > Course.id
+
+Ref: CatalogCoursePrerequisiteItem.prefixId > Prefixes.id
+
 Ref: Program.unitId > Unit.id
 
 Ref: Specialization.programId > Program.id
@@ -614,6 +726,10 @@ Ref: StudentCourseAttempt.courseId > Course.id
 Ref: StudentCourseAttempt.studyPeriodId > StudyPeriod.id
 
 Ref: StudentCourseAttempt.classId > Class.id [delete: Set Null]
+
+Ref: StudentAbsence.studentCourseAttemptId > StudentCourseAttempt.id [delete: Cascade]
+
+Ref: StudentAbsence.classScheduleId > ClassSchedule.id
 
 Ref: Curriculum.studentId > Student.id [delete: Cascade]
 
