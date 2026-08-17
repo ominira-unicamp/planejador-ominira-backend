@@ -22,6 +22,8 @@ type PrismaClassPayload = MyPrisma.ClassGetPayload<
 >;
 
 function relatedPathsForClass(classPayload: PrismaClassPayload) {
+    if (!classPayload.course.unit)
+        throw new Error("A turma exige que o curso tenha uma unidade");
     return {
         studyPeriod: resourcesPaths.studyPeriod.entity(
             classPayload.studyPeriod.id
@@ -42,6 +44,8 @@ function buildClassEntity(
     classData: PrismaClassPayload
 ): z.infer<typeof IO.schema> {
     const { course, studyPeriod, ...rest } = classData;
+    if (!course.unit)
+        throw new Error("A turma exige que o curso tenha uma unidade");
     return {
         ...rest,
         studyPeriodId: studyPeriod.id,

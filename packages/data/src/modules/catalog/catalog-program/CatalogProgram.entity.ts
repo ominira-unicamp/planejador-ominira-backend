@@ -1,3 +1,4 @@
+import { resourcesPaths } from "#/Controllers.js";
 import IO from "#/modules/catalog/catalog-program/CatalogProgram.contract.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { CourseBlockType, MyPrisma } from "@pomi/db";
@@ -13,7 +14,10 @@ export const prismaBlockSetSelection = {
                     select: {
                         id: true,
                         code: true,
-                        name: true
+                        name: true,
+                        catalogCourses: {
+                            select: { id: true, catalogId: true }
+                        }
                     }
                 },
                 prefix: {
@@ -88,7 +92,8 @@ function relatedPathsForCatalogProgram(
 }
 
 function transformCourseBlocks(
-    courseBlocks: PrismaCatalogProgramPayload["courseBlocks"]
+    courseBlocks: PrismaCatalogProgramPayload["courseBlocks"],
+    catalogId: number
 ): z.infer<typeof IO.schemas.courseBlockSetSchema> {
     const mandatory: z.infer<typeof IO.schemas.courseRequirementSchema>[] = [];
     const electives: z.infer<typeof IO.schemas.electiveBlockSchema>[] = [];
@@ -102,6 +107,9 @@ function transformCourseBlocks(
 
     for (const block of mandatoryBlocks) {
         for (const req of block.courseRequirements) {
+            const catalogCourse = req.course?.catalogCourses.find(
+                (item) => item.catalogId === catalogId
+            );
             mandatory.push({
                 id: req.id,
                 type: req.type,
@@ -109,21 +117,38 @@ function transformCourseBlocks(
                 courseCode: req.course?.code ?? null,
                 courseName: req.course?.name ?? null,
                 prefixId: req.prefixId,
-                prefix: req.prefix?.prefix ?? null
+                prefix: req.prefix?.prefix ?? null,
+                catalogCourseId: catalogCourse?.id ?? null,
+                _paths: {
+                    catalogCourse: catalogCourse
+                        ? resourcesPaths.catalogCourse.entity(catalogCourse.id)
+                        : null
+                }
             });
         }
     }
 
     for (const block of electiveBlocks) {
-        const courses = block.courseRequirements.map((req) => ({
-            id: req.id,
-            type: req.type,
-            courseId: req.courseId,
-            courseCode: req.course?.code ?? null,
-            courseName: req.course?.name ?? null,
-            prefixId: req.prefixId,
-            prefix: req.prefix?.prefix ?? null
-        }));
+        const courses = block.courseRequirements.map((req) => {
+            const catalogCourse = req.course?.catalogCourses.find(
+                (item) => item.catalogId === catalogId
+            );
+            return {
+                id: req.id,
+                type: req.type,
+                courseId: req.courseId,
+                courseCode: req.course?.code ?? null,
+                courseName: req.course?.name ?? null,
+                prefixId: req.prefixId,
+                prefix: req.prefix?.prefix ?? null,
+                catalogCourseId: catalogCourse?.id ?? null,
+                _paths: {
+                    catalogCourse: catalogCourse
+                        ? resourcesPaths.catalogCourse.entity(catalogCourse.id)
+                        : null
+                }
+            };
+        });
 
         electives.push({
             credits: block.credits ?? 0,
@@ -140,20 +165,26 @@ function buildCatalogProgramEntity(
     const { catalogSpecializations, catalogLanguages, courseBlocks, ...rest } =
         catalogProgram;
 
-    const base = transformCourseBlocks(courseBlocks);
+    const base = transformCourseBlocks(courseBlocks, catalogProgram.catalog.id);
 
     const modalities = catalogSpecializations.map((spec) => ({
         specializationId: spec.specializationId,
         curriculumSuggestionId: spec.curriculumSuggestion?.id ?? null,
         code: spec.specialization.code,
         name: spec.specialization.name,
-        blocks: transformCourseBlocks(spec.courseBlocks)
+        blocks: transformCourseBlocks(
+            spec.courseBlocks,
+            catalogProgram.catalog.id
+        )
     }));
 
     const languages = catalogLanguages.map((lang) => ({
         languageId: lang.languageId,
         name: lang.language.name,
-        blocks: transformCourseBlocks(lang.courseBlocks)
+        blocks: transformCourseBlocks(
+            lang.courseBlocks,
+            catalogProgram.catalog.id
+        )
     }));
 
     return {

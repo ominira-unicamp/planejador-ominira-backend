@@ -18,10 +18,11 @@ type PrismaCoursePayload = MyPrisma.CourseGetPayload<
     typeof prismaCourseFieldSelection
 >;
 
-function relatedPathsForCourse(courseId: number, unitId: number) {
+function relatedPathsForCourse(courseId: number, unitId: number | null) {
     return {
         classes: resourcesPaths.class.list({ courseId }),
-        unit: resourcesPaths.unit.entity(unitId)
+        unit: unitId === null ? null : resourcesPaths.unit.entity(unitId),
+        catalogCourses: resourcesPaths.catalogCourse.list({ courseId })
     };
 }
 
@@ -32,7 +33,7 @@ function buildCourseEntity(
     return {
         ...rest,
         prefix: rest.code.slice(0, 2).toUpperCase(),
-        unitCode: unit.code,
+        unitCode: unit?.code ?? null,
         _paths: relatedPathsForCourse(course.id, course.unitId)
     };
 }

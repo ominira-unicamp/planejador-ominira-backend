@@ -15,11 +15,13 @@ const catalogEntitySchema = z
         id: z.number().int().openapi({ example: 1 }),
         year: z.number().int().openapi({ example: 2024 }),
         programsCount: z.number().int().openapi({ example: 5 }),
+        coursesCount: z.number().int().openapi({ example: 8996 }),
         studentsCount: z.number().int().openapi({ example: 150 }),
         programIds: z.array(z.number().int()).openapi({ example: [1, 2, 3] }),
         links: z.object({
             self: z.string().openapi({ example: "/catalogs/1" })
-        })
+        }),
+        _paths: z.object({ self: z.string(), courses: z.string() }).strict()
     })
     .openapi("Catalog");
 

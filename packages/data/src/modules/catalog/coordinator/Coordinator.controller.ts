@@ -1,21 +1,25 @@
+import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
+import IO, {
+    coordinatorPaths
+} from "#/modules/catalog/coordinator/Coordinator.contract.js";
 import {
     ApiResponse,
     buildPaginationResponse,
     createResultResponder,
+    problemResponse,
+    ResourceNotFoundProblem,
     type EndpointActions
 } from "@pomi/api-core";
-
-import { createDataEndpointRegistries, type Context } from "#/BuildHandler.js";
-import IO, { coursePaths } from "#/modules/academic/course/Course.contract.js";
-import { courseProblemResponses } from "#/modules/academic/course/Course.problems.js";
 import z from "zod";
 
 const { schema: _schema, ...contracts } = IO;
 type Actions = EndpointActions<typeof contracts, unknown, Context>;
-const respond = createResultResponder(courseProblemResponses);
+const respond = createResultResponder({
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
+});
 
 const list: Actions["list"] = async (ctx, input) => {
-    const result = await ctx.courseService.list(input.query);
+    const result = await ctx.coordinatorService.list(input.query);
     const page = input.query.page ?? 1;
     const pageSize = input.query.pageSize ?? Math.max(result.total, 1);
     return ApiResponse.ok(
@@ -24,18 +28,24 @@ const list: Actions["list"] = async (ctx, input) => {
             result.total,
             { page, pageSize },
             (pageNumber) =>
-                coursePaths.list({ ...input.query, page: pageNumber, pageSize })
+                coordinatorPaths.list({
+                    ...input.query,
+                    page: pageNumber,
+                    pageSize
+                })
         )
     );
 };
 
 const get: Actions["get"] = async (ctx, input) =>
-    respond(await ctx.courseService.getById(input.path.id), ApiResponse.ok);
+    respond(
+        await ctx.coordinatorService.getById(input.path.id),
+        ApiResponse.ok
+    );
 
-const actions: Actions = { list, get };
 const { router, registry, authRegistry } = createDataEndpointRegistries(
     contracts,
-    actions
+    { list, get }
 );
 
 export default {
@@ -43,8 +53,5 @@ export default {
     router,
     registry,
     authRegistry,
-    paths: {
-        list: coursePaths.list,
-        entity: coursePaths.entity
-    }
+    paths: coordinatorPaths
 };

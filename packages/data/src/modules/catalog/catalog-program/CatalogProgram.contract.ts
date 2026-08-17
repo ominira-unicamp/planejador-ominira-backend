@@ -32,7 +32,9 @@ const courseRequirementSchema = z.object({
     courseCode: z.string().nullable(),
     courseName: z.string().nullable(),
     prefixId: z.number().int().nullable(),
-    prefix: z.string().nullable()
+    prefix: z.string().nullable(),
+    catalogCourseId: z.number().int().nullable(),
+    _paths: z.object({ catalogCourse: z.string().nullable() }).strict()
 });
 
 const electiveBlockSchema = z.object({

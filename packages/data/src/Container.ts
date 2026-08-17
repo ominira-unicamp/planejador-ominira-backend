@@ -19,6 +19,10 @@ import {
     type UnitService
 } from "#/modules/academic/unit/Unit.service.js";
 import {
+    createCatalogCourseService,
+    type CatalogCourseService
+} from "#/modules/catalog/catalog-course/CatalogCourse.service.js";
+import {
     createCatalogProgramService,
     type CatalogProgramService
 } from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
@@ -26,6 +30,10 @@ import {
     createCatalogService,
     type CatalogService
 } from "#/modules/catalog/catalog/Catalog.service.js";
+import {
+    createCoordinatorService,
+    type CoordinatorService
+} from "#/modules/catalog/coordinator/Coordinator.service.js";
 import {
     createCurriculumSuggestionService,
     type CurriculumSuggestionService
@@ -74,6 +82,8 @@ export type DataCradle = {
     prisma: DatabaseClient;
     zodIds: ReturnType<typeof buildZodIds>;
     catalogProgramService: CatalogProgramService;
+    catalogCourseService: CatalogCourseService;
+    coordinatorService: CoordinatorService;
     curriculumSuggestionService: CurriculumSuggestionService;
     classScheduleService: ClassScheduleService;
     courseService: CourseService;
@@ -102,6 +112,8 @@ export function createDataContainer(
         prisma: asValue(prisma),
         zodIds: asFunction(buildZodIds).scoped(),
         catalogProgramService: asFunction(createCatalogProgramService).scoped(),
+        catalogCourseService: asFunction(createCatalogCourseService).scoped(),
+        coordinatorService: asFunction(createCoordinatorService).scoped(),
         curriculumSuggestionService: asFunction(
             createCurriculumSuggestionService
         ).scoped(),

@@ -52,7 +52,9 @@ const attemptEntity = z
             code: z.string(),
             name: z.string(),
             credits: z.number().int(),
-            unit: z.object({ id: z.number().int(), code: z.string() })
+            unit: z
+                .object({ id: z.number().int(), code: z.string() })
+                .nullable()
         }),
         studyPeriod: z
             .object({ id: z.number().int(), code: z.string() })

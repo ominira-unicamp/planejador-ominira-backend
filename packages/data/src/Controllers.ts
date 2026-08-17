@@ -11,8 +11,10 @@ import academic from "#/modules/academic/index.js";
 import professor from "#/modules/academic/professor/index.js";
 import room from "#/modules/academic/room/index.js";
 import unit from "#/modules/academic/unit/index.js";
+import catalogCourse from "#/modules/catalog/catalog-course/index.js";
 import catalogProgram from "#/modules/catalog/catalog-program/index.js";
 import catalogController from "#/modules/catalog/catalog/index.js";
+import coordinator from "#/modules/catalog/coordinator/index.js";
 import curriculumSuggestion from "#/modules/catalog/curriculum-suggestion/index.js";
 import catalog from "#/modules/catalog/index.js";
 import language from "#/modules/catalog/language/index.js";
@@ -79,6 +81,8 @@ export const resourcesPaths = {
     studyPeriod: studyPeriods.paths,
     catalog: catalogController.paths,
     catalogProgram: catalogProgram.paths,
+    catalogCourse: catalogCourse.paths,
+    coordinator: coordinator.paths,
     program: program.paths,
     specialization: specialization.paths,
     language: language.paths

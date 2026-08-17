@@ -17,7 +17,8 @@ export const prismaCatalogFieldSelection = {
         _count: {
             select: {
                 students: true,
-                programs: true
+                programs: true,
+                courses: true
             }
         }
     }
@@ -40,9 +41,16 @@ function buildCatalogEntity(
     return {
         ...rest,
         programsCount: _count.programs,
+        coursesCount: _count.courses,
         studentsCount: _count.students,
         programIds: programs.map((p) => p.programId),
-        links: relatedPathsForCatalog(catalog)
+        links: relatedPathsForCatalog(catalog),
+        _paths: {
+            self: resourcesPaths.catalog.entity(catalog.id),
+            courses: resourcesPaths.catalogCourse.list({
+                catalogId: catalog.id
+            })
+        }
     };
 }
 

@@ -7,6 +7,14 @@ import z from "zod";
 extendZodWithOpenApi(z);
 
 export const coursePaths = {
+    list: (query: ListQueryParams = {}) => {
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(query)) {
+            if (value !== undefined) params.set(key, String(value));
+        }
+        const search = params.toString();
+        return `/courses${search ? `?${search}` : ""}`;
+    },
     entity: (id: number) => `/courses/${id}`
 };
 
@@ -21,11 +29,13 @@ const courseEntity = z
         name: z.string().min(1),
         credits: z.number().int().min(0),
         prefix: z.string().min(1),
-        unitId: z.number().int(),
-        unitCode: z.string().min(1),
+        unitId: z.number().int().nullable(),
+        unitCode: z.string().min(1).nullable(),
         _paths: z
             .object({
-                classes: z.string()
+                classes: z.string(),
+                unit: z.string().nullable(),
+                catalogCourses: z.string()
             })
             .strict()
     })

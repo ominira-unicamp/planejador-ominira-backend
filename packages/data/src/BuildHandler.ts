@@ -4,8 +4,10 @@ import type { CourseService } from "#/modules/academic/course/Course.service.js"
 import type { ProfessorService } from "#/modules/academic/professor/Professor.service.js";
 import type { RoomService } from "#/modules/academic/room/Room.service.js";
 import type { UnitService } from "#/modules/academic/unit/Unit.service.js";
+import type { CatalogCourseService } from "#/modules/catalog/catalog-course/CatalogCourse.service.js";
 import type { CatalogProgramService } from "#/modules/catalog/catalog-program/CatalogProgram.service.js";
 import type { CatalogService } from "#/modules/catalog/catalog/Catalog.service.js";
+import type { CoordinatorService } from "#/modules/catalog/coordinator/Coordinator.service.js";
 import type { CurriculumSuggestionService } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.service.js";
 import type { LanguageService } from "#/modules/catalog/language/Language.service.js";
 import type { ProgramService } from "#/modules/catalog/program/Program.service.js";
@@ -32,6 +34,8 @@ export type Context = {
     prisma: PrismaClient;
     zodIds: ReturnType<typeof buildZodIds>;
     catalogProgramService: CatalogProgramService;
+    catalogCourseService: CatalogCourseService;
+    coordinatorService: CoordinatorService;
     curriculumSuggestionService: CurriculumSuggestionService;
     classScheduleService: ClassScheduleService;
     courseService: CourseService;
@@ -74,6 +78,8 @@ export function buildHandler<
         prisma: req.scope.cradle.prisma,
         zodIds: req.scope.cradle.zodIds,
         catalogProgramService: req.scope.cradle.catalogProgramService,
+        catalogCourseService: req.scope.cradle.catalogCourseService,
+        coordinatorService: req.scope.cradle.coordinatorService,
         curriculumSuggestionService:
             req.scope.cradle.curriculumSuggestionService,
         classScheduleService: req.scope.cradle.classScheduleService,
@@ -111,6 +117,8 @@ export function createDataEndpointRegistries<
             prisma: request.scope.cradle.prisma,
             zodIds: request.scope.cradle.zodIds,
             catalogProgramService: request.scope.cradle.catalogProgramService,
+            catalogCourseService: request.scope.cradle.catalogCourseService,
+            coordinatorService: request.scope.cradle.coordinatorService,
             curriculumSuggestionService:
                 request.scope.cradle.curriculumSuggestionService,
             classScheduleService: request.scope.cradle.classScheduleService,

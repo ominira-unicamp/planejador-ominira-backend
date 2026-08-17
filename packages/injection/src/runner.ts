@@ -1,6 +1,13 @@
 import { createDatabaseClient } from "@pomi/db";
 import { randomUUID } from "node:crypto";
-import { access, mkdir, rename, rm } from "node:fs/promises";
+import {
+    access,
+    mkdir,
+    readFile,
+    rename,
+    rm,
+    writeFile
+} from "node:fs/promises";
 import { dirname } from "node:path";
 import {
     interpolate,
@@ -80,23 +87,81 @@ export async function runInjection(
         await rename(temporaryPath, inputPath);
         const service = serviceFactory(definition);
         const prisma = createDatabaseClient(process.env.DATABASE_URL);
+        let persistenceError: unknown;
         try {
             try {
                 await service.run({ prisma, inputPath, runId, logger, signal });
             } catch (error) {
+                persistenceError = error;
                 logger.error(
                     { err: error },
                     "Falha na persistência da injection"
                 );
-                throw error;
             }
         } finally {
             await prisma.$disconnect();
         }
+        await writeInjectionIssuesFile({
+            definition,
+            inputPath,
+            runId,
+            error: persistenceError,
+            logger
+        });
+        if (persistenceError) throw persistenceError;
         return { name: definition.name, runId, inputPath };
     } finally {
         await rm(temporaryPath, { force: true });
     }
+}
+
+async function writeInjectionIssuesFile({
+    definition,
+    inputPath,
+    runId,
+    error,
+    logger
+}: {
+    definition: InjectionDefinition;
+    inputPath: string;
+    runId: string;
+    error: unknown;
+    logger: ReturnType<typeof createInjectionLogger>;
+}) {
+    const issuesPath = `${inputPath}.issues.json`;
+    try {
+        const input = JSON.parse(await readFile(inputPath, "utf8")) as {
+            issues?: unknown;
+        };
+        const report = {
+            injection: definition.name,
+            runId,
+            generatedAt: new Date().toISOString(),
+            inputPath,
+            issues: Array.isArray(input.issues) ? input.issues : [],
+            error: error ? serializeError(error) : null
+        };
+        await writeFile(
+            issuesPath,
+            `${JSON.stringify(report, null, 2)}\n`,
+            "utf8"
+        );
+        logger.info(
+            { issuesPath, issues: report.issues.length },
+            "Relatório de issues gravado"
+        );
+    } catch (reportError) {
+        logger.warn(
+            { err: reportError, issuesPath },
+            "Não foi possível gravar o relatório de issues"
+        );
+    }
+}
+
+function serializeError(error: unknown) {
+    if (error instanceof Error)
+        return { name: error.name, message: error.message, stack: error.stack };
+    return { message: String(error) };
 }
 
 export async function runAll(config: InjectionConfig, signal?: AbortSignal) {
