@@ -38,6 +38,27 @@
                 "transactionTimeout": 600000,
                 "transactionMaxWait": 60000
             }
+        },
+        {
+            "name": "catalog-disciplines",
+            "description": "Disciplinas e relações do catálogo",
+            "schedule": { "intervalMs": 2592000000 },
+            "obtain": {
+                "command": "<obtain-command>",
+                "args": [],
+                "cwd": ".",
+                "env": {},
+                "timeoutMs": 3600000
+            },
+            "input": {
+                "directory": "data/injections/catalog-disciplines",
+                "fileName": "catalog-disciplines.json"
+            },
+            "options": {
+                "phase": "all",
+                "transactionTimeout": 1800000,
+                "transactionMaxWait": 60000
+            }
         }
     ]
 }

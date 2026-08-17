@@ -1,7 +1,8 @@
 import {
     CatalogCoursePrerequisiteKind,
     CourseEvaluationMode,
-    CourseOfferingPeriod
+    CourseOfferingPeriod,
+    Prisma
 } from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import type { InjectionContext } from "./InjectionTypes.js";
@@ -10,6 +11,7 @@ import { unwrapScrapeData } from "./scrape-input.js";
 export type CatalogDisciplinesInjectionOptions = {
     transactionTimeout?: number;
     transactionMaxWait?: number;
+    phase?: "catalog" | "relationships" | "all";
 };
 
 type Discipline = {
@@ -42,6 +44,20 @@ type Prefix = {
 type Catalog = { year: number; sourceUrl: string; prefixes: Prefix[] };
 type ScrapeInput = { catalogs: Catalog[] };
 type ScrapeEnvelope = { data: ScrapeInput; issues?: unknown[] };
+type CatalogCourseSource = {
+    catalog: Catalog;
+    prefix: Prefix;
+    discipline: Discipline;
+    code: string;
+};
+type ExistingCourse = {
+    id: number;
+    code: string;
+    name: string;
+    credits: number;
+    unitId: number | null;
+    prefixId: number | null;
+};
 
 const offeringPeriods: Record<string, CourseOfferingPeriod> = {
     "todos os períodos": "ALL_PERIODS",
@@ -117,7 +133,8 @@ export async function injectCatalogDisciplines(
     { prisma, inputPath, logger }: InjectionContext,
     {
         transactionTimeout = 1_800_000,
-        transactionMaxWait = 60_000
+        transactionMaxWait = 60_000,
+        phase = "all"
     }: CatalogDisciplinesInjectionOptions = {}
 ) {
     if (!Number.isInteger(transactionTimeout) || transactionTimeout < 1)
@@ -147,511 +164,656 @@ export async function injectCatalogDisciplines(
         errors.push(scrapeIssue);
         logger.warn({ issue: scrapeIssue }, "Issue recebida do scrapper");
     }
-    logger.info(
-        { catalogs: catalogs.length, issues: errors.length },
-        "Iniciando persistência da injection"
-    );
     const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
-    const result = await prisma.$transaction(
-        async (tx) => {
-            await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '60000ms'");
-            await tx.$executeRawUnsafe(
-                `SET LOCAL statement_timeout = '${transactionTimeout}ms'`
-            );
-            let disciplines = 0;
-            let imported = 0;
-            let skipped = 0;
-            let savepointCounter = 0;
-            const totalDisciplines = catalogs.reduce(
-                (total, catalog) =>
-                    total +
-                    (catalog.prefixes ?? []).reduce(
-                        (prefixTotal, prefix) =>
-                            prefixTotal + (prefix.courses ?? []).length,
-                        0
-                    ),
-                0
-            );
+    if (!["catalog", "relationships", "all"].includes(phase))
+        throw new Error(`Fase de injection inválida: ${phase}`);
+    const result: Record<string, unknown> = {};
+    if (phase === "catalog" || phase === "all")
+        result.catalog = await injectCatalogPhase({
+            prisma,
+            catalogs,
+            logger,
+            changes,
+            errors,
+            transactionTimeout,
+            transactionMaxWait
+        });
+    if (phase === "relationships" || phase === "all")
+        result.relationships = await injectRelationshipsPhase({
+            prisma,
+            catalogs,
+            logger,
+            changes,
+            errors,
+            transactionTimeout,
+            transactionMaxWait
+        });
+    for (const change of changes) logger.change(change);
+    logger.info(
+        { phase, result, issues: errors.length },
+        "Injeção de disciplinas concluída"
+    );
+    if (errors.length > 0)
+        throw new Error(`Injeção concluída com ${errors.length} issue(s)`);
+}
 
-            for (const catalogInput of catalogs) {
-                logger.info(
-                    { catalogYear: catalogInput.year },
-                    "Iniciando persistência do catálogo"
-                );
-                const catalog = await tx.catalog.upsert({
-                    where: { year: catalogInput.year },
-                    create: { year: catalogInput.year },
+type PhaseContext = {
+    prisma: InjectionContext["prisma"];
+    catalogs: Catalog[];
+    logger: InjectionContext["logger"];
+    changes: Parameters<InjectionContext["logger"]["change"]>[0][];
+    errors: unknown[];
+    transactionTimeout: number;
+    transactionMaxWait: number;
+};
+
+function sourcesOf(catalogs: Catalog[]): CatalogCourseSource[] {
+    return catalogs.flatMap((catalog) =>
+        (catalog.prefixes ?? []).flatMap((prefix) =>
+            (prefix.courses ?? []).map((discipline) => ({
+                catalog,
+                prefix,
+                discipline,
+                code: normalizeCode(discipline.code)
+            }))
+        )
+    );
+}
+
+async function setTransactionLimits(
+    tx: Prisma.TransactionClient,
+    timeout: number
+) {
+    await tx.$executeRawUnsafe("SET LOCAL lock_timeout = '60000ms'");
+    await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = '${timeout}ms'`);
+}
+
+async function ensureCatalogs(context: PhaseContext) {
+    const years = [...new Set(context.catalogs.map(({ year }) => year))];
+    await context.prisma.$transaction(
+        async (tx) => {
+            await setTransactionLimits(tx, context.transactionTimeout);
+            for (const year of years)
+                await tx.catalog.upsert({
+                    where: { year },
+                    create: { year },
                     update: {}
                 });
-                const existingCatalogCourses = new Set(
-                    (
-                        await tx.catalogCourse.findMany({
-                            where: { catalogId: catalog.id },
-                            select: { course: { select: { code: true } } }
-                        })
-                    ).map(({ course }) => course.code)
-                );
-                const seenCatalogCourses = new Set<string>();
+        },
+        {
+            timeout: context.transactionTimeout,
+            maxWait: context.transactionMaxWait
+        }
+    );
+}
 
-                for (const prefix of catalogInput.prefixes ?? []) {
-                    for (const source of prefix.courses ?? []) {
-                        disciplines += 1;
-                        if (disciplines === 1 || disciplines % 100 === 0)
-                            logger.info(
-                                {
-                                    progressPercent:
-                                        totalDisciplines === 0
-                                            ? 100
-                                            : Number(
-                                                  (
-                                                      (disciplines /
-                                                          totalDisciplines) *
-                                                      100
-                                                  ).toFixed(1)
-                                              )
-                                },
-                                "Progresso da persistência"
-                            );
-                        const code = normalizeCode(source.code);
-                        seenCatalogCourses.add(code);
-                        const changeStart = changes.length;
-                        try {
-                            const savepoint = `catalog_discipline_${savepointCounter++}`;
-                            await tx.$executeRawUnsafe(
-                                `SAVEPOINT ${savepoint}`
-                            );
-                            if (!code || !source.name.trim())
-                                throw issue("Disciplina sem código ou nome", {
-                                    code: source.code
-                                });
-                            if (source.credits === null)
-                                throw issue("Disciplina sem créditos", {
-                                    code
-                                });
-
-                            const existingCourse = await tx.course.findUnique({
-                                where: { code },
-                                select: {
-                                    id: true,
-                                    code: true,
-                                    name: true,
-                                    credits: true,
-                                    unitId: true,
-                                    prefixId: true
-                                }
-                            });
-                            const courseUpdate = {
-                                name: source.name.trim(),
-                                credits: source.credits,
-                                ...(existingCourse?.unitId !== null &&
-                                existingCourse?.unitId !== undefined
-                                    ? { unitId: existingCourse.unitId }
-                                    : {}),
-                                ...(existingCourse?.prefixId !== null &&
-                                existingCourse?.prefixId !== undefined
-                                    ? { prefixId: existingCourse.prefixId }
-                                    : {})
-                            };
-                            const course = await tx.course.upsert({
-                                where: { code },
-                                create: {
-                                    code,
-                                    name: source.name.trim(),
-                                    credits: source.credits
-                                },
-                                update: courseUpdate
-                            });
-                            const courseChangedFields = [
-                                ...(existingCourse?.name !== source.name.trim()
-                                    ? ["name"]
-                                    : []),
-                                ...(existingCourse?.credits !== source.credits
-                                    ? ["credits"]
-                                    : [])
-                            ];
-                            if (!existingCourse)
-                                changes.push({
-                                    entity: "Course",
-                                    operation: "create",
-                                    key: { id: course.id, code },
-                                    before: null,
-                                    after: {
-                                        code,
-                                        name: source.name.trim(),
-                                        credits: source.credits,
-                                        unitId: null,
-                                        prefixId: null
-                                    }
-                                });
-                            else if (courseChangedFields.length > 0)
-                                changes.push({
-                                    entity: "Course",
-                                    operation: "update",
-                                    key: { id: course.id, code },
-                                    changedFields: courseChangedFields,
-                                    before: Object.fromEntries(
-                                        courseChangedFields.map((field) => [
-                                            field,
-                                            existingCourse[
-                                                field as keyof typeof existingCourse
-                                            ]
-                                        ])
-                                    ),
-                                    after: Object.fromEntries(
-                                        courseChangedFields.map((field) => [
-                                            field,
-                                            course[field as keyof typeof course]
-                                        ])
-                                    )
-                                });
-                            const coordinatorName = source.coordinator?.trim();
-                            let coordinatorId: number | null = null;
-                            if (coordinatorName) {
-                                const coordinators =
-                                    await tx.coordinator.findMany({
-                                        select: { id: true, name: true }
-                                    });
-                                const existing = coordinators.find(
-                                    ({ name }) =>
-                                        normalizeName(name) ===
-                                        normalizeName(coordinatorName)
-                                );
-                                coordinatorId = existing
-                                    ? existing.id
-                                    : (
-                                          await tx.coordinator.create({
-                                              data: { name: coordinatorName }
-                                          })
-                                      ).id;
-                                if (!existing)
-                                    changes.push({
-                                        entity: "Coordinator",
-                                        operation: "create",
-                                        key: { name: coordinatorName },
-                                        before: null,
-                                        after: {
-                                            id: coordinatorId,
-                                            name: coordinatorName
-                                        }
-                                    });
+async function injectCatalogPhase(context: PhaseContext) {
+    await ensureCatalogs(context);
+    const sources = sourcesOf(context.catalogs);
+    const years = [...new Set(context.catalogs.map(({ year }) => year))];
+    const prerequisiteCodes = sources.flatMap(({ discipline }) =>
+        (discipline.prerequisites?.any ?? []).flatMap(({ all }) =>
+            all.map((item) =>
+                normalizeCode(
+                    (typeof item === "string" ? item : item.code).replace(
+                        /^\s*\*/,
+                        ""
+                    )
+                ).replace(/-+$/g, "")
+            )
+        )
+    );
+    const codes = [
+        ...new Set(
+            sources
+                .map(({ code }) => code)
+                .concat(prerequisiteCodes)
+                .filter(Boolean)
+        )
+    ];
+    const [catalogRows, courseRows, coordinatorRows] = await Promise.all([
+        context.prisma.catalog.findMany({ where: { year: { in: years } } }),
+        context.prisma.course.findMany({
+            where: { code: { in: codes } },
+            select: {
+                id: true,
+                code: true,
+                name: true,
+                credits: true,
+                unitId: true,
+                prefixId: true
+            }
+        }),
+        context.prisma.coordinator.findMany({
+            select: { id: true, name: true }
+        })
+    ]);
+    const catalogIds = new Map(catalogRows.map((row) => [row.year, row.id]));
+    const courseByCode = new Map<string, ExistingCourse>(
+        courseRows.map((row) => [row.code, row])
+    );
+    const coordinatorByName = new Map(
+        coordinatorRows.map((row) => [normalizeName(row.name), row])
+    );
+    const catalogCourseRows = await context.prisma.catalogCourse.findMany({
+        where: {
+            catalogId: { in: [...catalogIds.values()] },
+            courseId: { in: courseRows.map(({ id }) => id) }
+        },
+        select: {
+            id: true,
+            catalogId: true,
+            courseId: true,
+            name: true,
+            coordinatorId: true,
+            theoreticalHours: true,
+            practicalHours: true,
+            laboratoryHours: true,
+            guidedActivityHours: true,
+            distanceHours: true,
+            guidedExtensionHours: true,
+            practicalExtensionHours: true,
+            weeks: true,
+            weeklyClassHours: true,
+            classroomHours: true,
+            offeringPeriod: true,
+            evaluation: true,
+            finalExam: true,
+            minimumAttendancePercent: true,
+            syllabus: true,
+            bibliography: true,
+            sourceUrl: true
+        }
+    });
+    const catalogCourseByKey = new Map(
+        catalogCourseRows.map((row) => [
+            `${row.catalogId}:${row.courseId}`,
+            row
+        ])
+    );
+    let imported = 0;
+    let skipped = 0;
+    let disciplines = 0;
+    let savepointCounter = 0;
+    const total = sources.length;
+    context.logger.info(
+        { phase: "catalog", total },
+        "Iniciando fase de catálogo"
+    );
+    const result = await context.prisma.$transaction(
+        async (tx) => {
+            await setTransactionLimits(tx, context.transactionTimeout);
+            for (const source of sources) {
+                disciplines += 1;
+                if (disciplines === 1 || disciplines % 100 === 0)
+                    context.logger.info(
+                        {
+                            progressPercent: total
+                                ? Number(
+                                      ((disciplines / total) * 100).toFixed(1)
+                                  )
+                                : 100
+                        },
+                        "Progresso da persistência"
+                    );
+                const catalogId = catalogIds.get(source.catalog.year);
+                const savepoint = `catalog_phase_${savepointCounter++}`;
+                const changeStart = context.changes.length;
+                try {
+                    if (
+                        !catalogId ||
+                        !source.code ||
+                        !source.discipline.name.trim()
+                    )
+                        throw issue("Disciplina sem código, nome ou catálogo", {
+                            code: source.code
+                        });
+                    if (source.discipline.credits === null)
+                        throw issue("Disciplina sem créditos", {
+                            code: source.code
+                        });
+                    await tx.$executeRawUnsafe(`SAVEPOINT ${savepoint}`);
+                    const existingCourse = courseByCode.get(source.code);
+                    const courseData = {
+                        name: source.discipline.name.trim(),
+                        credits: source.discipline.credits,
+                        ...(existingCourse?.unitId != null
+                            ? { unitId: existingCourse.unitId }
+                            : {}),
+                        ...(existingCourse?.prefixId != null
+                            ? { prefixId: existingCourse.prefixId }
+                            : {})
+                    };
+                    const courseChanged =
+                        !existingCourse ||
+                        existingCourse.name !== courseData.name ||
+                        existingCourse.credits !== courseData.credits;
+                    const course = existingCourse
+                        ? courseChanged
+                            ? await tx.course.update({
+                                  where: { id: existingCourse.id },
+                                  data: courseData
+                              })
+                            : existingCourse
+                        : await tx.course.create({
+                              data: { code: source.code, ...courseData }
+                          });
+                    courseByCode.set(source.code, course as ExistingCourse);
+                    if (!existingCourse)
+                        context.changes.push({
+                            entity: "Course",
+                            operation: "create",
+                            key: { id: course.id, code: source.code },
+                            before: null,
+                            after: { ...courseData, code: source.code }
+                        });
+                    else if (courseChanged)
+                        context.changes.push({
+                            entity: "Course",
+                            operation: "update",
+                            key: { id: course.id, code: source.code },
+                            changedFields: ["name", "credits"],
+                            before: {
+                                name: existingCourse.name,
+                                credits: existingCourse.credits
+                            },
+                            after: {
+                                name: courseData.name,
+                                credits: courseData.credits
                             }
-
-                            const normalizedPeriod = period(
-                                source.offeringPeriod
-                            );
-                            if (source.offeringPeriod && !normalizedPeriod) {
-                                errors.push(
-                                    issue(
-                                        "Período de oferecimento desconhecido",
-                                        {
-                                            catalogYear: catalogInput.year,
-                                            code,
-                                            actual: source.offeringPeriod
-                                        }
-                                    )
-                                );
-                            }
-                            const normalizedEvaluation = evaluation(
-                                source.evaluation
-                            );
-                            if (source.evaluation && !normalizedEvaluation)
-                                errors.push(
-                                    issue("Modo de avaliação desconhecido", {
-                                        catalogYear: catalogInput.year,
-                                        code,
-                                        actual: source.evaluation
-                                    })
-                                );
-
-                            const prerequisiteGroups = [] as Array<{
-                                items: Array<{
-                                    code: string;
-                                    kind: CatalogCoursePrerequisiteKind;
-                                    courseId: number | null;
-                                    prefixId: number | null;
-                                }>;
-                            }>;
-                            for (const group of source.prerequisites?.any ??
-                                []) {
-                                const items = [] as Array<{
-                                    code: string;
-                                    kind: CatalogCoursePrerequisiteKind;
-                                    courseId: number | null;
-                                    prefixId: number | null;
-                                }>;
-                                for (const rawCode of group.all) {
-                                    const prerequisiteInput =
-                                        typeof rawCode === "string"
-                                            ? {
-                                                  code: rawCode,
-                                                  kind: /^\s*\*/.test(rawCode)
-                                                      ? "PARTIAL"
-                                                      : /^AA(?:200|4\d{2})$/i.test(
-                                                              normalizeCode(
-                                                                  rawCode
-                                                              )
-                                                          )
-                                                        ? "SPECIAL"
-                                                        : "FULL"
-                                              }
-                                            : rawCode;
-                                    const prerequisiteCode = normalizeCode(
-                                        prerequisiteInput.code.replace(
-                                            /^\s*\*/,
-                                            ""
-                                        )
-                                    );
-                                    const prerequisiteKind =
-                                        prerequisiteInput.kind as CatalogCoursePrerequisiteKind;
-                                    const prerequisiteCourse =
-                                        prerequisiteKind === "SPECIAL"
-                                            ? null
-                                            : await tx.course.findUnique({
-                                                  where: {
-                                                      code: prerequisiteCode
-                                                  },
-                                                  select: { id: true }
-                                              });
-                                    const prefixCode = prerequisiteCode.replace(
-                                        /-+$/g,
-                                        ""
-                                    );
-                                    const prerequisitePrefix =
-                                        prerequisiteKind === "SPECIAL"
-                                            ? null
-                                            : await tx.prefixes.findUnique({
-                                                  where: { prefix: prefixCode },
-                                                  select: { id: true }
-                                              });
-                                    if (
-                                        prerequisiteKind !== "SPECIAL" &&
-                                        !prerequisiteCourse &&
-                                        !prerequisitePrefix
-                                    )
-                                        throw issue(
-                                            "Pré-requis não resolvido",
-                                            {
-                                                catalogYear: catalogInput.year,
-                                                code,
-                                                prerequisite: rawCode
-                                            }
-                                        );
-                                    items.push({
-                                        code: prerequisiteCode,
-                                        kind: prerequisiteKind,
-                                        courseId:
-                                            prerequisiteCourse?.id ?? null,
-                                        prefixId: prerequisitePrefix?.id ?? null
-                                    });
-                                }
-                                prerequisiteGroups.push({ items });
-                            }
-
-                            const existing = await tx.catalogCourse.findUnique({
-                                where: {
-                                    catalogId_courseId: {
-                                        catalogId: catalog.id,
-                                        courseId: course.id
-                                    }
-                                },
-                                include: {
-                                    prerequisites: {
-                                        include: {
-                                            items: true
-                                        }
-                                    }
-                                }
-                            });
-                            const data = {
-                                name: source.name.trim(),
-                                coordinatorId,
-                                ...source.workload,
-                                offeringPeriod: normalizedPeriod,
-                                evaluation: normalizedEvaluation,
-                                finalExam: source.finalExam,
-                                minimumAttendancePercent:
-                                    source.minimumAttendancePercent,
-                                syllabus: source.syllabus,
-                                bibliography: source.bibliography,
-                                sourceUrl: prefix.url
-                            };
-                            const persisted = await tx.catalogCourse.upsert({
-                                where: {
-                                    catalogId_courseId: {
-                                        catalogId: catalog.id,
-                                        courseId: course.id
-                                    }
-                                },
-                                create: {
-                                    catalogId: catalog.id,
-                                    courseId: course.id,
-                                    ...data,
-                                    prerequisites: {
-                                        create: prerequisiteGroups.map(
-                                            (group) => ({
-                                                items: {
-                                                    create: group.items.map(
-                                                        (item) => item
-                                                    )
-                                                }
-                                            })
-                                        )
-                                    }
-                                },
-                                update: data
-                            });
-                            if (existing) {
-                                const changedFields = Object.keys(data).filter(
-                                    (field) =>
-                                        JSON.stringify(
-                                            existing[
-                                                field as keyof typeof existing
-                                            ]
-                                        ) !==
-                                        JSON.stringify(
-                                            data[field as keyof typeof data]
-                                        )
-                                );
-                                const beforePrerequisites =
-                                    existing.prerequisites.map((group) =>
-                                        group.items.map((item) => ({
-                                            code: item.code,
-                                            kind: item.kind
-                                        }))
-                                    );
-                                const afterPrerequisites =
-                                    prerequisiteGroups.map((group) =>
-                                        group.items.map((item) => ({
-                                            code: item.code,
-                                            kind: item.kind
-                                        }))
-                                    );
-                                if (
-                                    JSON.stringify(beforePrerequisites) !==
-                                    JSON.stringify(afterPrerequisites)
-                                )
-                                    changedFields.push("prerequisites");
-                                if (changedFields.length > 0)
-                                    changes.push({
-                                        entity: "CatalogCourse",
-                                        operation: "update",
-                                        key: {
-                                            id: existing.id,
-                                            catalogId: catalog.id,
-                                            courseId: course.id
-                                        },
-                                        changedFields,
-                                        before: Object.fromEntries(
-                                            changedFields.map((field) => [
-                                                field,
-                                                field === "prerequisites"
-                                                    ? beforePrerequisites
-                                                    : existing[
-                                                          field as keyof typeof existing
-                                                      ]
-                                            ])
-                                        ),
-                                        after: Object.fromEntries(
-                                            changedFields.map((field) => [
-                                                field,
-                                                field === "prerequisites"
-                                                    ? afterPrerequisites
-                                                    : data[
-                                                          field as keyof typeof data
-                                                      ]
-                                            ])
-                                        )
-                                    });
-                                await tx.catalogCoursePrerequisiteGroup.deleteMany(
-                                    {
-                                        where: { catalogCourseId: persisted.id }
-                                    }
-                                );
-                                for (const group of prerequisiteGroups)
-                                    await tx.catalogCoursePrerequisiteGroup.create(
-                                        {
-                                            data: {
-                                                catalogCourseId: persisted.id,
-                                                items: { create: group.items }
-                                            }
-                                        }
-                                    );
-                            }
-                            if (!existing)
-                                changes.push({
-                                    entity: "CatalogCourse",
-                                    operation: "create",
-                                    key: {
-                                        id: persisted.id,
-                                        catalogId: catalog.id,
-                                        courseId: course.id
-                                    },
-                                    before: null,
-                                    after: {
-                                        ...data,
-                                        prerequisites: prerequisiteGroups
-                                    }
-                                });
-                            await tx.$executeRawUnsafe(
-                                `RELEASE SAVEPOINT ${savepoint}`
-                            );
-                            imported += 1;
-                        } catch (error) {
-                            const savepoint = `catalog_discipline_${savepointCounter - 1}`;
-                            try {
-                                await tx.$executeRawUnsafe(
-                                    `ROLLBACK TO SAVEPOINT ${savepoint}`
-                                );
-                                await tx.$executeRawUnsafe(
-                                    `RELEASE SAVEPOINT ${savepoint}`
-                                );
-                            } catch (rollbackError) {
-                                logger.error(
-                                    {
-                                        err: rollbackError,
-                                        catalogYear: catalogInput.year,
-                                        code
-                                    },
-                                    "Falha ao reverter disciplina"
-                                );
-                                throw error;
-                            }
-                            changes.splice(changeStart);
-                            skipped += 1;
-                            errors.push(error);
-                            logger.warn(
-                                {
-                                    err: error,
-                                    catalogYear: catalogInput.year,
-                                    code
-                                },
-                                "Disciplina ignorada"
-                            );
-                        }
-                    }
-                }
-                for (const code of existingCatalogCourses)
-                    if (!seenCatalogCourses.has(code))
-                        logger.warn(
-                            { catalogYear: catalogInput.year, code },
-                            "Disciplina ausente no novo resultado; registro mantido"
+                        });
+                    const coordinatorName =
+                        source.discipline.coordinator?.trim();
+                    const coordinator = coordinatorName
+                        ? coordinatorByName.get(normalizeName(coordinatorName))
+                        : undefined;
+                    const coordinatorId =
+                        coordinator?.id ??
+                        (coordinatorName
+                            ? (
+                                  await tx.coordinator.create({
+                                      data: { name: coordinatorName }
+                                  })
+                              ).id
+                            : null);
+                    if (coordinatorName && !coordinator) {
+                        const created = {
+                            id: coordinatorId as number,
+                            name: coordinatorName
+                        };
+                        coordinatorByName.set(
+                            normalizeName(coordinatorName),
+                            created
                         );
+                        context.changes.push({
+                            entity: "Coordinator",
+                            operation: "create",
+                            key: { name: coordinatorName },
+                            before: null,
+                            after: created
+                        });
+                    }
+                    const data = {
+                        name: source.discipline.name.trim(),
+                        coordinatorId,
+                        ...source.discipline.workload,
+                        offeringPeriod: period(
+                            source.discipline.offeringPeriod
+                        ),
+                        evaluation: evaluation(source.discipline.evaluation),
+                        finalExam: source.discipline.finalExam,
+                        minimumAttendancePercent:
+                            source.discipline.minimumAttendancePercent,
+                        syllabus: source.discipline.syllabus,
+                        bibliography: source.discipline.bibliography,
+                        sourceUrl: source.prefix.url
+                    };
+                    if (
+                        source.discipline.offeringPeriod &&
+                        !data.offeringPeriod
+                    )
+                        context.errors.push(
+                            issue("Período de oferecimento desconhecido", {
+                                catalogYear: source.catalog.year,
+                                code: source.code,
+                                actual: source.discipline.offeringPeriod
+                            })
+                        );
+                    if (source.discipline.evaluation && !data.evaluation)
+                        context.errors.push(
+                            issue("Modo de avaliação desconhecido", {
+                                catalogYear: source.catalog.year,
+                                code: source.code,
+                                actual: source.discipline.evaluation
+                            })
+                        );
+                    const key = `${catalogId}:${course.id}`;
+                    const existing = catalogCourseByKey.get(key);
+                    const changedFields = existing
+                        ? Object.keys(data).filter(
+                              (field) =>
+                                  JSON.stringify(
+                                      existing[field as keyof typeof existing]
+                                  ) !==
+                                  JSON.stringify(
+                                      data[field as keyof typeof data]
+                                  )
+                          )
+                        : [];
+                    const persisted = existing
+                        ? changedFields.length
+                            ? await tx.catalogCourse.update({
+                                  where: { id: existing.id },
+                                  data
+                              })
+                            : existing
+                        : await tx.catalogCourse.create({
+                              data: { catalogId, courseId: course.id, ...data }
+                          });
+                    catalogCourseByKey.set(key, persisted);
+                    if (!existing)
+                        context.changes.push({
+                            entity: "CatalogCourse",
+                            operation: "create",
+                            key: {
+                                id: persisted.id,
+                                catalogId,
+                                courseId: course.id
+                            },
+                            before: null,
+                            after: data
+                        });
+                    else if (changedFields.length)
+                        context.changes.push({
+                            entity: "CatalogCourse",
+                            operation: "update",
+                            key: {
+                                id: persisted.id,
+                                catalogId,
+                                courseId: course.id
+                            },
+                            changedFields,
+                            before: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    existing[field as keyof typeof existing]
+                                ])
+                            ),
+                            after: Object.fromEntries(
+                                changedFields.map((field) => [
+                                    field,
+                                    data[field as keyof typeof data]
+                                ])
+                            )
+                        });
+                    await tx.$executeRawUnsafe(
+                        `RELEASE SAVEPOINT ${savepoint}`
+                    );
+                    imported += 1;
+                } catch (error) {
+                    await tx.$executeRawUnsafe(
+                        `ROLLBACK TO SAVEPOINT ${savepoint}`
+                    );
+                    await tx.$executeRawUnsafe(
+                        `RELEASE SAVEPOINT ${savepoint}`
+                    );
+                    context.changes.splice(changeStart);
+                    context.errors.push(error);
+                    skipped += 1;
+                    context.logger.warn(
+                        {
+                            err: error,
+                            catalogYear: source.catalog.year,
+                            code: source.code
+                        },
+                        "Disciplina ignorada"
+                    );
+                }
             }
             return {
-                catalogs: catalogs.length,
+                catalogs: context.catalogs.length,
                 disciplines,
                 imported,
                 skipped
             };
         },
-        { timeout: transactionTimeout, maxWait: transactionMaxWait }
+        {
+            timeout: context.transactionTimeout,
+            maxWait: context.transactionMaxWait
+        }
     );
+    return result;
+}
 
-    for (const change of changes) logger.change(change);
-    logger.info(
-        { result, issues: errors.length },
-        "Injeção de disciplinas concluída"
+function prerequisiteGroups(
+    source: Discipline,
+    courseByCode: Map<string, ExistingCourse>,
+    prefixByCode: Map<string, { id: number }>,
+    catalogYear: number,
+    code: string
+) {
+    const groups: Array<{
+        items: Array<{
+            code: string;
+            kind: CatalogCoursePrerequisiteKind;
+            courseId: number | null;
+            prefixId: number | null;
+        }>;
+    }> = [];
+    for (const group of source.prerequisites?.any ?? []) {
+        const items = [] as Array<{
+            code: string;
+            kind: CatalogCoursePrerequisiteKind;
+            courseId: number | null;
+            prefixId: number | null;
+        }>;
+        for (const raw of group.all) {
+            const input =
+                typeof raw === "string"
+                    ? {
+                          code: raw,
+                          kind: /^\s*\*/.test(raw)
+                              ? "PARTIAL"
+                              : /^AA(?:200|4\d{2})$/i.test(normalizeCode(raw))
+                                ? "SPECIAL"
+                                : "FULL"
+                      }
+                    : raw;
+            const prerequisiteCode = normalizeCode(
+                input.code.replace(/^\s*\*/, "")
+            );
+            const kind = input.kind as CatalogCoursePrerequisiteKind;
+            const course =
+                kind === "SPECIAL"
+                    ? undefined
+                    : courseByCode.get(prerequisiteCode);
+            const prefix =
+                kind === "SPECIAL"
+                    ? undefined
+                    : prefixByCode.get(prerequisiteCode.replace(/-+$/g, ""));
+            if (kind !== "SPECIAL" && !course && !prefix)
+                throw issue("Pré-requis não resolvido", {
+                    catalogYear,
+                    code,
+                    prerequisite: raw
+                });
+            items.push({
+                code: prerequisiteCode,
+                kind,
+                courseId: course?.id ?? null,
+                prefixId: prefix?.id ?? null
+            });
+        }
+        groups.push({ items });
+    }
+    return groups;
+}
+
+function canonicalGroups(
+    groups: Array<{
+        items: Array<{ code: string; kind: CatalogCoursePrerequisiteKind }>;
+    }>
+) {
+    return groups
+        .map((group) =>
+            group.items.map(({ code, kind }) => `${code}:${kind}`).sort()
+        )
+        .sort();
+}
+
+async function injectRelationshipsPhase(context: PhaseContext) {
+    await ensureCatalogs(context);
+    const sources = sourcesOf(context.catalogs);
+    const years = [...new Set(context.catalogs.map(({ year }) => year))];
+    const catalogRows = await context.prisma.catalog.findMany({
+        where: { year: { in: years } }
+    });
+    const catalogIds = new Map(catalogRows.map((row) => [row.year, row.id]));
+    const prerequisiteCodes = sources.flatMap(({ discipline }) =>
+        (discipline.prerequisites?.any ?? []).flatMap(({ all }) =>
+            all.map((item) =>
+                normalizeCode(
+                    (typeof item === "string" ? item : item.code).replace(
+                        /^\s*\*/,
+                        ""
+                    )
+                ).replace(/-+$/g, "")
+            )
+        )
     );
-    if (errors.length > 0)
-        throw new Error(`Injeção concluída com ${errors.length} issue(s)`);
+    const codes = [
+        ...new Set(
+            sources
+                .map(({ code }) => code)
+                .concat(prerequisiteCodes)
+                .filter(Boolean)
+        )
+    ];
+    const [courseRows, prefixRows, catalogCourseRows] = await Promise.all([
+        context.prisma.course.findMany({
+            where: { code: { in: codes } },
+            select: {
+                id: true,
+                code: true,
+                name: true,
+                credits: true,
+                unitId: true,
+                prefixId: true
+            }
+        }),
+        context.prisma.prefixes.findMany({
+            select: { id: true, prefix: true }
+        }),
+        context.prisma.catalogCourse.findMany({
+            where: { catalogId: { in: [...catalogIds.values()] } },
+            include: { prerequisites: { include: { items: true } } }
+        })
+    ]);
+    const courseByCode = new Map(courseRows.map((row) => [row.code, row]));
+    const prefixByCode = new Map(
+        prefixRows.map((row) => [normalizeCode(row.prefix), row])
+    );
+    const catalogCourseByKey = new Map(
+        catalogCourseRows.map((row) => [
+            `${row.catalogId}:${row.courseId}`,
+            row
+        ])
+    );
+    let imported = 0;
+    let skipped = 0;
+    let savepointCounter = 0;
+    const result = await context.prisma.$transaction(
+        async (tx) => {
+            await setTransactionLimits(tx, context.transactionTimeout);
+            for (const source of sources) {
+                const catalogId = catalogIds.get(source.catalog.year);
+                const course = courseByCode.get(source.code);
+                const existing =
+                    catalogId && course
+                        ? catalogCourseByKey.get(`${catalogId}:${course.id}`)
+                        : undefined;
+                const savepoint = `relationship_phase_${savepointCounter++}`;
+                try {
+                    await tx.$executeRawUnsafe(`SAVEPOINT ${savepoint}`);
+                    if (!catalogId || !course || !existing)
+                        throw issue("Disciplina base não encontrada", {
+                            catalogYear: source.catalog.year,
+                            code: source.code
+                        });
+                    const groups = prerequisiteGroups(
+                        source.discipline,
+                        courseByCode,
+                        prefixByCode,
+                        source.catalog.year,
+                        source.code
+                    );
+                    const before = canonicalGroups(
+                        existing.prerequisites.map((group) => ({
+                            items: group.items.map((item) => ({
+                                code: item.code,
+                                kind: item.kind
+                            }))
+                        }))
+                    );
+                    const after = canonicalGroups(groups);
+                    if (JSON.stringify(before) === JSON.stringify(after)) {
+                        await tx.$executeRawUnsafe(
+                            `RELEASE SAVEPOINT ${savepoint}`
+                        );
+                        imported += 1;
+                        continue;
+                    }
+                    await tx.catalogCoursePrerequisiteGroup.deleteMany({
+                        where: { catalogCourseId: existing.id }
+                    });
+                    for (const group of groups)
+                        await tx.catalogCoursePrerequisiteGroup.create({
+                            data: {
+                                catalogCourseId: existing.id,
+                                items: { create: group.items }
+                            }
+                        });
+                    await tx.$executeRawUnsafe(
+                        `RELEASE SAVEPOINT ${savepoint}`
+                    );
+                    context.changes.push({
+                        entity: "CatalogCourse",
+                        operation: "update",
+                        key: {
+                            id: existing.id,
+                            catalogId,
+                            courseId: course.id
+                        },
+                        changedFields: ["prerequisites"],
+                        before: { groups: before },
+                        after: { groups: after }
+                    });
+                    imported += 1;
+                } catch (error) {
+                    await tx.$executeRawUnsafe(
+                        `ROLLBACK TO SAVEPOINT ${savepoint}`
+                    );
+                    await tx.$executeRawUnsafe(
+                        `RELEASE SAVEPOINT ${savepoint}`
+                    );
+                    skipped += 1;
+                    context.errors.push(error);
+                    context.logger.warn(
+                        {
+                            err: error,
+                            catalogYear: source.catalog.year,
+                            code: source.code
+                        },
+                        "Relações da disciplina ignoradas"
+                    );
+                }
+            }
+            return { disciplines: sources.length, imported, skipped };
+        },
+        {
+            timeout: context.transactionTimeout,
+            maxWait: context.transactionMaxWait
+        }
+    );
+    return result;
 }
