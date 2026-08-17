@@ -22,19 +22,25 @@ import { createInjectionLogger } from "./logger.js";
 import { runProcess } from "./process.js";
 import { createInjectionService, type InjectionService } from "./registry.js";
 
+export type InjectionRunMode = "all" | "obtain" | "inject";
+
 export async function runInjection(
     config: InjectionConfig,
     definition: InjectionDefinition,
     signal?: AbortSignal,
     serviceFactory: (
         definition: InjectionDefinition
-    ) => InjectionService = createInjectionService
+    ) => InjectionService = createInjectionService,
+    mode: InjectionRunMode = "all"
 ) {
+    if (!(["all", "obtain", "inject"] as InjectionRunMode[]).includes(mode))
+        throw new Error(`Modo de execução inválido: ${mode}`);
     loadInjectionEnv();
-    if (!process.env.DATABASE_URL)
+    if (mode !== "obtain" && !process.env.DATABASE_URL)
         throw new Error(
             "DATABASE_URL deve ser configurada para executar a injection"
         );
+    const databaseUrl = process.env.DATABASE_URL;
     const runId = randomUUID();
     const logger = createInjectionLogger(definition.name, runId);
     const inputPath = resolveInputPath(
@@ -55,38 +61,50 @@ export async function runInjection(
         throw new Error(`Arquivo de entrada fora da raiz: ${inputPath}`);
     await mkdir(dirname(inputPath), { recursive: true });
     try {
-        await runProcess(
-            {
-                command: definition.obtain.command,
-                args: definition.obtain.args.map((value) =>
-                    interpolate(value, variables)
-                ),
-                cwd: resolveCommandCwd(
-                    config.rootDirectory,
-                    config.configDirectory,
-                    definition.obtain.cwd
-                ),
-                env: {
-                    ...variables,
-                    ...Object.fromEntries(
-                        Object.entries(definition.obtain.env).map(
-                            ([key, value]) => [
-                                key,
-                                interpolate(value, variables)
-                            ]
+        if (mode !== "inject") {
+            await runProcess(
+                {
+                    command: definition.obtain.command,
+                    args: definition.obtain.args.map((value) =>
+                        interpolate(value, variables)
+                    ),
+                    cwd: resolveCommandCwd(
+                        config.rootDirectory,
+                        config.configDirectory,
+                        definition.obtain.cwd
+                    ),
+                    env: {
+                        ...variables,
+                        ...Object.fromEntries(
+                            Object.entries(definition.obtain.env).map(
+                                ([key, value]) => [
+                                    key,
+                                    interpolate(value, variables)
+                                ]
+                            )
                         )
-                    )
+                    },
+                    timeoutMs: definition.obtain.timeoutMs,
+                    stderrToStdout: true,
+                    allowedExitCodes: definition.allowIssues ? [1] : undefined
                 },
-                timeoutMs: definition.obtain.timeoutMs,
-                stderrToStdout: true,
-                allowedExitCodes: definition.allowIssues ? [1] : undefined
-            },
-            signal
-        );
-        await access(temporaryPath);
-        await rename(temporaryPath, inputPath);
+                signal
+            );
+            await access(temporaryPath);
+            await rename(temporaryPath, inputPath);
+            logger.info({ inputPath }, "Obtenção concluída");
+        } else {
+            await access(inputPath);
+            logger.info({ inputPath }, "Usando arquivo existente para injeção");
+        }
+        if (mode === "obtain")
+            return { name: definition.name, runId, inputPath, mode };
         const service = serviceFactory(definition);
-        const prisma = createDatabaseClient(process.env.DATABASE_URL);
+        if (!databaseUrl)
+            throw new Error(
+                "DATABASE_URL deve ser configurada para executar a injection"
+            );
+        const prisma = createDatabaseClient(databaseUrl);
         let persistenceError: unknown;
         try {
             try {
@@ -109,7 +127,7 @@ export async function runInjection(
             logger
         });
         if (persistenceError) throw persistenceError;
-        return { name: definition.name, runId, inputPath };
+        return { name: definition.name, runId, inputPath, mode };
     } finally {
         await rm(temporaryPath, { force: true });
     }

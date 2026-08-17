@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import pino from "pino";
 import { loadInjectionConfig } from "./config.js";
 import { injectionNames } from "./registry.js";
+import type { InjectionRunMode } from "./runner.js";
 import { runInjection } from "./runner.js";
 
 const program = new Command().name("pomi-injection").version("0.1.0");
@@ -41,13 +42,25 @@ program.command("validate").action(async () => {
 });
 
 program
-    .command("run <name>")
-    .description(`executa uma injection (${injectionNames.join(", ")})`)
-    .action(async (name: string) => {
+    .command("run <name> [mode]")
+    .description(
+        `executa uma injection (${injectionNames.join(", ")}); modo: all, obtain ou inject`
+    )
+    .action(async (name: string, mode = "all") => {
+        if (!["all", "obtain", "inject"].includes(mode))
+            throw new Error(
+                `Modo inválido: ${mode}. Use all, obtain ou inject.`
+            );
         const config = await loadInjectionConfig(program.opts().config);
         const injection = config.injections.find((item) => item.name === name);
         if (!injection) throw new Error(`Injection não encontrada: ${name}`);
-        await runInjection(config, injection);
+        await runInjection(
+            config,
+            injection,
+            undefined,
+            undefined,
+            mode as InjectionRunMode
+        );
     });
 
 program.command("watch").action(async () => {
