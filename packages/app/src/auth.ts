@@ -76,7 +76,9 @@ async function verifyAccessToken(token: string): Promise<TokenPayload> {
 
 function studentIdentityFromToken(payload: TokenPayload) {
     const email = payload.email?.trim().toLowerCase();
-    if (!payload.email_verified || !email) return undefined;
+    // Desativado tepmorariamente verificacao de email
+    // if (!payload.email_verified || !email) return undefined;
+    if (!email) return undefined;
     const match = /^([a-z])([0-9]{6})@dac\.unicamp\.br$/i.exec(email);
     if (!match) return undefined;
     return { email, ra: match[2], displayName: payload.name };
