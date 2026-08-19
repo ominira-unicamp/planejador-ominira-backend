@@ -461,6 +461,75 @@ model ClassSchedule {
   studentAbsences StudentAbsence[]
 }
 
+
+// ----------------------- Restaurant & Menu Models ----------------------- //
+
+enum MealPeriod {
+  LUNCH
+  DINNER
+}
+
+enum DietaryOption {
+  TRADITIONAL
+  VEGAN
+}
+
+enum MealStatus {
+  AVAILABLE
+  NOT_REGISTERED
+}
+
+model DailyMenu {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique @db.Date
+
+  meals     Meal[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Meal {
+  id           Int               @id @default(autoincrement())
+  dailyMenu    DailyMenu         @relation(fields: [dailyMenuId], references: [id], onDelete: Cascade)
+  dailyMenuId  Int
+
+  period       MealPeriod
+  diet         DietaryOption
+  status       MealStatus
+  
+  mainDish     String?
+
+  items        MealItem[]
+  observations MealObservation[]
+  serviceNotes MealServiceNote[]
+
+  @@unique([dailyMenuId, period, diet])
+}
+
+model MealItem {
+  id     Int    @id @default(autoincrement())
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId Int
+  text   String
+}
+
+model MealObservation {
+  id     Int    @id @default(autoincrement())
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId Int
+  text   String
+}
+
+model MealServiceNote {
+  id     Int    @id @default(autoincrement())
+  meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  mealId Int
+  text   String
+
+  @@unique([mealId, text])
+}
+
 // ----------------------- Student Models ----------------------- //
 
 enum StudentCourseAttemptStatus {
