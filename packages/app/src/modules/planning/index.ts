@@ -3,6 +3,7 @@ import type { ModuleDefinition } from "#/modules/Module.js";
 import curriculum from "#/modules/planning/curriculum/index.js";
 import periodPlan from "#/modules/planning/period-plan/index.js";
 import periodPlanAlias from "#/modules/planning/period-plan/PeriodPlanAlias.controller.js";
+import studentAbsence from "#/modules/planning/student-absence/index.js";
 import studentCourseAttempt from "#/modules/planning/student-course-attempt/index.js";
 import student from "#/modules/planning/student/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
@@ -13,7 +14,8 @@ const controllers: ModuleDefinition["controllers"] = [
     curriculum,
     periodPlan,
     periodPlanAlias,
-    studentCourseAttempt
+    studentCourseAttempt,
+    studentAbsence
 ];
 export default {
     router: Router().use(

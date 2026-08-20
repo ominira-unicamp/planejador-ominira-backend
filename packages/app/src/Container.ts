@@ -25,6 +25,10 @@ import {
     type PeriodPlanService
 } from "#/modules/planning/period-plan/PeriodPlan.service.js";
 import {
+    createStudentAbsenceService,
+    type StudentAbsenceService
+} from "#/modules/planning/student-absence/StudentAbsence.service.js";
+import {
     createStudentCourseAttemptService,
     type StudentCourseAttemptService
 } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
@@ -40,6 +44,7 @@ export type AppCradle = {
     principal: Principal | undefined;
     zodIds: ReturnType<typeof buildZodIds>;
     studentCourseAttemptService: StudentCourseAttemptService;
+    studentAbsenceService: StudentAbsenceService;
     studentService: StudentService;
     currentUserService: CurrentUserService;
     botGrantService: BotGrantService;
@@ -59,6 +64,7 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         studentCourseAttemptService: asFunction(
             createStudentCourseAttemptService
         ).scoped(),
+        studentAbsenceService: asFunction(createStudentAbsenceService).scoped(),
         studentService: asFunction(createStudentService).scoped(),
         currentUserService: asFunction(createCurrentUserService).scoped(),
         botGrantService: asFunction(createBotGrantService).scoped(),

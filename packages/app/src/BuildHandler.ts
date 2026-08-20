@@ -5,6 +5,7 @@ import type { BotGrantService } from "#/modules/identity/bot-grant/BotGrant.serv
 import type { CurrentUserService } from "#/modules/identity/current-user/CurrentUser.service.js";
 import type { CurriculumService } from "#/modules/planning/curriculum/Curriculum.service.js";
 import type { PeriodPlanService } from "#/modules/planning/period-plan/PeriodPlan.service.js";
+import type { StudentAbsenceService } from "#/modules/planning/student-absence/StudentAbsence.service.js";
 import type { StudentCourseAttemptService } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
 import type { StudentService } from "#/modules/planning/student/Student.service.js";
 import {
@@ -16,6 +17,7 @@ import {
 export type Context = {
     principal?: Principal;
     studentCourseAttemptService: StudentCourseAttemptService;
+    studentAbsenceService: StudentAbsenceService;
     studentService: StudentService;
     currentUserService: CurrentUserService;
     botGrantService: BotGrantService;
@@ -38,6 +40,7 @@ export function createAppEndpointRegistries<
             principal: request.scope.cradle.principal,
             studentCourseAttemptService:
                 request.scope.cradle.studentCourseAttemptService,
+            studentAbsenceService: request.scope.cradle.studentAbsenceService,
             studentService: request.scope.cradle.studentService,
             currentUserService: request.scope.cradle.currentUserService,
             botGrantService: request.scope.cradle.botGrantService,
