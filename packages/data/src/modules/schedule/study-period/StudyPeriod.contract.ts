@@ -18,6 +18,13 @@ const studyPeriodEntity = z
     .object({
         id: z.number().int(),
         code: z.string(),
+        year: z.number().int(),
+        yearPeriod: z.enum([
+            "SUMMER",
+            "FIRST_SEMESTER",
+            "WINTER",
+            "SECOND_SEMESTER"
+        ]),
         startDate: z.union([z.string(), z.date()]).pipe(z.coerce.date()),
         _paths: z.object({
             classes: z.string(),

@@ -23,16 +23,29 @@ const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
 export const StudentCourseAttemptStatus = {
     ENROLLED: "ENROLLED",
-    COMPLETED: "COMPLETED",
-    FAILED: "FAILED",
-    DROPPED: "DROPPED"
+    DROPPED: "DROPPED",
+    APPROVED: "APPROVED",
+    FAILED_BY_GRADE: "FAILED_BY_GRADE",
+    APPROVED_BY_ATTENDANCE: "APPROVED_BY_ATTENDANCE",
+    FAILED_BY_ATTENDANCE: "FAILED_BY_ATTENDANCE",
+    SUFFICIENT: "SUFFICIENT",
+    INSUFFICIENT: "INSUFFICIENT"
 } as const;
 
 export const statusSchema = z.enum([
     "ENROLLED",
-    "COMPLETED",
-    "FAILED",
-    "DROPPED"
+    "DROPPED",
+    "APPROVED",
+    "FAILED_BY_GRADE",
+    "APPROVED_BY_ATTENDANCE",
+    "FAILED_BY_ATTENDANCE",
+    "SUFFICIENT",
+    "INSUFFICIENT"
+]);
+const evaluationModeSchema = z.enum([
+    "GRADE_AND_ATTENDANCE",
+    "ATTENDANCE",
+    "CONCEPT"
 ]);
 const gradeSchema = z.number().min(0).max(10).nullable();
 
@@ -43,6 +56,7 @@ const attemptEntity = z
         courseId: z.number().int(),
         studyPeriodId: z.number().int().nullable(),
         classId: z.number().int().nullable(),
+        evaluationMode: evaluationModeSchema,
         status: statusSchema,
         grade: z.number().nullable(),
         createdAt: z.string().datetime(),
@@ -57,7 +71,17 @@ const attemptEntity = z
                 .nullable()
         }),
         studyPeriod: z
-            .object({ id: z.number().int(), code: z.string() })
+            .object({
+                id: z.number().int(),
+                code: z.string(),
+                year: z.number().int(),
+                yearPeriod: z.enum([
+                    "SUMMER",
+                    "FIRST_SEMESTER",
+                    "WINTER",
+                    "SECOND_SEMESTER"
+                ])
+            })
             .nullable(),
         class: z
             .object({
@@ -84,6 +108,7 @@ const attemptBody = z
         courseId: z.number().int(),
         studyPeriodId: z.number().int().nullable().optional(),
         classId: z.number().int().nullable().optional(),
+        evaluationMode: evaluationModeSchema.optional(),
         status: statusSchema,
         grade: gradeSchema.optional()
     })

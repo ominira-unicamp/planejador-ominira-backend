@@ -1,7 +1,12 @@
 import IO from "#/modules/schedule/class/Class.contract.js";
 import classEntity from "#/modules/schedule/class/Class.entity.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import { whereIdCode, whereIdName, type PrismaClient } from "@pomi/db";
+import {
+    parseStudyPeriodCode,
+    whereIdCode,
+    whereIdName,
+    type PrismaClient
+} from "@pomi/db";
 import z from "zod";
 type ClassEntity = z.infer<typeof IO.schema>;
 type Query = z.infer<typeof IO.list.request>["query"];
@@ -20,6 +25,9 @@ export function createClassService({
 }): ClassService {
     return {
         async list(query) {
+            const parsedStudyPeriodCode = query.studyPeriodCode
+                ? parseStudyPeriodCode(query.studyPeriodCode)
+                : null;
             const where = {
                 ...(query.classCode
                     ? {
@@ -33,10 +41,16 @@ export function createClassService({
                     ...whereIdCode(query.courseId, query.courseCode),
                     unit: whereIdCode(query.unitId, query.unitCode)
                 },
-                studyPeriod: whereIdCode(
-                    query.studyPeriodId,
-                    query.studyPeriodCode
-                ),
+                studyPeriod: {
+                    ...(query.studyPeriodId ? { id: query.studyPeriodId } : {}),
+                    ...(parsedStudyPeriodCode ?? {}),
+                    ...(query.studyPeriodYear
+                        ? { year: query.studyPeriodYear }
+                        : {}),
+                    ...(query.studyPeriodYearPeriod
+                        ? { yearPeriod: query.studyPeriodYearPeriod }
+                        : {})
+                },
                 ...(query.professorId || query.professorName
                     ? {
                           professors: {

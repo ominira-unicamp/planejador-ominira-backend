@@ -8,13 +8,22 @@ import {
     type StudentCourseAttemptProblem
 } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.problems.js";
 import { err, ok, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import { type CourseEvaluationMode, type PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type Attempt = z.infer<typeof IO.schema>;
 type CreateInput = z.infer<typeof IO.create.request>["body"];
 type PatchInput = z.infer<typeof IO.patch.request>["body"];
 type ListInput = z.infer<typeof IO.list.request>["query"];
+type AttemptInput = Pick<
+    CreateInput,
+    | "courseId"
+    | "studyPeriodId"
+    | "classId"
+    | "evaluationMode"
+    | "status"
+    | "grade"
+>;
 
 export type StudentCourseAttemptService = {
     list(studentId: number, input: ListInput): Promise<Attempt[]>;
@@ -49,15 +58,81 @@ export type StudentCourseAttemptService = {
     >;
 };
 
-async function validateReferences(
+type ValidationIssue = { code: string; path: string[]; message: string };
+
+function invalidField(path: string[], message: string): ValidationIssue {
+    return { code: "INVALID_VALUE", path, message };
+}
+
+function requiredField(path: string[], message: string): ValidationIssue {
+    return { code: "REQUIRED", path, message };
+}
+
+function validateEvaluation(
+    input: AttemptInput,
+    evaluationMode: CourseEvaluationMode
+): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const grade = input.grade ?? null;
+    const noResult = ["ENROLLED", "DROPPED"].includes(input.status);
+    const gradeResults = ["APPROVED", "FAILED_BY_GRADE"];
+    const allowedStatuses: Record<CourseEvaluationMode, string[]> = {
+        GRADE_AND_ATTENDANCE: [
+            "ENROLLED",
+            "DROPPED",
+            "APPROVED",
+            "FAILED_BY_GRADE",
+            "FAILED_BY_ATTENDANCE"
+        ],
+        ATTENDANCE: [
+            "ENROLLED",
+            "DROPPED",
+            "APPROVED_BY_ATTENDANCE",
+            "FAILED_BY_ATTENDANCE"
+        ],
+        CONCEPT: ["ENROLLED", "DROPPED", "SUFFICIENT", "INSUFFICIENT"]
+    };
+    if (!allowedStatuses[evaluationMode].includes(input.status))
+        issues.push(
+            invalidField(
+                ["status"],
+                "O resultado informado não é compatível com a modalidade de avaliação."
+            )
+        );
+    if (noResult && grade !== null)
+        issues.push(
+            invalidField(
+                ["grade"],
+                "Tentativas cursando ou desistidas não possuem nota final."
+            )
+        );
+    if (evaluationMode !== "GRADE_AND_ATTENDANCE" && grade !== null)
+        issues.push(
+            invalidField(
+                ["grade"],
+                "A modalidade de avaliação não aceita nota numérica."
+            )
+        );
+    if (gradeResults.includes(input.status) && grade === null)
+        issues.push(
+            requiredField(["grade"], "O resultado por nota exige a nota final.")
+        );
+    return issues;
+}
+
+async function validateAttempt(
     prisma: PrismaClient,
-    input: Pick<CreateInput, "courseId" | "studyPeriodId" | "classId">
-) {
-    const fields = [] as Array<{
-        code: string;
-        path: string[];
-        message: string;
-    }>;
+    input: AttemptInput
+): Promise<
+    | { kind: "reference"; fields: ValidationIssue[] }
+    | { kind: "invalid"; fields: ValidationIssue[] }
+    | {
+          kind: "valid";
+          evaluationMode: CourseEvaluationMode;
+          studyPeriodId: number | null;
+      }
+> {
+    const fields: ValidationIssue[] = [];
     const [course, period, classData] = await Promise.all([
         prisma.course.findUnique({
             where: { id: input.courseId },
@@ -73,7 +148,10 @@ async function validateReferences(
             ? undefined
             : prisma.class.findUnique({
                   where: { id: input.classId },
-                  select: { courseId: true, studyPeriodId: true }
+                  select: {
+                      courseId: true,
+                      studyPeriod: { select: { id: true, year: true } }
+                  }
               })
     ]);
     if (!course)
@@ -94,37 +172,78 @@ async function validateReferences(
             path: ["classId"],
             message: "A turma informada não foi encontrada."
         });
-    if (fields.length > 0) return { kind: "reference" as const, fields };
-    if (input.classId == null) return null;
-    const invalid = [] as Array<{
-        code: string;
-        path: string[];
-        message: string;
-    }>;
-    if (input.studyPeriodId == null)
-        invalid.push({
-            code: "REQUIRED",
-            path: ["studyPeriodId"],
-            message: "Uma turma exige um período letivo."
-        });
-    if (classData!.courseId !== input.courseId)
-        invalid.push({
-            code: "INVALID_VALUE",
-            path: ["classId"],
-            message: "A turma deve pertencer à disciplina informada."
-        });
+    if (fields.length > 0) return { kind: "reference", fields };
+
+    if (!classData) {
+        if (!input.evaluationMode)
+            return {
+                kind: "invalid",
+                fields: [
+                    requiredField(
+                        ["evaluationMode"],
+                        "Uma tentativa sem turma exige a modalidade de avaliação."
+                    )
+                ]
+            };
+        const evaluationFields = validateEvaluation(
+            input,
+            input.evaluationMode
+        );
+        return evaluationFields.length > 0
+            ? { kind: "invalid", fields: evaluationFields }
+            : {
+                  kind: "valid",
+                  evaluationMode: input.evaluationMode,
+                  studyPeriodId: input.studyPeriodId ?? null
+              };
+    }
+
+    const invalid: ValidationIssue[] = [];
+    if (classData.courseId !== input.courseId)
+        invalid.push(
+            invalidField(
+                ["classId"],
+                "A turma deve pertencer à disciplina informada."
+            )
+        );
     if (
         input.studyPeriodId != null &&
-        classData!.studyPeriodId !== input.studyPeriodId
+        classData.studyPeriod.id !== input.studyPeriodId
     )
-        invalid.push({
-            code: "INVALID_VALUE",
-            path: ["classId"],
-            message: "A turma deve pertencer ao período letivo informado."
-        });
+        invalid.push(
+            invalidField(
+                ["studyPeriodId"],
+                "O período informado deve ser o período da turma."
+            )
+        );
+    const catalogCourse = await prisma.catalogCourse.findFirst({
+        where: {
+            courseId: classData.courseId,
+            catalog: { year: classData.studyPeriod.year },
+            evaluation: { not: null }
+        },
+        select: { evaluation: true }
+    });
+    if (!catalogCourse?.evaluation)
+        invalid.push(
+            invalidField(
+                ["classId"],
+                "A turma não possui modalidade de avaliação cadastrada no catálogo do seu ano."
+            )
+        );
+    if (invalid.length > 0) return { kind: "invalid", fields: invalid };
+    const evaluationMode = catalogCourse!.evaluation!;
+    if (input.evaluationMode && input.evaluationMode !== evaluationMode)
+        invalid.push(
+            invalidField(
+                ["evaluationMode"],
+                "A modalidade de uma tentativa com turma é definida pelo catálogo da turma."
+            )
+        );
+    invalid.push(...validateEvaluation(input, evaluationMode));
     return invalid.length > 0
-        ? { kind: "invalid" as const, fields: invalid }
-        : null;
+        ? { kind: "invalid", fields: invalid }
+        : { kind: "valid", evaluationMode, studyPeriodId: null };
 }
 
 export function createStudentCourseAttemptService({
@@ -141,13 +260,19 @@ export function createStudentCourseAttemptService({
                     ...(input.status ? { status: input.status } : {}),
                     ...(input.courseId ? { courseId: input.courseId } : {}),
                     ...(input.studyPeriodId
-                        ? { studyPeriodId: input.studyPeriodId }
+                        ? {
+                              OR: [
+                                  { studyPeriodId: input.studyPeriodId },
+                                  {
+                                      class: {
+                                          studyPeriodId: input.studyPeriodId
+                                      }
+                                  }
+                              ]
+                          }
                         : {})
                 },
-                orderBy: [
-                    { studyPeriod: { startDate: "desc" } },
-                    { createdAt: "desc" }
-                ]
+                orderBy: [{ createdAt: "desc" }]
             });
             return attempts.map(attemptEntity.build);
         },
@@ -161,12 +286,12 @@ export function createStudentCourseAttemptService({
                 : err(studentCourseAttemptNotFoundProblem());
         },
         async create(studentId, input) {
-            const validation = await validateReferences(prisma, input);
-            if (validation?.kind === "reference")
+            const validation = await validateAttempt(prisma, input);
+            if (validation.kind === "reference")
                 return err(
                     studentCourseReferenceNotFoundProblem(validation.fields)
                 );
-            if (validation?.kind === "invalid")
+            if (validation.kind === "invalid")
                 return err(
                     invalidStudentCourseAttemptProblem(validation.fields)
                 );
@@ -183,7 +308,15 @@ export function createStudentCourseAttemptService({
             }
             const attempt = await prisma.studentCourseAttempt.create({
                 ...attemptEntity.prismaSelection,
-                data: { studentId, ...input }
+                data: {
+                    studentId,
+                    courseId: input.courseId,
+                    classId: input.classId ?? null,
+                    studyPeriodId: validation.studyPeriodId,
+                    evaluationMode: validation.evaluationMode,
+                    status: input.status,
+                    grade: input.grade ?? null
+                }
             });
             return ok(attemptEntity.build(attempt));
         },
@@ -192,19 +325,26 @@ export function createStudentCourseAttemptService({
                 where: { id, studentId }
             });
             if (!existing) return err(studentCourseAttemptNotFoundProblem());
-            const next = {
+            const next: AttemptInput = {
                 courseId: existing.courseId,
                 studyPeriodId: existing.studyPeriodId,
                 classId: existing.classId,
+                evaluationMode:
+                    input.evaluationMode ??
+                    (input.classId !== undefined &&
+                    input.classId !== existing.classId
+                        ? undefined
+                        : existing.evaluationMode),
                 status: existing.status,
+                grade: existing.grade === null ? null : Number(existing.grade),
                 ...input
             };
-            const validation = await validateReferences(prisma, next);
-            if (validation?.kind === "reference")
+            const validation = await validateAttempt(prisma, next);
+            if (validation.kind === "reference")
                 return err(
                     studentCourseReferenceNotFoundProblem(validation.fields)
                 );
-            if (validation?.kind === "invalid")
+            if (validation.kind === "invalid")
                 return err(
                     invalidStudentCourseAttemptProblem(validation.fields)
                 );
@@ -223,7 +363,13 @@ export function createStudentCourseAttemptService({
             const attempt = await prisma.studentCourseAttempt.update({
                 ...attemptEntity.prismaSelection,
                 where: { id },
-                data: input
+                data: {
+                    classId: next.classId,
+                    studyPeriodId: validation.studyPeriodId,
+                    evaluationMode: validation.evaluationMode,
+                    status: next.status,
+                    grade: next.grade ?? null
+                }
             });
             return ok(attemptEntity.build(attempt));
         },

@@ -85,8 +85,9 @@ npm run dev:app
 Para executar PostgreSQL, Keycloak e as duas APIs, preencha `.docker.env` a partir
 de `.env.template` e execute `docker compose up --build`. A POMI Data API fica em
 `http://localhost:3000` e a POMI App API em `http://localhost:3001`. Esse Compose usa a
-configuração declarativa em `../pomi-infra/slices/pomi/keycloak`; portanto, os
-dois repositórios devem estar lado a lado. O realm `pomi`, o client público
+configuração declarativa em `../pomi-infra/slices/pomi/keycloak` e o tema em
+`../pomi-keycloak-theme/theme/pomi`; portanto, os três projetos devem estar
+lado a lado. O realm `pomi`, o client público
 `pomi-frontend` e a audiência `pomi-api` são reconciliados pelo serviço
 transitório `keycloak-config`. O console local fica em `http://localhost:8080`.
 

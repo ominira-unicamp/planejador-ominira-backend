@@ -1,5 +1,5 @@
 import IO from "#/modules/planning/student-absence/StudentAbsence.contract.js";
-import { MyPrisma } from "@pomi/db";
+import { MyPrisma, studyPeriodCode } from "@pomi/db";
 import z from "zod";
 
 export const prismaStudentAbsenceSelection = {
@@ -18,7 +18,9 @@ export const prismaStudentAbsenceSelection = {
                         id: true,
                         code: true,
                         course: { select: { id: true, code: true } },
-                        studyPeriod: { select: { id: true, code: true } }
+                        studyPeriod: {
+                            select: { id: true, year: true, yearPeriod: true }
+                        }
                     }
                 }
             }
@@ -41,7 +43,10 @@ function buildStudentAbsenceEntity(
         createdAt: absence.createdAt.toISOString(),
         updatedAt: absence.updatedAt.toISOString(),
         studyPeriodId: classData.studyPeriod.id,
-        studyPeriodCode: classData.studyPeriod.code,
+        studyPeriodCode: studyPeriodCode(
+            classData.studyPeriod.year,
+            classData.studyPeriod.yearPeriod
+        ),
         courseId: classData.course.id,
         courseCode: classData.course.code,
         classId: classData.id,

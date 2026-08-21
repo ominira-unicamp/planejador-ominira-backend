@@ -301,11 +301,16 @@ Table CourseRequirement {
 
 Table StudyPeriod {
   id Int [pk, increment]
-  code String [unique, not null]
+  year Int [not null]
+  yearPeriod YearPeriods [not null]
   startDate DateTime [not null]
   classes Class [not null]
   periodPlannings PeriodPlanning [not null]
   studentCourseAttempts StudentCourseAttempt [not null]
+
+  indexes {
+    (year, yearPeriod) [unique]
+  }
 }
 
 Table Professor {
@@ -344,6 +349,56 @@ Table ClassSchedule {
   class Class [not null]
   classId Int [not null]
   studentAbsences StudentAbsence [not null]
+}
+
+Table DailyMenu {
+  id Int [pk, increment]
+  date DateTime [unique, not null]
+  meals Meal [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table Meal {
+  id Int [pk, increment]
+  dailyMenu DailyMenu [not null]
+  dailyMenuId Int [not null]
+  period MealPeriod [not null]
+  diet DietaryOption [not null]
+  status MealStatus [not null]
+  mainDish String
+  items MealItem [not null]
+  observations MealObservation [not null]
+  serviceNotes MealServiceNote [not null]
+
+  indexes {
+    (dailyMenuId, period, diet) [unique]
+  }
+}
+
+Table MealItem {
+  id Int [pk, increment]
+  meal Meal [not null]
+  mealId Int [not null]
+  text String [not null]
+}
+
+Table MealObservation {
+  id Int [pk, increment]
+  meal Meal [not null]
+  mealId Int [not null]
+  text String [not null]
+}
+
+Table MealServiceNote {
+  id Int [pk, increment]
+  meal Meal [not null]
+  mealId Int [not null]
+  text String [not null]
+
+  indexes {
+    (mealId, text) [unique]
+  }
 }
 
 Table Student {
@@ -394,6 +449,7 @@ Table StudentCourseAttempt {
   studyPeriodId Int
   class Class
   classId Int
+  evaluationMode CourseEvaluationMode [not null]
   status StudentCourseAttemptStatus [not null]
   grade Decimal
   createdAt DateTime [default: `now()`, not null]
@@ -622,11 +678,30 @@ Enum DayOfWeek {
   SUNDAY
 }
 
+Enum MealPeriod {
+  LUNCH
+  DINNER
+}
+
+Enum DietaryOption {
+  TRADITIONAL
+  VEGAN
+}
+
+Enum MealStatus {
+  AVAILABLE
+  NOT_REGISTERED
+}
+
 Enum StudentCourseAttemptStatus {
   ENROLLED
-  COMPLETED
-  FAILED
   DROPPED
+  APPROVED
+  FAILED_BY_GRADE
+  APPROVED_BY_ATTENDANCE
+  FAILED_BY_ATTENDANCE
+  SUFFICIENT
+  INSUFFICIENT
 }
 
 Ref: AuthUserRole.authUserId > AuthUser.id [delete: Cascade]
@@ -698,6 +773,14 @@ Ref: Class.courseId > Course.id
 Ref: ClassSchedule.roomId > Room.id
 
 Ref: ClassSchedule.classId > Class.id
+
+Ref: Meal.dailyMenuId > DailyMenu.id [delete: Cascade]
+
+Ref: MealItem.mealId > Meal.id [delete: Cascade]
+
+Ref: MealObservation.mealId > Meal.id [delete: Cascade]
+
+Ref: MealServiceNote.mealId > Meal.id [delete: Cascade]
 
 Ref: Student.authUserId - AuthUser.id
 

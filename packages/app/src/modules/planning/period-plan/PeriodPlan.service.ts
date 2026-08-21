@@ -10,7 +10,7 @@ import {
     type PeriodPlanProblem
 } from "#/modules/planning/period-plan/PeriodPlan.problems.js";
 import { err, ok, type ProblemField, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import { studyPeriodCode, type PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type PeriodPlan = z.infer<typeof IO.schema>;
@@ -312,7 +312,7 @@ export function createPeriodPlanService({
             const guide = input.guide ?? legacyGuide(input.curriculumId);
             const studyPeriod = await prisma.studyPeriod.findUnique({
                 where: { id: input.studyPeriodId },
-                select: { id: true, code: true }
+                select: { id: true, year: true, yearPeriod: true }
             });
             const fields: ProblemField[] = studyPeriod
                 ? []
@@ -339,7 +339,15 @@ export function createPeriodPlanService({
                     student: { connect: { id: studentId } },
                     studyPeriod: { connect: { id: input.studyPeriodId } },
                     name:
-                        input.name ?? `Planejamento ${studyPeriod?.code ?? ""}`,
+                        input.name ??
+                        `Planejamento ${
+                            studyPeriod
+                                ? studyPeriodCode(
+                                      studyPeriod.year,
+                                      studyPeriod.yearPeriod
+                                  )
+                                : ""
+                        }`,
                     guideMode: guide.mode,
                     curriculumSource: guide.curriculumSource,
                     ...(guide.curriculumId === null

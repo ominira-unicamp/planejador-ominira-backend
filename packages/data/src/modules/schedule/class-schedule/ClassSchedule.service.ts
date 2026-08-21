@@ -6,7 +6,9 @@ import { classScheduleNotFoundProblem } from "#/modules/schedule/class-schedule/
 import { err, ok, type Result } from "@pomi/api-core";
 import {
     MyPrisma,
+    parseStudyPeriodCode,
     selectIdCode,
+    studyPeriodCode,
     whereIdCode,
     type PrismaClient
 } from "@pomi/db";
@@ -23,7 +25,9 @@ const prismaClassScheduleFieldSelection = {
                 code: true,
                 courseId: true,
                 studyPeriodId: true,
-                studyPeriod: selectIdCode,
+                studyPeriod: {
+                    select: { id: true, year: true, yearPeriod: true }
+                },
                 course: {
                     select: {
                         id: true,
@@ -56,7 +60,12 @@ function classScheduleData(
         courseId: classEntity.course.id,
         courseCode: classEntity.course.code,
         studyPeriodId: classEntity.studyPeriod.id,
-        studyPeriodCode: classEntity.studyPeriod.code
+        studyPeriodCode: studyPeriodCode(
+            classEntity.studyPeriod.year,
+            classEntity.studyPeriod.yearPeriod
+        ),
+        studyPeriodYear: classEntity.studyPeriod.year,
+        studyPeriodYearPeriod: classEntity.studyPeriod.yearPeriod
     };
 }
 
@@ -84,6 +93,9 @@ export function createClassScheduleService({
 }): ClassScheduleService {
     return {
         async list(input) {
+            const parsedStudyPeriodCode = input.studyPeriodCode
+                ? parseStudyPeriodCode(input.studyPeriodCode)
+                : null;
             const where = {
                 dayOfWeek: input.dayOfWeek,
                 room: whereIdCode(input.roomId, input.roomCode),
@@ -93,10 +105,18 @@ export function createClassScheduleService({
                         ...whereIdCode(input.courseId, input.courseCode),
                         unit: whereIdCode(input.unitId, input.unitCode)
                     },
-                    studyPeriod: whereIdCode(
-                        input.studyPeriodId,
-                        input.studyPeriodCode
-                    )
+                    studyPeriod: {
+                        ...(input.studyPeriodId
+                            ? { id: input.studyPeriodId }
+                            : {}),
+                        ...(parsedStudyPeriodCode ?? {}),
+                        ...(input.studyPeriodYear
+                            ? { year: input.studyPeriodYear }
+                            : {}),
+                        ...(input.studyPeriodYearPeriod
+                            ? { yearPeriod: input.studyPeriodYearPeriod }
+                            : {})
+                    }
                 }
             };
             const [total, schedules] = await Promise.all([

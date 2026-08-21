@@ -1,10 +1,17 @@
 import IO from "#/modules/planning/period-plan/PeriodPlan.contract.js";
-import { MyPrisma, selectIdCode, selectIdName } from "@pomi/db";
+import {
+    MyPrisma,
+    selectIdCode,
+    selectIdName,
+    studyPeriodCode
+} from "@pomi/db";
 import z from "zod";
 
 export const prismaPeriodPlanningFieldSelection = {
     include: {
-        studyPeriod: selectIdCode,
+        studyPeriod: {
+            select: { id: true, year: true, yearPeriod: true }
+        },
         curriculum: { select: { id: true } },
         curriculumSuggestion: { select: { id: true, catalogProgramId: true } },
         catalogProgram: { select: { id: true } },
@@ -14,7 +21,9 @@ export const prismaPeriodPlanningFieldSelection = {
         classes: {
             include: {
                 professors: selectIdName,
-                studyPeriod: selectIdCode,
+                studyPeriod: {
+                    select: { id: true, year: true, yearPeriod: true }
+                },
                 classSchedules: {
                     select: {
                         id: true,
@@ -73,7 +82,10 @@ function buildPeriodPlanningEntity(
         createdAt: periodPlanning.createdAt.toISOString(),
         updatedAt: periodPlanning.updatedAt.toISOString(),
         studyPeriodId: studyPeriod.id,
-        studyPeriodCode: studyPeriod.code,
+        studyPeriodCode: studyPeriodCode(
+            studyPeriod.year,
+            studyPeriod.yearPeriod
+        ),
         curriculumId: curriculum?.id ?? null,
         guide: {
             mode: periodPlanning.guideMode,

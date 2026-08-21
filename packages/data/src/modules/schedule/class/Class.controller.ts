@@ -13,6 +13,15 @@ type Actions = EndpointActions<typeof contracts, unknown, Context>;
 const respond = createResultResponder({
     [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
 });
+
+function listPath(query: Record<string, unknown>) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query))
+        if (value !== undefined) params.set(key, String(value));
+    const search = params.toString();
+    return `/classes${search ? `?${search}` : ""}`;
+}
+
 const actions: Actions = {
     list: async (ctx, input) => {
         const result = await ctx.classService.list(input.query);
@@ -23,7 +32,7 @@ const actions: Actions = {
                 result.items,
                 result.total,
                 { page, pageSize },
-                (next) => `/classes?page=${next}&pageSize=${pageSize}`
+                (next) => listPath({ ...input.query, page: next, pageSize })
             )
         );
     },
@@ -41,12 +50,6 @@ export default {
     authRegistry,
     paths: {
         entity: classPaths.entity,
-        list: (query: Record<string, unknown>) => {
-            const params = new URLSearchParams();
-            for (const [key, value] of Object.entries(query))
-                if (value !== undefined) params.set(key, String(value));
-            const search = params.toString();
-            return `/classes${search ? `?${search}` : ""}`;
-        }
+        list: listPath
     }
 };

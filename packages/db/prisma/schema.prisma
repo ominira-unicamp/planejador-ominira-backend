@@ -403,11 +403,15 @@ model CourseRequirement {
 
 model StudyPeriod {
   id                    Int                    @id @default(autoincrement())
-  code                  String                 @unique
+  year                  Int
+  yearPeriod            YearPeriods
   startDate             DateTime
   classes               Class[]
   periodPlannings       PeriodPlanning[]
   studentCourseAttempts StudentCourseAttempt[]
+
+  @@unique([year, yearPeriod])
+  @@index([year])
 }
 
 model Professor {
@@ -534,9 +538,13 @@ model MealServiceNote {
 
 enum StudentCourseAttemptStatus {
   ENROLLED
-  COMPLETED
-  FAILED
   DROPPED
+  APPROVED
+  FAILED_BY_GRADE
+  APPROVED_BY_ATTENDANCE
+  FAILED_BY_ATTENDANCE
+  SUFFICIENT
+  INSUFFICIENT
 }
 
 model Student {
@@ -590,6 +598,7 @@ model StudentCourseAttempt {
   studyPeriodId Int?
   class         Class?                     @relation(fields: [classId], references: [id], onDelete: SetNull)
   classId       Int?
+  evaluationMode CourseEvaluationMode
   status        StudentCourseAttemptStatus
   grade         Decimal?
   createdAt     DateTime                   @default(now())

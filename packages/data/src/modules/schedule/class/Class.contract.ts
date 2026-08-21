@@ -29,6 +29,13 @@ const classEntity = z
         studyPeriodId: z.number().int(),
         professorIds: z.array(z.number().int()),
         studyPeriodCode: z.string(),
+        studyPeriodYear: z.number().int(),
+        studyPeriodYearPeriod: z.enum([
+            "SUMMER",
+            "FIRST_SEMESTER",
+            "WINTER",
+            "SECOND_SEMESTER"
+        ]),
         courseCode: z.string(),
         unitId: z.number().int(),
         unitCode: z.string(),
@@ -63,6 +70,10 @@ const listClassesQuery = paginationQuerySchema
         courseCode: z.string().optional(),
         studyPeriodId: z.coerce.number().int().optional(),
         studyPeriodCode: z.string().optional(),
+        studyPeriodYear: z.coerce.number().int().optional(),
+        studyPeriodYearPeriod: z
+            .enum(["SUMMER", "FIRST_SEMESTER", "WINTER", "SECOND_SEMESTER"])
+            .optional(),
         professorId: z.coerce.number().int().optional(),
         professorName: z.string().optional()
     })

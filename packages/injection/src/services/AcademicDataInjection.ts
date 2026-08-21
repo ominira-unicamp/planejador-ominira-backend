@@ -1,4 +1,4 @@
-import { DayOfWeek } from "@pomi/db";
+import { DayOfWeek, YearPeriods, studyPeriodCode } from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
@@ -92,17 +92,25 @@ export async function injectAcademicData(
         string,
         { code: string; name: string; unitCode: string; credits: number }
     > = new Map();
-    const studyPeriods = new Map<string, { code: string; startDate: Date }>();
+    const studyPeriods = new Map<
+        string,
+        { year: number; yearPeriod: YearPeriods; startDate: Date }
+    >();
 
     logger.info("📊 Coletando dados...");
     for (const period of academicData) {
+        const yearPeriod =
+            period.semester === 1
+                ? YearPeriods.FIRST_SEMESTER
+                : YearPeriods.SECOND_SEMESTER;
         const studyPeriod = {
-            code: `${period.year}s${period.semester}`,
+            year: period.year,
+            yearPeriod,
             startDate: new Date(
                 `${period.year}-${period.semester === 1 ? "02" : "08"}-01`
             )
         };
-        studyPeriods.set(studyPeriod.code, studyPeriod);
+        studyPeriods.set(studyPeriodCode(period.year, yearPeriod), studyPeriod);
 
         for (const instituteData of period.institutes) {
             allUnits.set(instituteData.code, { code: instituteData.code });
@@ -170,7 +178,12 @@ export async function injectAcademicData(
         databaseConcurrency,
         (studyPeriod) =>
             prisma.studyPeriod.upsert({
-                where: { code: studyPeriod.code },
+                where: {
+                    year_yearPeriod: {
+                        year: studyPeriod.year,
+                        yearPeriod: studyPeriod.yearPeriod
+                    }
+                },
                 create: studyPeriod,
                 update: { startDate: studyPeriod.startDate }
             })
@@ -211,7 +224,10 @@ export async function injectAcademicData(
         (await prisma.course.findMany()).map((c) => [c.code, c])
     );
     const studyPeriodsMap = new Map(
-        (await prisma.studyPeriod.findMany()).map((sp) => [sp.code, sp])
+        (await prisma.studyPeriod.findMany()).map((sp) => [
+            studyPeriodCode(sp.year, sp.yearPeriod),
+            sp
+        ])
     );
 
     logger.info("\n👥 Coletando turmas...");
@@ -225,8 +241,12 @@ export async function injectAcademicData(
     }> = [];
 
     for (const period of academicData) {
+        const yearPeriod =
+            period.semester === 1
+                ? YearPeriods.FIRST_SEMESTER
+                : YearPeriods.SECOND_SEMESTER;
         const studyPeriod = studyPeriodsMap.get(
-            `${period.year}s${period.semester}`
+            studyPeriodCode(period.year, yearPeriod)
         );
         if (!studyPeriod)
             throw new Error(
@@ -259,7 +279,7 @@ export async function injectAcademicData(
                         studyPeriodId: studyPeriod.id,
                         reservations: classData.reservations,
                         professorIds,
-                        turmaKey: `${period.year}-${period.semester}-${courseData.code}-${classData.name}`
+                        turmaKey: `${period.year}-${yearPeriod}-${courseData.code}-${classData.name}`
                     });
                 }
             }
@@ -275,7 +295,7 @@ export async function injectAcademicData(
     });
     const classesMap = new Map(
         createdClassesArray.map((c) => [
-            `${c.studyPeriod.code.split("s")[0]}-${c.studyPeriod.code.split("s")[1]}-${c.course.code}-${c.code}`,
+            `${c.studyPeriod.year}-${c.studyPeriod.yearPeriod}-${c.course.code}-${c.code}`,
             c
         ])
     );

@@ -1,6 +1,6 @@
 import { resourcesPaths } from "#/Controllers.js";
 import IO from "#/modules/schedule/study-period/StudyPeriod.contract.js";
-import { MyPrisma } from "@pomi/db";
+import { MyPrisma, studyPeriodCode } from "@pomi/db";
 import z from "zod";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -22,6 +22,7 @@ function buildStudyPeriodEntity(
 ): z.infer<typeof IO.schema> {
     return {
         ...studyPeriod,
+        code: studyPeriodCode(studyPeriod.year, studyPeriod.yearPeriod),
         _paths: relatedPathsForStudyPeriod(studyPeriod.id)
     };
 }

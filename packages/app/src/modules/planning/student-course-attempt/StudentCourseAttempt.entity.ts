@@ -1,5 +1,5 @@
 import IO from "#/modules/planning/student-course-attempt/StudentCourseAttempt.contract.js";
-import { MyPrisma, selectIdCode } from "@pomi/db";
+import { MyPrisma, selectIdCode, studyPeriodCode } from "@pomi/db";
 import z from "zod";
 
 export const prismaStudentCourseFieldSelection = {
@@ -13,11 +13,16 @@ export const prismaStudentCourseFieldSelection = {
                 unit: selectIdCode
             }
         },
-        studyPeriod: { select: { id: true, code: true } },
+        studyPeriod: {
+            select: { id: true, year: true, yearPeriod: true }
+        },
         class: {
             select: {
                 id: true,
                 code: true,
+                studyPeriod: {
+                    select: { id: true, year: true, yearPeriod: true }
+                },
                 professors: { select: { id: true, name: true } }
             }
         }
@@ -33,27 +38,46 @@ function buildStudentCourseEntity(
 ): z.infer<typeof IO.schema> {
     const {
         course,
-        studyPeriod,
+        studyPeriod: storedStudyPeriod,
         class: classData,
+        studyPeriodId: _storedStudyPeriodId,
         grade,
         createdAt,
         updatedAt,
         ...rest
     } = attempt;
+    const resolvedStudyPeriod = classData?.studyPeriod ?? storedStudyPeriod;
     return {
         ...rest,
+        studyPeriodId: resolvedStudyPeriod?.id ?? null,
         grade: grade === null ? null : Number(grade),
         createdAt: createdAt.toISOString(),
         updatedAt: updatedAt.toISOString(),
         course,
-        studyPeriod,
-        class: classData,
+        studyPeriod: resolvedStudyPeriod
+            ? {
+                  id: resolvedStudyPeriod.id,
+                  code: studyPeriodCode(
+                      resolvedStudyPeriod.year,
+                      resolvedStudyPeriod.yearPeriod
+                  ),
+                  year: resolvedStudyPeriod.year,
+                  yearPeriod: resolvedStudyPeriod.yearPeriod
+              }
+            : null,
+        class: classData
+            ? {
+                  id: classData.id,
+                  code: classData.code,
+                  professors: classData.professors
+              }
+            : null,
         _paths: {
             self: `/student/${attempt.studentId}/course-attempts/${attempt.id}`,
             student: `/student/${attempt.studentId}`,
             course: `/courses/${course.id}`,
-            studyPeriod: studyPeriod
-                ? `/study-periods/${studyPeriod.id}`
+            studyPeriod: resolvedStudyPeriod
+                ? `/study-periods/${resolvedStudyPeriod.id}`
                 : null,
             class: classData ? `/classes/${classData.id}` : null
         }
