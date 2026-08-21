@@ -5,6 +5,7 @@ import calendarTag from "#/modules/schedule/calendar-tag/index.js";
 import calendar from "#/modules/schedule/calendar/index.js";
 import classSchedule from "#/modules/schedule/class-schedule/index.js";
 import classController from "#/modules/schedule/class/index.js";
+import dailyMenu from "#/modules/schedule/daily-menu/index.js";
 import studyPeriods from "#/modules/schedule/study-period/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
@@ -15,6 +16,7 @@ const controllers: ModuleDefinition["controllers"] = [
     calendarTag,
     classController,
     classSchedule,
+    dailyMenu,
     studyPeriods
 ];
 

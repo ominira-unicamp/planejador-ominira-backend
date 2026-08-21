@@ -17,6 +17,7 @@ import type { CalendarTagService } from "#/modules/schedule/calendar-tag/Calenda
 import type { CalendarService } from "#/modules/schedule/calendar/Calendar.service.js";
 import type { ClassScheduleService } from "#/modules/schedule/class-schedule/ClassSchedule.service.js";
 import type { ClassService } from "#/modules/schedule/class/Class.service.js";
+import type { DailyMenuService } from "#/modules/schedule/daily-menu/DailyMenu.service.js";
 import type { StudyPeriodService } from "#/modules/schedule/study-period/StudyPeriod.service.js";
 import {
     buildCompatibilityHandler,
@@ -51,6 +52,7 @@ export type Context = {
     calendarTagService: CalendarTagService;
     calendarEventService: CalendarEventService;
     calendarService: CalendarService;
+    dailyMenuService: DailyMenuService;
 };
 
 export type HandlerFn<
@@ -95,7 +97,8 @@ export function buildHandler<
         studyPeriodService: req.scope.cradle.studyPeriodService,
         calendarTagService: req.scope.cradle.calendarTagService,
         calendarEventService: req.scope.cradle.calendarEventService,
-        calendarService: req.scope.cradle.calendarService
+        calendarService: req.scope.cradle.calendarService,
+        dailyMenuService: req.scope.cradle.dailyMenuService
     }));
 }
 
@@ -134,7 +137,8 @@ export function createDataEndpointRegistries<
             studyPeriodService: request.scope.cradle.studyPeriodService,
             calendarTagService: request.scope.cradle.calendarTagService,
             calendarEventService: request.scope.cradle.calendarEventService,
-            calendarService: request.scope.cradle.calendarService
+            calendarService: request.scope.cradle.calendarService,
+            dailyMenuService: request.scope.cradle.dailyMenuService
         }),
         registerAuthorization: (method, path, authorization) =>
             authRegistry.addPolicy(method, path, authorization)

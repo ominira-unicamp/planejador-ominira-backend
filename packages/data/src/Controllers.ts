@@ -25,6 +25,7 @@ import calendarEvent from "#/modules/schedule/calendar-event/index.js";
 import calendarTag from "#/modules/schedule/calendar-tag/index.js";
 import classSchedule from "#/modules/schedule/class-schedule/index.js";
 import classController from "#/modules/schedule/class/index.js";
+import dailyMenu from "#/modules/schedule/daily-menu/index.js";
 import schedule from "#/modules/schedule/index.js";
 import studyPeriods from "#/modules/schedule/study-period/index.js";
 
@@ -73,6 +74,7 @@ export const resourcesPaths = {
     calendarTag: calendarTag.paths,
     class: classController.paths,
     classSchedule: classSchedule.paths,
+    dailyMenu: dailyMenu.paths,
     course: course.paths,
     curriculumSuggestion: curriculumSuggestion.paths,
     unit: unit.paths,

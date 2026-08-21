@@ -71,6 +71,10 @@ import {
     type ClassService
 } from "#/modules/schedule/class/Class.service.js";
 import {
+    createDailyMenuService,
+    type DailyMenuService
+} from "#/modules/schedule/daily-menu/DailyMenu.service.js";
+import {
     createStudyPeriodService,
     type StudyPeriodService
 } from "#/modules/schedule/study-period/StudyPeriod.service.js";
@@ -99,6 +103,7 @@ export type DataCradle = {
     calendarTagService: CalendarTagService;
     calendarEventService: CalendarEventService;
     calendarService: CalendarService;
+    dailyMenuService: DailyMenuService;
 };
 
 export function createDataContainer(
@@ -130,7 +135,8 @@ export function createDataContainer(
         studyPeriodService: asFunction(createStudyPeriodService).scoped(),
         calendarTagService: asFunction(createCalendarTagService).scoped(),
         calendarEventService: asFunction(createCalendarEventService).scoped(),
-        calendarService: asFunction(createCalendarService).scoped()
+        calendarService: asFunction(createCalendarService).scoped(),
+        dailyMenuService: asFunction(createDailyMenuService).scoped()
     });
 }
 
