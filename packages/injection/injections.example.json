@@ -59,6 +59,36 @@
                 "transactionTimeout": 1800000,
                 "transactionMaxWait": 60000
             }
+        },
+        {
+            "name": "daily-menus",
+            "description": "Cardápios dos restaurantes universitários",
+            "schedule": { "intervalMs": 21600000 },
+            "obtain": {
+                "command": "node",
+                "args": [
+                    "unicamp-scrapper-cli/dist/index.js",
+                    "cardapios",
+                    "--past-days",
+                    "1",
+                    "--future-days",
+                    "7",
+                    "--output",
+                    "${POMI_INJECTION_OUTPUT}"
+                ],
+                "cwd": "../scrapper-aulas",
+                "env": {},
+                "timeoutMs": 300000
+            },
+            "input": {
+                "directory": "data/injections/daily-menus",
+                "fileName": "daily-menus.json"
+            },
+            "allowIssues": true,
+            "options": {
+                "transactionTimeout": 60000,
+                "transactionMaxWait": 10000
+            }
         }
     ]
 }

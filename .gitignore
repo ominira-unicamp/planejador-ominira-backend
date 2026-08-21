@@ -30,3 +30,6 @@ bun.lock
 test
 packages/*/test/
 packages/*/test/**
+!packages/injection/test/
+packages/injection/test/**
+!packages/injection/test/daily-menus-injection.test.ts
