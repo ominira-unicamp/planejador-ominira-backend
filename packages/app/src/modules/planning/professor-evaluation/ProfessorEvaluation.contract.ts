@@ -17,6 +17,13 @@ const basePath = [
     pathSeg.literal("evaluation")
 ];
 
+const pendingPath = [
+    pathSeg.literal("student"),
+    pathSeg.param("sid"),
+    pathSeg.literal("professor-evaluations"),
+    pathSeg.literal("pending")
+];
+
 const path = z.object({
     sid: z.string().pipe(z.coerce.number()).pipe(z.number().int()),
     classId: z.string().pipe(z.coerce.number()).pipe(z.number().int()),
@@ -54,6 +61,20 @@ const eligibility = z
     })
     .strict()
     .openapi("ProfessorEvaluationEligibility");
+
+const pendingEvaluation = z
+    .object({
+        attemptId: z.number().int(),
+        class: z.object({ id: z.number().int(), code: z.string() }),
+        course: z.object({
+            id: z.number().int(),
+            code: z.string(),
+            name: z.string()
+        }),
+        professor: z.object({ id: z.number().int(), name: z.string() })
+    })
+    .strict()
+    .openapi("PendingProfessorEvaluation");
 
 const invalidEvaluationResponse = z.discriminatedUnion("type", [
     ReferenceNotFoundProblemSchema,
@@ -94,4 +115,28 @@ const put = {
         .build()
 } satisfies IO;
 
-export default { schema: evaluation, get, put };
+const listPending = {
+    meta: {
+        method: "get" as const,
+        path: pendingPath,
+        tags: ["professor-evaluations"],
+        authorization: policies.studentAccess(
+            "sid",
+            StudentCapabilities.HISTORY_READ
+        )
+    },
+    request: z.object({
+        path: z.object({
+            sid: z.string().pipe(z.coerce.number()).pipe(z.number().int())
+        }),
+        query: z.object({
+            year: z.string().pipe(z.coerce.number()).pipe(z.number().int()),
+            yearPeriod: z.enum(["FIRST_SEMESTER", "SECOND_SEMESTER"])
+        })
+    }),
+    response: new OutputBuilder()
+        .ok(z.array(pendingEvaluation), "Avaliações pendentes recuperadas")
+        .build()
+} satisfies IO;
+
+export default { schema: evaluation, get, put, listPending };

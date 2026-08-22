@@ -12,8 +12,15 @@ import z from "zod";
 
 type Evaluation = z.infer<typeof IO.schema>;
 type EvaluationBody = z.infer<typeof IO.put.request>["body"];
+type PendingInput = z.infer<typeof IO.listPending.request>["query"];
 type Eligibility = { eligible: boolean; evaluation: Evaluation | null };
 type Context = { studentId: number; classId: number; professorId: number };
+type PendingEvaluation = {
+    attemptId: number;
+    class: { id: number; code: string };
+    course: { id: number; code: string; name: string };
+    professor: { id: number; name: string };
+};
 
 export type ProfessorEvaluationService = {
     get(
@@ -23,6 +30,10 @@ export type ProfessorEvaluationService = {
         context: Context,
         body: EvaluationBody
     ): Promise<Result<Evaluation, ProfessorEvaluationProblem>>;
+    listPending(
+        studentId: number,
+        input: PendingInput
+    ): Promise<PendingEvaluation[]>;
 };
 
 async function validateContext(prisma: PrismaClient, context: Context) {
@@ -129,6 +140,81 @@ export function createProfessorEvaluationService({
                 update: body
             });
             return ok(buildProfessorEvaluationEntity(evaluation));
+        },
+        async listPending(studentId, input) {
+            const attempts = await prisma.studentCourseAttempt.findMany({
+                where: {
+                    studentId,
+                    status: {
+                        in: [
+                            "DROPPED",
+                            "APPROVED",
+                            "FAILED_BY_GRADE",
+                            "APPROVED_BY_ATTENDANCE",
+                            "FAILED_BY_ATTENDANCE",
+                            "SUFFICIENT",
+                            "INSUFFICIENT"
+                        ]
+                    },
+                    classId: { not: null },
+                    class: {
+                        studyPeriod: {
+                            year: input.year,
+                            yearPeriod: input.yearPeriod
+                        }
+                    }
+                },
+                select: {
+                    id: true,
+                    class: {
+                        select: {
+                            id: true,
+                            code: true,
+                            course: {
+                                select: { id: true, code: true, name: true }
+                            },
+                            professors: { select: { id: true, name: true } }
+                        }
+                    }
+                }
+            });
+            const evaluated = await prisma.professorEvaluation.findMany({
+                where: {
+                    studentId,
+                    classId: {
+                        in: attempts.flatMap((attempt) =>
+                            attempt.class ? [attempt.class.id] : []
+                        )
+                    }
+                },
+                select: { classId: true, professorId: true }
+            });
+            const evaluatedKeys = new Set(
+                evaluated.map(
+                    (evaluation) =>
+                        `${evaluation.classId}:${evaluation.professorId}`
+                )
+            );
+            return attempts.flatMap((attempt) =>
+                attempt.class
+                    ? attempt.class.professors
+                          .filter(
+                              (professor) =>
+                                  !evaluatedKeys.has(
+                                      `${attempt.class!.id}:${professor.id}`
+                                  )
+                          )
+                          .map((professor) => ({
+                              attemptId: attempt.id,
+                              class: {
+                                  id: attempt.class!.id,
+                                  code: attempt.class!.code
+                              },
+                              course: attempt.class!.course,
+                              professor
+                          }))
+                    : []
+            );
         }
     };
 }

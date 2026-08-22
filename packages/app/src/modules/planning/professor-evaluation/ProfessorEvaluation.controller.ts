@@ -38,9 +38,17 @@ const put: Actions["put"] = async (ctx, input) =>
         problemInput.body
     );
 
+const listPending: Actions["listPending"] = async (ctx, input) =>
+    ApiResponse.ok(
+        await ctx.professorEvaluationService.listPending(
+            input.path.sid,
+            input.query
+        )
+    );
+
 const { router, registry, authRegistry } = createAppEndpointRegistries(
     contracts,
-    { get, put }
+    { get, put, listPending }
 );
 
 export default { contracts, router, registry, authRegistry };
