@@ -415,9 +415,10 @@ model StudyPeriod {
 }
 
 model Professor {
-  id      Int     @id @default(autoincrement())
-  name    String
-  classes Class[]
+  id                    Int                   @id @default(autoincrement())
+  name                  String
+  classes               Class[]
+  professorEvaluations  ProfessorEvaluation[]
 }
 
 model Room {
@@ -439,6 +440,7 @@ model Class {
   classSchedules        ClassSchedule[]
   periodPlannings       PeriodPlanning[]
   studentCourseAttempts StudentCourseAttempt[]
+  professorEvaluations  ProfessorEvaluation[]
 }
 
 //  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 
@@ -564,6 +566,7 @@ model Student {
   languageId       Int?
 
   courseAttempts       StudentCourseAttempt[]
+  professorEvaluations ProfessorEvaluation[]
   periodPlannings      PeriodPlanning[]
   curriculums          Curriculum[]
   favoriteCurriculum   Curriculum?            @relation("StudentFavoriteCurriculum", fields: [favoriteCurriculumId], references: [id], onDelete: SetNull)
@@ -610,6 +613,28 @@ model StudentCourseAttempt {
   @@index([studentId, courseId])
   @@index([studentId, status])
   @@index([classId])
+}
+
+model ProfessorEvaluation {
+  id          Int       @id @default(autoincrement())
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId   Int
+  class       Class     @relation(fields: [classId], references: [id])
+  classId     Int
+  professor   Professor @relation(fields: [professorId], references: [id])
+  professorId Int
+
+  wouldTakeAgain Int @db.SmallInt
+  fairness        Int @db.SmallInt
+  clarity         Int @db.SmallInt
+  difficulty      Int @db.SmallInt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, classId, professorId])
+  @@index([classId, professorId])
+  @@index([professorId])
 }
 
 model StudentAbsence {

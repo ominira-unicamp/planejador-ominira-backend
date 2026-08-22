@@ -25,6 +25,10 @@ import {
     type PeriodPlanService
 } from "#/modules/planning/period-plan/PeriodPlan.service.js";
 import {
+    createProfessorEvaluationService,
+    type ProfessorEvaluationService
+} from "#/modules/planning/professor-evaluation/ProfessorEvaluation.service.js";
+import {
     createStudentAbsenceService,
     type StudentAbsenceService
 } from "#/modules/planning/student-absence/StudentAbsence.service.js";
@@ -51,6 +55,7 @@ export type AppCradle = {
     authUserService: AuthUserService;
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
+    professorEvaluationService: ProfessorEvaluationService;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -70,7 +75,10 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         botGrantService: asFunction(createBotGrantService).scoped(),
         authUserService: asFunction(createAuthUserService).scoped(),
         curriculumService: asFunction(createCurriculumService).scoped(),
-        periodPlanService: asFunction(createPeriodPlanService).scoped()
+        periodPlanService: asFunction(createPeriodPlanService).scoped(),
+        professorEvaluationService: asFunction(
+            createProfessorEvaluationService
+        ).scoped()
     });
 }
 

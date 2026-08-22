@@ -1,6 +1,7 @@
 import { buildZodIds } from "#/PrismaValidator.js";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import type { CourseService } from "#/modules/academic/course/Course.service.js";
+import type { EvaluationSummaryService } from "#/modules/academic/evaluation-summary/EvaluationSummary.service.js";
 import type { ProfessorService } from "#/modules/academic/professor/Professor.service.js";
 import type { RoomService } from "#/modules/academic/room/Room.service.js";
 import type { UnitService } from "#/modules/academic/unit/Unit.service.js";
@@ -40,6 +41,7 @@ export type Context = {
     curriculumSuggestionService: CurriculumSuggestionService;
     classScheduleService: ClassScheduleService;
     courseService: CourseService;
+    evaluationSummaryService: EvaluationSummaryService;
     professorService: ProfessorService;
     roomService: RoomService;
     unitService: UnitService;
@@ -86,6 +88,7 @@ export function buildHandler<
             req.scope.cradle.curriculumSuggestionService,
         classScheduleService: req.scope.cradle.classScheduleService,
         courseService: req.scope.cradle.courseService,
+        evaluationSummaryService: req.scope.cradle.evaluationSummaryService,
         professorService: req.scope.cradle.professorService,
         roomService: req.scope.cradle.roomService,
         unitService: req.scope.cradle.unitService,
@@ -126,6 +129,8 @@ export function createDataEndpointRegistries<
                 request.scope.cradle.curriculumSuggestionService,
             classScheduleService: request.scope.cradle.classScheduleService,
             courseService: request.scope.cradle.courseService,
+            evaluationSummaryService:
+                request.scope.cradle.evaluationSummaryService,
             professorService: request.scope.cradle.professorService,
             roomService: request.scope.cradle.roomService,
             unitService: request.scope.cradle.unitService,

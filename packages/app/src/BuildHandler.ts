@@ -5,6 +5,7 @@ import type { BotGrantService } from "#/modules/identity/bot-grant/BotGrant.serv
 import type { CurrentUserService } from "#/modules/identity/current-user/CurrentUser.service.js";
 import type { CurriculumService } from "#/modules/planning/curriculum/Curriculum.service.js";
 import type { PeriodPlanService } from "#/modules/planning/period-plan/PeriodPlan.service.js";
+import type { ProfessorEvaluationService } from "#/modules/planning/professor-evaluation/ProfessorEvaluation.service.js";
 import type { StudentAbsenceService } from "#/modules/planning/student-absence/StudentAbsence.service.js";
 import type { StudentCourseAttemptService } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
 import type { StudentService } from "#/modules/planning/student/Student.service.js";
@@ -24,6 +25,7 @@ export type Context = {
     authUserService: AuthUserService;
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
+    professorEvaluationService: ProfessorEvaluationService;
 };
 
 export function createAppEndpointRegistries<
@@ -46,7 +48,9 @@ export function createAppEndpointRegistries<
             botGrantService: request.scope.cradle.botGrantService,
             authUserService: request.scope.cradle.authUserService,
             curriculumService: request.scope.cradle.curriculumService,
-            periodPlanService: request.scope.cradle.periodPlanService
+            periodPlanService: request.scope.cradle.periodPlanService,
+            professorEvaluationService:
+                request.scope.cradle.professorEvaluationService
         }),
         registerAuthorization: (method, path, authorization) =>
             authRegistry.addPolicy(method, path, authorization)
