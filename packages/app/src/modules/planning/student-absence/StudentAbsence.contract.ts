@@ -39,7 +39,13 @@ const absenceEntity = z
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
         studyPeriodId: z.number().int(),
-        studyPeriodCode: z.string(),
+        studyPeriodYear: z.number().int(),
+        studyPeriodYearPeriod: z.enum([
+            "SUMMER",
+            "FIRST_SEMESTER",
+            "WINTER",
+            "SECOND_SEMESTER"
+        ]),
         courseId: z.number().int(),
         courseCode: z.string(),
         classId: z.number().int(),

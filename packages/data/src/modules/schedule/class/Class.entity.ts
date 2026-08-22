@@ -1,11 +1,6 @@
 import { resourcesPaths } from "#/Controllers.js";
 import IO from "#/modules/schedule/class/Class.contract.js";
-import {
-    MyPrisma,
-    selectIdCode,
-    selectIdName,
-    studyPeriodCode
-} from "@pomi/db";
+import { MyPrisma, selectIdCode, selectIdName } from "@pomi/db";
 import z from "zod";
 
 export const prismaClassFieldSelection = {
@@ -56,10 +51,6 @@ function buildClassEntity(
     return {
         ...rest,
         studyPeriodId: studyPeriod.id,
-        studyPeriodCode: studyPeriodCode(
-            studyPeriod.year,
-            studyPeriod.yearPeriod
-        ),
         studyPeriodYear: studyPeriod.year,
         studyPeriodYearPeriod: studyPeriod.yearPeriod,
         courseId: course.id,

@@ -33,3 +33,4 @@ packages/*/test/**
 !packages/injection/test/
 packages/injection/test/**
 !packages/injection/test/daily-menus-injection.test.ts
+!packages/injection/test/course-code.test.ts

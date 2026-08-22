@@ -6,6 +6,7 @@ import {
 } from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import type { InjectionContext } from "./InjectionTypes.js";
+import { normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
 export type CatalogInjectionOptions = {
@@ -183,7 +184,7 @@ export function normalizeCatalogs(value: unknown): CatalogSource[] {
 function parseRequirements(tableHtml: string) {
     const requirements = new Map<string, RequirementSource>();
     for (const match of tableHtml.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)) {
-        const code = text(match[1]).replace(/\s+/g, "").toUpperCase();
+        const code = normalizeCourseCode(text(match[1]));
         let requirement: RequirementSource | undefined;
         if (code === "-----") requirement = { type: CourseRequirementType.any };
         else if (/^[A-Z]{2}---$/.test(code))
@@ -191,7 +192,7 @@ function parseRequirements(tableHtml: string) {
                 type: CourseRequirementType.prefix,
                 code: code.slice(0, 2)
             };
-        else if (/^[A-Z]{2}\d{3}$/.test(code))
+        else if (/^(?:[A-Z]{2}\d{3}|F \d{3,4})$/.test(code))
             requirement = { type: CourseRequirementType.specific, code };
         if (requirement)
             requirements.set(
@@ -616,7 +617,7 @@ export async function injectCatalogs(
         prisma.prefixes.findMany({ select: { id: true, prefix: true } })
     ]);
     const courseIds = new Map(
-        courses.map((course) => [course.code.toUpperCase(), course.id])
+        courses.map((course) => [normalizeCourseCode(course.code), course.id])
     );
     const prefixIds = new Map(
         prefixes.map((prefix) => [prefix.prefix.toUpperCase(), prefix.id])

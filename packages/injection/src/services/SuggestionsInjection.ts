@@ -1,6 +1,7 @@
 import { CurriculumSuggestionType } from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import type { InjectionContext } from "./InjectionTypes.js";
+import { legacyCourseCode, normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
 export type SuggestionsInjectionOptions = {
@@ -32,15 +33,11 @@ type CatalogProgramLookup = {
     specializations: Map<string, number>;
 };
 
-function normalizeCode(code: string) {
-    return code.replace(/\s+/g, "").toUpperCase();
-}
-
 function normalizeSuggestion(suggestion: SuggestionInput) {
     const [rawCode, ...nameParts] = suggestion.name.split(" - ");
-    const code = normalizeCode(suggestion.code ?? rawCode);
+    const code = normalizeCourseCode(suggestion.code ?? rawCode);
     const name =
-        suggestion.code && normalizeCode(rawCode) !== code
+        suggestion.code && normalizeCourseCode(rawCode) !== code
             ? suggestion.name
             : nameParts.join(" - ");
     if (!name) throw new Error(`sugestão ${code} sem nome`);
@@ -222,7 +219,7 @@ async function importSuggestion(
                         `semestre ${semester.semester} não persistido`
                     );
                 for (const inputCourse of semester.courses) {
-                    const courseCode = normalizeCode(inputCourse.code);
+                    const courseCode = normalizeCourseCode(inputCourse.code);
                     const courseId = courseIds.get(courseCode);
                     if (courseId === undefined) {
                         missing.add(courseCode);
@@ -307,7 +304,7 @@ export async function injectSuggestions(
                 id: catalogProgram.id,
                 specializations: new Map(
                     catalogProgram.catalogSpecializations.map((item) => [
-                        normalizeCode(item.specialization.code),
+                        normalizeCourseCode(item.specialization.code),
                         item.id
                     ])
                 )
@@ -321,7 +318,7 @@ export async function injectSuggestions(
                     program.suggestions.flatMap((suggestion) =>
                         suggestion.semesters.flatMap((semester) =>
                             semester.courses.map(({ code }) =>
-                                normalizeCode(code)
+                                normalizeCourseCode(code)
                             )
                         )
                     )
@@ -332,10 +329,21 @@ export async function injectSuggestions(
     const courseIds = new Map(
         (
             await prisma.course.findMany({
-                where: { code: { in: requestedCourseCodes } },
+                where: {
+                    code: {
+                        in: [
+                            ...new Set(
+                                requestedCourseCodes.flatMap((code) => [
+                                    code,
+                                    legacyCourseCode(code)
+                                ])
+                            )
+                        ]
+                    }
+                },
                 select: { id: true, code: true }
             })
-        ).map((course) => [course.code, course.id])
+        ).map((course) => [normalizeCourseCode(course.code), course.id])
     );
     const tasks = input.catalogs.flatMap((catalog) =>
         catalog.programs.flatMap((program) =>

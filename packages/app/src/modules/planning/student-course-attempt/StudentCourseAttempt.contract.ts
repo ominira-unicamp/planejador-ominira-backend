@@ -73,7 +73,6 @@ const attemptEntity = z
         studyPeriod: z
             .object({
                 id: z.number().int(),
-                code: z.string(),
                 year: z.number().int(),
                 yearPeriod: z.enum([
                     "SUMMER",

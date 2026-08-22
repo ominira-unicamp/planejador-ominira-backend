@@ -6,6 +6,7 @@ import {
 } from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import type { InjectionContext } from "./InjectionTypes.js";
+import { legacyCourseCode, normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
 export type CatalogDisciplinesInjectionOptions = {
@@ -73,10 +74,6 @@ const evaluations: Record<string, CourseEvaluationMode> = {
     "conceito": "CONCEPT",
     "frequencia": "ATTENDANCE"
 };
-
-function normalizeCode(value: string) {
-    return value.replace(/\s+/g, "").replace(/\*+$/, "").toUpperCase();
-}
 
 function normalizeName(value: string) {
     return value
@@ -214,7 +211,7 @@ function sourcesOf(catalogs: Catalog[]): CatalogCourseSource[] {
                 catalog,
                 prefix,
                 discipline,
-                code: normalizeCode(discipline.code)
+                code: normalizeCourseCode(discipline.code)
             }))
         )
     );
@@ -254,7 +251,7 @@ async function injectCatalogPhase(context: PhaseContext) {
     const prerequisiteCodes = sources.flatMap(({ discipline }) =>
         (discipline.prerequisites?.any ?? []).flatMap(({ all }) =>
             all.map((item) =>
-                normalizeCode(
+                normalizeCourseCode(
                     (typeof item === "string" ? item : item.code).replace(
                         /^\s*\*/,
                         ""
@@ -271,10 +268,13 @@ async function injectCatalogPhase(context: PhaseContext) {
                 .filter(Boolean)
         )
     ];
+    const courseCodes = [
+        ...new Set(codes.flatMap((code) => [code, legacyCourseCode(code)]))
+    ];
     const [catalogRows, courseRows, coordinatorRows] = await Promise.all([
         context.prisma.catalog.findMany({ where: { year: { in: years } } }),
         context.prisma.course.findMany({
-            where: { code: { in: codes } },
+            where: { code: { in: courseCodes } },
             select: {
                 id: true,
                 code: true,
@@ -289,9 +289,12 @@ async function injectCatalogPhase(context: PhaseContext) {
         })
     ]);
     const catalogIds = new Map(catalogRows.map((row) => [row.year, row.id]));
-    const courseByCode = new Map<string, ExistingCourse>(
-        courseRows.map((row) => [row.code, row])
-    );
+    const courseByCode = new Map<string, ExistingCourse>();
+    for (const row of courseRows) {
+        const code = normalizeCourseCode(row.code);
+        const existing = courseByCode.get(code);
+        if (!existing || row.code === code) courseByCode.set(code, row);
+    }
     const coordinatorByName = new Map(
         coordinatorRows.map((row) => [normalizeName(row.name), row])
     );
@@ -386,13 +389,14 @@ async function injectCatalogPhase(context: PhaseContext) {
                     };
                     const courseChanged =
                         !existingCourse ||
+                        existingCourse.code !== source.code ||
                         existingCourse.name !== courseData.name ||
                         existingCourse.credits !== courseData.credits;
                     const course = existingCourse
                         ? courseChanged
                             ? await tx.course.update({
                                   where: { id: existingCourse.id },
-                                  data: courseData
+                                  data: { code: source.code, ...courseData }
                               })
                             : existingCourse
                         : await tx.course.create({
@@ -412,15 +416,24 @@ async function injectCatalogPhase(context: PhaseContext) {
                             entity: "Course",
                             operation: "update",
                             key: { id: course.id, code: source.code },
-                            changedFields: ["name", "credits"],
+                            changedFields: [
+                                ...(existingCourse.code !== source.code
+                                    ? ["code"]
+                                    : []),
+                                ...(existingCourse.name !== courseData.name
+                                    ? ["name"]
+                                    : []),
+                                ...(existingCourse.credits !==
+                                courseData.credits
+                                    ? ["credits"]
+                                    : [])
+                            ],
                             before: {
+                                code: existingCourse.code,
                                 name: existingCourse.name,
                                 credits: existingCourse.credits
                             },
-                            after: {
-                                name: courseData.name,
-                                credits: courseData.credits
-                            }
+                            after: { code: source.code, ...courseData }
                         });
                     const coordinatorName =
                         source.discipline.coordinator?.trim();
@@ -614,12 +627,14 @@ function prerequisiteGroups(
                           code: raw,
                           kind: /^\s*\*/.test(raw)
                               ? "PARTIAL"
-                              : /^AA(?:200|4\d{2})$/i.test(normalizeCode(raw))
+                              : /^AA(?:200|4\d{2})$/i.test(
+                                      normalizeCourseCode(raw)
+                                  )
                                 ? "SPECIAL"
                                 : "FULL"
                       }
                     : raw;
-            const prerequisiteCode = normalizeCode(
+            const prerequisiteCode = normalizeCourseCode(
                 input.code.replace(/^\s*\*/, "")
             );
             const kind = input.kind as CatalogCoursePrerequisiteKind;
@@ -672,7 +687,7 @@ async function injectRelationshipsPhase(context: PhaseContext) {
     const prerequisiteCodes = sources.flatMap(({ discipline }) =>
         (discipline.prerequisites?.any ?? []).flatMap(({ all }) =>
             all.map((item) =>
-                normalizeCode(
+                normalizeCourseCode(
                     (typeof item === "string" ? item : item.code).replace(
                         /^\s*\*/,
                         ""
@@ -689,9 +704,12 @@ async function injectRelationshipsPhase(context: PhaseContext) {
                 .filter(Boolean)
         )
     ];
+    const courseCodes = [
+        ...new Set(codes.flatMap((code) => [code, legacyCourseCode(code)]))
+    ];
     const [courseRows, prefixRows, catalogCourseRows] = await Promise.all([
         context.prisma.course.findMany({
-            where: { code: { in: codes } },
+            where: { code: { in: courseCodes } },
             select: {
                 id: true,
                 code: true,
@@ -709,9 +727,14 @@ async function injectRelationshipsPhase(context: PhaseContext) {
             include: { prerequisites: { include: { items: true } } }
         })
     ]);
-    const courseByCode = new Map(courseRows.map((row) => [row.code, row]));
+    const courseByCode = new Map<string, ExistingCourse>();
+    for (const row of courseRows) {
+        const code = normalizeCourseCode(row.code);
+        const existing = courseByCode.get(code);
+        if (!existing || row.code === code) courseByCode.set(code, row);
+    }
     const prefixByCode = new Map(
-        prefixRows.map((row) => [normalizeCode(row.prefix), row])
+        prefixRows.map((row) => [normalizeCourseCode(row.prefix), row])
     );
     const catalogCourseByKey = new Map(
         catalogCourseRows.map((row) => [

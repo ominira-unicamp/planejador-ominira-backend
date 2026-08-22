@@ -42,7 +42,13 @@ const periodPlanningEntity = z
         studentId: z.number().int(),
         name: z.string(),
         studyPeriodId: z.number().int(),
-        studyPeriodCode: z.string(),
+        studyPeriodYear: z.number().int(),
+        studyPeriodYearPeriod: z.enum([
+            "SUMMER",
+            "FIRST_SEMESTER",
+            "WINTER",
+            "SECOND_SEMESTER"
+        ]),
         curriculumId: z.number().int().nullable(),
         guide: guideSchema,
         createdAt: z.string().datetime(),

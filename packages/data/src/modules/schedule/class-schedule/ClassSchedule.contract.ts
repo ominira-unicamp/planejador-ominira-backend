@@ -40,7 +40,6 @@ export const classScheduleDataSchema = z
         courseId: z.number().int(),
         courseCode: z.string(),
         studyPeriodId: z.number().int(),
-        studyPeriodCode: z.string(),
         studyPeriodYear: z.number().int(),
         studyPeriodYearPeriod: z.enum([
             "SUMMER",
@@ -82,7 +81,6 @@ const daysOfWeekEnum = z
 const getClassSchedulesQuery = paginationQuerySchema
     .extend({
         studyPeriodId: z.coerce.number().int().optional(),
-        studyPeriodCode: z.string().optional(),
         studyPeriodYear: z.coerce.number().int().optional(),
         studyPeriodYearPeriod: z
             .enum(["SUMMER", "FIRST_SEMESTER", "WINTER", "SECOND_SEMESTER"])

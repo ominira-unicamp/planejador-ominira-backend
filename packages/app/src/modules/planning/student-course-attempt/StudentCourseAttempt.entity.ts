@@ -1,5 +1,5 @@
 import IO from "#/modules/planning/student-course-attempt/StudentCourseAttempt.contract.js";
-import { MyPrisma, selectIdCode, studyPeriodCode } from "@pomi/db";
+import { MyPrisma, selectIdCode } from "@pomi/db";
 import z from "zod";
 
 export const prismaStudentCourseFieldSelection = {
@@ -57,10 +57,6 @@ function buildStudentCourseEntity(
         studyPeriod: resolvedStudyPeriod
             ? {
                   id: resolvedStudyPeriod.id,
-                  code: studyPeriodCode(
-                      resolvedStudyPeriod.year,
-                      resolvedStudyPeriod.yearPeriod
-                  ),
                   year: resolvedStudyPeriod.year,
                   yearPeriod: resolvedStudyPeriod.yearPeriod
               }

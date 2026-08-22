@@ -1,10 +1,5 @@
 import IO from "#/modules/planning/period-plan/PeriodPlan.contract.js";
-import {
-    MyPrisma,
-    selectIdCode,
-    selectIdName,
-    studyPeriodCode
-} from "@pomi/db";
+import { MyPrisma, selectIdCode, selectIdName } from "@pomi/db";
 import z from "zod";
 
 export const prismaPeriodPlanningFieldSelection = {
@@ -82,10 +77,8 @@ function buildPeriodPlanningEntity(
         createdAt: periodPlanning.createdAt.toISOString(),
         updatedAt: periodPlanning.updatedAt.toISOString(),
         studyPeriodId: studyPeriod.id,
-        studyPeriodCode: studyPeriodCode(
-            studyPeriod.year,
-            studyPeriod.yearPeriod
-        ),
+        studyPeriodYear: studyPeriod.year,
+        studyPeriodYearPeriod: studyPeriod.yearPeriod,
         curriculumId: curriculum?.id ?? null,
         guide: {
             mode: periodPlanning.guideMode,
