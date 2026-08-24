@@ -9,6 +9,7 @@ import type { ProfessorEvaluationService } from "#/modules/planning/professor-ev
 import type { StudentAbsenceService } from "#/modules/planning/student-absence/StudentAbsence.service.js";
 import type { StudentCourseAttemptService } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
 import type { StudentService } from "#/modules/planning/student/Student.service.js";
+import type { StudentSocialService } from "#/modules/social/student-social/StudentSocial.service.js";
 import {
     createEndpointRegistries,
     type EndpointActions,
@@ -26,6 +27,7 @@ export type Context = {
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
+    studentSocialService: StudentSocialService;
 };
 
 export function createAppEndpointRegistries<
@@ -50,7 +52,8 @@ export function createAppEndpointRegistries<
             curriculumService: request.scope.cradle.curriculumService,
             periodPlanService: request.scope.cradle.periodPlanService,
             professorEvaluationService:
-                request.scope.cradle.professorEvaluationService
+                request.scope.cradle.professorEvaluationService,
+            studentSocialService: request.scope.cradle.studentSocialService
         }),
         registerAuthorization: (method, path, authorization) =>
             authRegistry.addPolicy(method, path, authorization)

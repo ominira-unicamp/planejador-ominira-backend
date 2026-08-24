@@ -9,8 +9,9 @@ import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import identity from "#/modules/identity/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
 import planning from "#/modules/planning/index.js";
+import social from "#/modules/social/index.js";
 
-const modules = [identity, planning];
+const modules = [identity, planning, social];
 const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );

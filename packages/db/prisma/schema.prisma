@@ -84,6 +84,13 @@ enum StudentCapability {
   STUDENT_HISTORY_WRITE
   STUDENT_PLANNING_READ
   STUDENT_PLANNING_WRITE
+  STUDENT_SOCIAL_READ
+  STUDENT_SOCIAL_WRITE
+}
+
+enum StudentFriendshipStatus {
+  PENDING
+  ACCEPTED
 }
 
 model AuthUser {
@@ -415,10 +422,10 @@ model StudyPeriod {
 }
 
 model Professor {
-  id                    Int                   @id @default(autoincrement())
-  name                  String
-  classes               Class[]
-  professorEvaluations  ProfessorEvaluation[]
+  id                   Int                   @id @default(autoincrement())
+  name                 String
+  classes              Class[]
+  professorEvaluations ProfessorEvaluation[]
 }
 
 model Room {
@@ -467,7 +474,6 @@ model ClassSchedule {
   studentAbsences StudentAbsence[]
 }
 
-
 // ----------------------- Restaurant & Menu Models ----------------------- //
 
 enum MealPeriod {
@@ -486,25 +492,25 @@ enum MealStatus {
 }
 
 model DailyMenu {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @unique @db.Date
+  id   Int      @id @default(autoincrement())
+  date DateTime @unique @db.Date
 
-  meals     Meal[]
+  meals Meal[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Meal {
-  id           Int               @id @default(autoincrement())
-  dailyMenu    DailyMenu         @relation(fields: [dailyMenuId], references: [id], onDelete: Cascade)
-  dailyMenuId  Int
+  id          Int       @id @default(autoincrement())
+  dailyMenu   DailyMenu @relation(fields: [dailyMenuId], references: [id], onDelete: Cascade)
+  dailyMenuId Int
 
-  period       MealPeriod
-  diet         DietaryOption
-  status       MealStatus
-  
-  mainDish     String?
+  period MealPeriod
+  diet   DietaryOption
+  status MealStatus
+
+  mainDish String?
 
   items        MealItem[]
   observations MealObservation[]
@@ -550,20 +556,27 @@ enum StudentCourseAttemptStatus {
 }
 
 model Student {
-  id               Int             @id @default(autoincrement())
-  ra               String          @unique
-  name             String
-  authUser         AuthUser?       @relation(fields: [authUserId], references: [id])
-  authUserId       Int?            @unique
-  program          Program?        @relation(fields: [programId], references: [id])
-  programId        Int?
-  specialization   Specialization? @relation(fields: [specializationId], references: [id])
-  specializationId Int?
-  catalog          Catalog?        @relation(fields: [catalogId], references: [id])
-  catalogId        Int?
-  entryYear        Int?
-  language         Language?       @relation(fields: [languageId], references: [id])
-  languageId       Int?
+  id                   Int             @id @default(autoincrement())
+  ra                   String          @unique
+  name                 String
+  authUser             AuthUser?       @relation(fields: [authUserId], references: [id])
+  authUserId           Int?            @unique
+  program              Program?        @relation(fields: [programId], references: [id])
+  programId            Int?
+  specialization       Specialization? @relation(fields: [specializationId], references: [id])
+  specializationId     Int?
+  catalog              Catalog?        @relation(fields: [catalogId], references: [id])
+  catalogId            Int?
+  entryYear            Int?
+  language             Language?       @relation(fields: [languageId], references: [id])
+  languageId           Int?
+  publicId             String          @unique @default(dbgenerated("gen_random_uuid()"))
+  publicProfileEnabled Boolean         @default(false)
+  publicDisplayName    String?         @db.VarChar(80)
+  publicBio            String?         @db.VarChar(280)
+  showProgram          Boolean         @default(false)
+  showSpecialization   Boolean         @default(false)
+  showEntryYear        Boolean         @default(false)
 
   courseAttempts       StudentCourseAttempt[]
   professorEvaluations ProfessorEvaluation[]
@@ -572,6 +585,28 @@ model Student {
   favoriteCurriculum   Curriculum?            @relation("StudentFavoriteCurriculum", fields: [favoriteCurriculumId], references: [id], onDelete: SetNull)
   favoriteCurriculumId Int?                   @unique
   botGrants            BotGrant[]
+  friendshipsAsA       StudentFriendship[]    @relation("StudentFriendshipsAsA")
+  friendshipsAsB       StudentFriendship[]    @relation("StudentFriendshipsAsB")
+  friendshipRequests   StudentFriendship[]    @relation("StudentFriendshipRequester")
+}
+
+model StudentFriendship {
+  id            Int                     @id @default(autoincrement())
+  studentA      Student                 @relation("StudentFriendshipsAsA", fields: [studentAId], references: [id], onDelete: Cascade)
+  studentAId    Int
+  studentB      Student                 @relation("StudentFriendshipsAsB", fields: [studentBId], references: [id], onDelete: Cascade)
+  studentBId    Int
+  requestedBy   Student                 @relation("StudentFriendshipRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  requestedById Int
+  status        StudentFriendshipStatus @default(PENDING)
+  acceptedAt    DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@unique([studentAId, studentBId])
+  @@index([studentAId, status])
+  @@index([studentBId, status])
+  @@index([requestedById, status])
 }
 
 model BotGrant {
@@ -592,20 +627,20 @@ model BotGrant {
 }
 
 model StudentCourseAttempt {
-  id            Int                        @id @default(autoincrement())
-  student       Student                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  studentId     Int
-  course        Course                     @relation(fields: [courseId], references: [id])
-  courseId      Int
-  studyPeriod   StudyPeriod?               @relation(fields: [studyPeriodId], references: [id])
-  studyPeriodId Int?
-  class         Class?                     @relation(fields: [classId], references: [id], onDelete: SetNull)
-  classId       Int?
+  id             Int                        @id @default(autoincrement())
+  student        Student                    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId      Int
+  course         Course                     @relation(fields: [courseId], references: [id])
+  courseId       Int
+  studyPeriod    StudyPeriod?               @relation(fields: [studyPeriodId], references: [id])
+  studyPeriodId  Int?
+  class          Class?                     @relation(fields: [classId], references: [id], onDelete: SetNull)
+  classId        Int?
   evaluationMode CourseEvaluationMode
-  status        StudentCourseAttemptStatus
-  grade         Decimal?
-  createdAt     DateTime                   @default(now())
-  updatedAt     DateTime                   @updatedAt
+  status         StudentCourseAttemptStatus
+  grade          Decimal?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
 
   absences StudentAbsence[]
 
@@ -625,9 +660,9 @@ model ProfessorEvaluation {
   professorId Int
 
   wouldTakeAgain Int @db.SmallInt
-  fairness        Int @db.SmallInt
-  clarity         Int @db.SmallInt
-  difficulty      Int @db.SmallInt
+  fairness       Int @db.SmallInt
+  clarity        Int @db.SmallInt
+  difficulty     Int @db.SmallInt
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

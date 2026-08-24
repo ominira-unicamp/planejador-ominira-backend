@@ -40,6 +40,10 @@ import {
     createStudentService,
     type StudentService
 } from "#/modules/planning/student/Student.service.js";
+import {
+    createStudentSocialService,
+    type StudentSocialService
+} from "#/modules/social/student-social/StudentSocial.service.js";
 import type { DatabaseClient } from "@pomi/db";
 
 export type AppCradle = {
@@ -56,6 +60,7 @@ export type AppCradle = {
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
+    studentSocialService: StudentSocialService;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -78,7 +83,8 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         periodPlanService: asFunction(createPeriodPlanService).scoped(),
         professorEvaluationService: asFunction(
             createProfessorEvaluationService
-        ).scoped()
+        ).scoped(),
+        studentSocialService: asFunction(createStudentSocialService).scoped()
     });
 }
 

@@ -64,10 +64,6 @@ function invalidField(path: string[], message: string): ValidationIssue {
     return { code: "INVALID_VALUE", path, message };
 }
 
-function requiredField(path: string[], message: string): ValidationIssue {
-    return { code: "REQUIRED", path, message };
-}
-
 function validateEvaluation(
     input: AttemptInput,
     evaluationMode: CourseEvaluationMode
@@ -75,7 +71,6 @@ function validateEvaluation(
     const issues: ValidationIssue[] = [];
     const grade = input.grade ?? null;
     const noResult = ["ENROLLED", "DROPPED"].includes(input.status);
-    const gradeResults = ["APPROVED", "FAILED_BY_GRADE"];
     const allowedStatuses: Record<CourseEvaluationMode, string[]> = {
         GRADE_AND_ATTENDANCE: [
             "ENROLLED",
@@ -112,10 +107,6 @@ function validateEvaluation(
                 ["grade"],
                 "A modalidade de avaliação não aceita nota numérica."
             )
-        );
-    if (gradeResults.includes(input.status) && grade === null)
-        issues.push(
-            requiredField(["grade"], "O resultado por nota exige a nota final.")
         );
     return issues;
 }
