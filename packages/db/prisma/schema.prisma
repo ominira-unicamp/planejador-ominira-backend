@@ -221,6 +221,8 @@ model Course {
   periodPlanningManualCourses PeriodPlanningManualCourse[]
   catalogPrerequisiteItems    CatalogCoursePrerequisiteItem[]
 
+  @@index([prefixId])
+  @@index([unitId])
   @@schema("data")
 }
 
@@ -273,6 +275,7 @@ model CatalogCourse {
   prerequisites CatalogCoursePrerequisiteGroup[]
 
   @@unique([catalogId, courseId])
+  @@index([courseId])
   @@schema("data")
 }
 
@@ -478,6 +481,7 @@ model CourseRequirement {
   prefix        Prefixes?             @relation(fields: [prefixId], references: [id])
   prefixId      Int?
 
+  @@index([courseBlockId])
   @@schema("data")
 }
 
@@ -529,6 +533,8 @@ model Class {
   studentCourseAttempts StudentCourseAttempt[]
   professorEvaluations  ProfessorEvaluation[]
 
+  @@index([courseId])
+  @@index([studyPeriodId])
   @@schema("data")
 }
 
@@ -557,6 +563,8 @@ model ClassSchedule {
 
   studentAbsences StudentAbsence[]
 
+  @@index([classId])
+  @@index([roomId])
   @@schema("data")
 }
 
