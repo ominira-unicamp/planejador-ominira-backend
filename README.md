@@ -110,7 +110,8 @@ npm run injection:watch
 O `watch` executa uma injection por vez, registra falhas e continua no próximo
 intervalo. O diretório de dados e o lock do scheduler ficam sob a raiz
 configurada, sem remover arquivos existentes. Os tipos predefinidos são
-`academic-data`, `calendar`, `catalogs`, `catalog-disciplines` e `suggestions`.
+`academic-data`, `calendar`, `catalogs`, `catalog-disciplines`, `daily-menus`,
+`exchange-notices` e `suggestions`.
 As alterações persistidas são emitidas como eventos JSON pelo Pino no stdout;
 o nível pode ser ajustado com `LOG_LEVEL` (ou, por compatibilidade,
 `POMI_INJECTION_LOG_LEVEL`). O envio opcional para OpenObserve usa

@@ -642,6 +642,50 @@ model MealServiceNote {
   @@schema("data")
 }
 
+model ExchangeNotice {
+  id         Int    @id @default(autoincrement())
+  naturalKey String @unique
+  number     String?
+  issuer     String?
+  title      String?
+
+  placeId Int?
+  place   ExchangePlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
+  registrationOriginalText String?
+  registrationStart        DateTime?
+  registrationEnd          DateTime?
+
+  files ExchangeNoticeFile[]
+
+  @@schema("data")
+}
+
+model ExchangeNoticeFile {
+  id             Int    @id @default(autoincrement())
+  name           String
+  normalizedName String
+  url            String?
+
+  noticeId Int
+  notice   ExchangeNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([noticeId, normalizedName])
+  @@schema("data")
+}
+
+model ExchangePlace {
+  id             Int    @id @default(autoincrement())
+  name           String
+  normalizedName String @unique
+
+  notices ExchangeNotice[]
+
+  @@schema("data")
+}
+
 // ----------------------- Student Models ----------------------- //
 
 enum StudentCourseAttemptStatus {

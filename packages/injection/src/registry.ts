@@ -19,6 +19,10 @@ import {
     injectDailyMenus,
     type DailyMenusInjectionOptions
 } from "./services/DailyMenusInjection.js";
+import {
+    injectExchangeNotices,
+    type ExchangeNoticesInjectionOptions
+} from "./services/ExchangeNoticesInjection.js";
 import type { InjectionContext } from "./services/InjectionTypes.js";
 import {
     injectSuggestions,
@@ -66,6 +70,11 @@ const services: Record<
         createService(
             injectDailyMenus,
             options as DailyMenusInjectionOptions & InjectionOptions
+        ),
+    "exchange-notices": (options) =>
+        createService(
+            injectExchangeNotices,
+            options as ExchangeNoticesInjectionOptions & InjectionOptions
         ),
     "suggestions": (options) =>
         createService(

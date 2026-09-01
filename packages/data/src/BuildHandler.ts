@@ -13,6 +13,8 @@ import type { CurriculumSuggestionService } from "#/modules/catalog/curriculum-s
 import type { LanguageService } from "#/modules/catalog/language/Language.service.js";
 import type { ProgramService } from "#/modules/catalog/program/Program.service.js";
 import type { SpecializationService } from "#/modules/catalog/specialization/Specialization.service.js";
+import type { ExchangeNoticeService } from "#/modules/exchange/exchange-notice/ExchangeNotice.service.js";
+import type { ExchangePlaceService } from "#/modules/exchange/exchange-place/ExchangePlace.service.js";
 import type { CalendarEventService } from "#/modules/schedule/calendar-event/CalendarEvent.service.js";
 import type { CalendarTagService } from "#/modules/schedule/calendar-tag/CalendarTag.service.js";
 import type { CalendarService } from "#/modules/schedule/calendar/Calendar.service.js";
@@ -55,6 +57,8 @@ export type Context = {
     calendarEventService: CalendarEventService;
     calendarService: CalendarService;
     dailyMenuService: DailyMenuService;
+    exchangeNoticeService: ExchangeNoticeService;
+    exchangePlaceService: ExchangePlaceService;
 };
 
 export type HandlerFn<
@@ -101,7 +105,9 @@ export function buildHandler<
         calendarTagService: req.scope.cradle.calendarTagService,
         calendarEventService: req.scope.cradle.calendarEventService,
         calendarService: req.scope.cradle.calendarService,
-        dailyMenuService: req.scope.cradle.dailyMenuService
+        dailyMenuService: req.scope.cradle.dailyMenuService,
+        exchangeNoticeService: req.scope.cradle.exchangeNoticeService,
+        exchangePlaceService: req.scope.cradle.exchangePlaceService
     }));
 }
 
@@ -143,7 +149,9 @@ export function createDataEndpointRegistries<
             calendarTagService: request.scope.cradle.calendarTagService,
             calendarEventService: request.scope.cradle.calendarEventService,
             calendarService: request.scope.cradle.calendarService,
-            dailyMenuService: request.scope.cradle.dailyMenuService
+            dailyMenuService: request.scope.cradle.dailyMenuService,
+            exchangeNoticeService: request.scope.cradle.exchangeNoticeService,
+            exchangePlaceService: request.scope.cradle.exchangePlaceService
         }),
         registerAuthorization: (method, path, authorization) =>
             authRegistry.addPolicy(method, path, authorization)

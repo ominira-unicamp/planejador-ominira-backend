@@ -20,6 +20,8 @@ import catalog from "#/modules/catalog/index.js";
 import language from "#/modules/catalog/language/index.js";
 import program from "#/modules/catalog/program/index.js";
 import specialization from "#/modules/catalog/specialization/index.js";
+import exchangeNotice from "#/modules/exchange/exchange-notice/index.js";
+import exchange from "#/modules/exchange/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
 import calendarEvent from "#/modules/schedule/calendar-event/index.js";
 import calendarTag from "#/modules/schedule/calendar-tag/index.js";
@@ -29,7 +31,7 @@ import dailyMenu from "#/modules/schedule/daily-menu/index.js";
 import schedule from "#/modules/schedule/index.js";
 import studyPeriods from "#/modules/schedule/study-period/index.js";
 
-const modules = [academic, catalog, schedule];
+const modules = [academic, catalog, exchange, schedule];
 const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );
@@ -75,6 +77,7 @@ export const resourcesPaths = {
     class: classController.paths,
     classSchedule: classSchedule.paths,
     dailyMenu: dailyMenu.paths,
+    exchangeNotice: exchangeNotice.paths,
     course: course.paths,
     curriculumSuggestion: curriculumSuggestion.paths,
     unit: unit.paths,

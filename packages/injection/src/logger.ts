@@ -3,10 +3,10 @@ import { createOpenObserveStream, openObserveConfig } from "./openobserve.js";
 
 export type InjectionChange = {
     entity: string;
-    operation: "create" | "update";
+    operation: "create" | "update" | "delete";
     key: Record<string, string | number>;
     before: Record<string, unknown> | null;
-    after: Record<string, unknown>;
+    after: Record<string, unknown> | null;
     changedFields?: string[];
 };
 

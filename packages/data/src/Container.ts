@@ -55,6 +55,14 @@ import {
     type SpecializationService
 } from "#/modules/catalog/specialization/Specialization.service.js";
 import {
+    createExchangeNoticeService,
+    type ExchangeNoticeService
+} from "#/modules/exchange/exchange-notice/ExchangeNotice.service.js";
+import {
+    createExchangePlaceService,
+    type ExchangePlaceService
+} from "#/modules/exchange/exchange-place/ExchangePlace.service.js";
+import {
     createCalendarEventService,
     type CalendarEventService
 } from "#/modules/schedule/calendar-event/CalendarEvent.service.js";
@@ -109,6 +117,8 @@ export type DataCradle = {
     calendarEventService: CalendarEventService;
     calendarService: CalendarService;
     dailyMenuService: DailyMenuService;
+    exchangeNoticeService: ExchangeNoticeService;
+    exchangePlaceService: ExchangePlaceService;
 };
 
 export function createDataContainer(
@@ -144,7 +154,9 @@ export function createDataContainer(
         calendarTagService: asFunction(createCalendarTagService).scoped(),
         calendarEventService: asFunction(createCalendarEventService).scoped(),
         calendarService: asFunction(createCalendarService).scoped(),
-        dailyMenuService: asFunction(createDailyMenuService).scoped()
+        dailyMenuService: asFunction(createDailyMenuService).scoped(),
+        exchangeNoticeService: asFunction(createExchangeNoticeService).scoped(),
+        exchangePlaceService: asFunction(createExchangePlaceService).scoped()
     });
 }
 

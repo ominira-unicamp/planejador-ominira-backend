@@ -89,6 +89,32 @@
                 "transactionTimeout": 60000,
                 "transactionMaxWait": 10000
             }
+        },
+        {
+            "name": "exchange-notices",
+            "description": "Editais de intercâmbio da DERI",
+            "schedule": { "intervalMs": 21600000 },
+            "obtain": {
+                "command": "node",
+                "args": [
+                    "unicamp-scrapper-cli/dist/index.js",
+                    "editais-intercambio",
+                    "--output",
+                    "${POMI_INJECTION_OUTPUT}"
+                ],
+                "cwd": "../scrapper-aulas",
+                "env": {},
+                "timeoutMs": 300000
+            },
+            "input": {
+                "directory": "data/injections/exchange-notices",
+                "fileName": "exchange-notices.json"
+            },
+            "allowIssues": true,
+            "options": {
+                "transactionTimeout": 60000,
+                "transactionMaxWait": 10000
+            }
         }
     ]
 }
