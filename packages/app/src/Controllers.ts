@@ -6,13 +6,14 @@ import {
 import { Router } from "express";
 
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
+import exchange from "#/modules/exchange/index.js";
 import feedback from "#/modules/feedback/index.js";
 import identity from "#/modules/identity/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
 import planning from "#/modules/planning/index.js";
 import social from "#/modules/social/index.js";
 
-const modules = [identity, planning, social, feedback];
+const modules = [identity, planning, social, feedback, exchange];
 const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );

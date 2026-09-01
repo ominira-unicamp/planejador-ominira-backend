@@ -681,7 +681,8 @@ model ExchangePlace {
   name           String
   normalizedName String @unique
 
-  notices ExchangeNotice[]
+  notices                  ExchangeNotice[]
+  noticeSubscriptionPlaces ExchangeNoticeSubscriptionPlace[]
 
   @@schema("data")
 }
@@ -734,7 +735,32 @@ model Student {
   friendshipsAsB       StudentFriendship[]    @relation("StudentFriendshipsAsB")
   friendshipRequests   StudentFriendship[]    @relation("StudentFriendshipRequester")
   feedbackReports      FeedbackReport[]
+  exchangeNoticeSubscription ExchangeNoticeSubscription?
 
+  @@schema("app")
+}
+
+model ExchangeNoticeSubscription {
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId Int     @id
+
+  enabled Boolean @default(false)
+
+  places    ExchangeNoticeSubscriptionPlace[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("app")
+}
+
+model ExchangeNoticeSubscriptionPlace {
+  subscription          ExchangeNoticeSubscription @relation(fields: [subscriptionStudentId], references: [studentId], onDelete: Cascade)
+  subscriptionStudentId Int
+
+  place   ExchangePlace @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  placeId Int
+
+  @@id([subscriptionStudentId, placeId])
   @@schema("app")
 }
 
