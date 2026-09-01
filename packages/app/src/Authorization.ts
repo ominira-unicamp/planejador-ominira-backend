@@ -18,7 +18,8 @@ export const StudentCapabilities = {
     PLANNING_READ: "STUDENT_PLANNING_READ",
     PLANNING_WRITE: "STUDENT_PLANNING_WRITE",
     SOCIAL_READ: "STUDENT_SOCIAL_READ",
-    SOCIAL_WRITE: "STUDENT_SOCIAL_WRITE"
+    SOCIAL_WRITE: "STUDENT_SOCIAL_WRITE",
+    FEEDBACK_WRITE: "STUDENT_FEEDBACK_WRITE"
 } as const;
 export type StudentCapability =
     (typeof StudentCapabilities)[keyof typeof StudentCapabilities];

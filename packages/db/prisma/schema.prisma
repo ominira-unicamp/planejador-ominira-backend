@@ -17,6 +17,7 @@ generator dbml {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["data", "app"]
 }
 
 enum YearPeriods {
@@ -24,6 +25,8 @@ enum YearPeriods {
   FIRST_SEMESTER
   WINTER
   SECOND_SEMESTER
+
+  @@schema("data")
 }
 
 enum CourseOfferingPeriod {
@@ -31,50 +34,60 @@ enum CourseOfferingPeriod {
   ODD_PERIODS
   EVEN_PERIODS
   UNIT_DISCRETION
+
+  @@schema("data")
 }
 
 enum CourseEvaluationMode {
   GRADE_AND_ATTENDANCE
   CONCEPT
   ATTENDANCE
+
+  @@schema("data")
 }
 
 enum CatalogCoursePrerequisiteKind {
   FULL
   PARTIAL
   SPECIAL
+
+  @@schema("data")
 }
 
 enum PeriodPlanningGuideMode {
   CURRICULUM
   PROGRAM
   NONE
+
+  @@schema("app")
 }
 
 enum PeriodPlanningCurriculumSource {
   SAVED
   SUGGESTION
-}
 
-model User {
-  id    Int    @id @default(autoincrement())
-  email String @unique
-  name  String
+  @@schema("app")
 }
 
 enum AuthUserStatus {
   ACTIVE
   DISABLED
+
+  @@schema("app")
 }
 
 enum AuthRole {
   STUDENT
   BOT
   ADMIN
+
+  @@schema("app")
 }
 
 enum Capability {
   ACADEMIC_WRITE
+
+  @@schema("app")
 }
 
 enum StudentCapability {
@@ -86,11 +99,32 @@ enum StudentCapability {
   STUDENT_PLANNING_WRITE
   STUDENT_SOCIAL_READ
   STUDENT_SOCIAL_WRITE
+  STUDENT_FEEDBACK_WRITE
+
+  @@schema("app")
 }
 
 enum StudentFriendshipStatus {
   PENDING
   ACCEPTED
+
+  @@schema("app")
+}
+
+enum FeedbackReportKind {
+  BUG
+  SUGGESTION
+  DATA_ISSUE
+
+  @@schema("app")
+}
+
+enum FeedbackReportTargetType {
+  GENERAL
+  FEATURE
+  ACADEMIC_RESOURCE
+
+  @@schema("app")
 }
 
 model AuthUser {
@@ -113,6 +147,7 @@ model AuthUser {
 
   @@unique([issuer, subject])
   @@index([studentId])
+  @@schema("app")
 }
 
 model AuthUserRole {
@@ -121,6 +156,7 @@ model AuthUserRole {
   role       AuthRole
 
   @@id([authUserId, role])
+  @@schema("app")
 }
 
 model AuthUserCapability {
@@ -129,6 +165,7 @@ model AuthUserCapability {
   capability Capability
 
   @@id([authUserId, capability])
+  @@schema("app")
 }
 
 // ----------------------- Academic Models ----------------------- //
@@ -139,6 +176,8 @@ model Unit {
   courses  Course[]
   prefixes Prefixes[]
   programs Program[]
+
+  @@schema("data")
 }
 
 model Coordinator {
@@ -146,6 +185,8 @@ model Coordinator {
   name String @unique
 
   catalogCourses CatalogCourse[]
+
+  @@schema("data")
 }
 
 model Prefixes {
@@ -157,6 +198,8 @@ model Prefixes {
   courseRequirements       CourseRequirement[]
   courses                  Course[]
   catalogPrerequisiteItems CatalogCoursePrerequisiteItem[]
+
+  @@schema("data")
 }
 
 model Course {
@@ -177,6 +220,8 @@ model Course {
   suggestionCourses           SuggestionCourse[]
   periodPlanningManualCourses PeriodPlanningManualCourse[]
   catalogPrerequisiteItems    CatalogCoursePrerequisiteItem[]
+
+  @@schema("data")
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //
@@ -188,6 +233,8 @@ model Catalog {
   courses  CatalogCourse[]
 
   students Student[]
+
+  @@schema("data")
 }
 
 model CatalogCourse {
@@ -226,6 +273,7 @@ model CatalogCourse {
   prerequisites CatalogCoursePrerequisiteGroup[]
 
   @@unique([catalogId, courseId])
+  @@schema("data")
 }
 
 model CatalogCoursePrerequisiteGroup {
@@ -234,6 +282,8 @@ model CatalogCoursePrerequisiteGroup {
   catalogCourseId Int
 
   items CatalogCoursePrerequisiteItem[]
+
+  @@schema("data")
 }
 
 model CatalogCoursePrerequisiteItem {
@@ -248,6 +298,8 @@ model CatalogCoursePrerequisiteItem {
 
   course Course?   @relation(fields: [courseId], references: [id])
   prefix Prefixes? @relation(fields: [prefixId], references: [id])
+
+  @@schema("data")
 }
 
 model Program {
@@ -259,6 +311,8 @@ model Program {
   catalogPrograms CatalogProgram[]
   specializations Specialization[]
   students        Student[]
+
+  @@schema("data")
 }
 
 model Specialization {
@@ -273,6 +327,7 @@ model Specialization {
   periodPlannings        PeriodPlanning[]
 
   @@unique([programId, code])
+  @@schema("data")
 }
 
 model Language {
@@ -281,6 +336,8 @@ model Language {
   catalogLanguages CatalogLanguage[]
   periodPlannings  PeriodPlanning[]
   students         Student[]
+
+  @@schema("data")
 }
 
 model CatalogProgram {
@@ -297,6 +354,7 @@ model CatalogProgram {
   periodPlannings        PeriodPlanning[]
 
   @@unique([catalogId, programId])
+  @@schema("data")
 }
 
 model CatalogSpecialization {
@@ -311,12 +369,15 @@ model CatalogSpecialization {
   curricula            Curriculum[]
 
   @@unique([catalogProgramId, specializationId])
+  @@schema("data")
 }
 
 enum CurriculumSuggestionType {
   GENERAL
   SPECIALIZATION
   PRE_OPTION
+
+  @@schema("data")
 }
 
 model CatalogLanguage {
@@ -329,6 +390,7 @@ model CatalogLanguage {
   curricula        Curriculum[]
 
   @@unique([catalogProgramId, languageId])
+  @@schema("data")
 }
 
 model CurriculumSuggestion {
@@ -344,6 +406,7 @@ model CurriculumSuggestion {
   periodPlannings         PeriodPlanning[]
 
   @@unique([catalogProgramId, code])
+  @@schema("data")
 }
 
 model SemesterSuggestion {
@@ -355,6 +418,7 @@ model SemesterSuggestion {
   courses         SuggestionCourse[]
 
   @@unique([suggestionId, semester])
+  @@schema("data")
 }
 
 model SuggestionCourse {
@@ -365,6 +429,7 @@ model SuggestionCourse {
   courseId             Int
 
   @@unique([semesterSuggestionId, courseId])
+  @@schema("data")
 }
 
 // ----------------------- Course Requirements Models ----------------------- //
@@ -372,12 +437,16 @@ model SuggestionCourse {
 enum CourseBlockType {
   mandatory
   elective
+
+  @@schema("data")
 }
 
 enum CourseRequirementType {
   any
   prefix
   specific
+
+  @@schema("data")
 }
 
 model CourseBlock {
@@ -395,6 +464,8 @@ model CourseBlock {
   catalogProgramId Int?
 
   courseRequirements CourseRequirement[]
+
+  @@schema("data")
 }
 
 model CourseRequirement {
@@ -406,6 +477,8 @@ model CourseRequirement {
   courseId      Int?
   prefix        Prefixes?             @relation(fields: [prefixId], references: [id])
   prefixId      Int?
+
+  @@schema("data")
 }
 
 // ----------------------- Timetable Booklet Models ----------------------- //
@@ -421,6 +494,7 @@ model StudyPeriod {
 
   @@unique([year, yearPeriod])
   @@index([year])
+  @@schema("data")
 }
 
 model Professor {
@@ -428,12 +502,16 @@ model Professor {
   name                 String
   classes              Class[]
   professorEvaluations ProfessorEvaluation[]
+
+  @@schema("data")
 }
 
 model Room {
   id             Int             @id @default(autoincrement())
   code           String          @unique
   classSchedules ClassSchedule[]
+
+  @@schema("data")
 }
 
 model Class {
@@ -450,6 +528,8 @@ model Class {
   periodPlannings       PeriodPlanning[]
   studentCourseAttempts StudentCourseAttempt[]
   professorEvaluations  ProfessorEvaluation[]
+
+  @@schema("data")
 }
 
 //  Sim é um Enum para dias das semanas, não é melhor coisa, mas quis assim. 
@@ -461,6 +541,8 @@ enum DayOfWeek {
   FRIDAY
   SATURDAY
   SUNDAY
+
+  @@schema("data")
 }
 
 model ClassSchedule {
@@ -474,6 +556,8 @@ model ClassSchedule {
   classId   Int
 
   studentAbsences StudentAbsence[]
+
+  @@schema("data")
 }
 
 // ----------------------- Restaurant & Menu Models ----------------------- //
@@ -481,16 +565,22 @@ model ClassSchedule {
 enum MealPeriod {
   LUNCH
   DINNER
+
+  @@schema("data")
 }
 
 enum DietaryOption {
   TRADITIONAL
   VEGAN
+
+  @@schema("data")
 }
 
 enum MealStatus {
   AVAILABLE
   NOT_REGISTERED
+
+  @@schema("data")
 }
 
 model DailyMenu {
@@ -501,6 +591,8 @@ model DailyMenu {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@schema("data")
 }
 
 model Meal {
@@ -519,6 +611,7 @@ model Meal {
   serviceNotes MealServiceNote[]
 
   @@unique([dailyMenuId, period, diet])
+  @@schema("data")
 }
 
 model MealItem {
@@ -526,6 +619,8 @@ model MealItem {
   meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
   mealId Int
   text   String
+
+  @@schema("data")
 }
 
 model MealObservation {
@@ -533,6 +628,8 @@ model MealObservation {
   meal   Meal   @relation(fields: [mealId], references: [id], onDelete: Cascade)
   mealId Int
   text   String
+
+  @@schema("data")
 }
 
 model MealServiceNote {
@@ -542,6 +639,7 @@ model MealServiceNote {
   text   String
 
   @@unique([mealId, text])
+  @@schema("data")
 }
 
 // ----------------------- Student Models ----------------------- //
@@ -555,6 +653,8 @@ enum StudentCourseAttemptStatus {
   FAILED_BY_ATTENDANCE
   SUFFICIENT
   INSUFFICIENT
+
+  @@schema("app")
 }
 
 model Student {
@@ -589,6 +689,34 @@ model Student {
   friendshipsAsA       StudentFriendship[]    @relation("StudentFriendshipsAsA")
   friendshipsAsB       StudentFriendship[]    @relation("StudentFriendshipsAsB")
   friendshipRequests   StudentFriendship[]    @relation("StudentFriendshipRequester")
+  feedbackReports      FeedbackReport[]
+
+  @@schema("app")
+}
+
+model FeedbackReport {
+  id Int @id @default(autoincrement())
+
+  kind       FeedbackReportKind
+  targetType FeedbackReportTargetType
+  featureKey String? @db.VarChar(64)
+
+  academicResourceType String? @db.VarChar(64)
+  academicResourceId   Int?
+
+  title       String @db.VarChar(160)
+  description String
+  sourcePath  String? @db.VarChar(300)
+
+  reporterStudent   Student? @relation(fields: [reporterStudentId], references: [id], onDelete: SetNull)
+  reporterStudentId Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([reporterStudentId])
+  @@index([academicResourceType, academicResourceId])
+  @@schema("app")
 }
 
 model StudentFriendship {
@@ -608,6 +736,7 @@ model StudentFriendship {
   @@index([studentAId, status])
   @@index([studentBId, status])
   @@index([requestedById, status])
+  @@schema("app")
 }
 
 model BotGrant {
@@ -625,6 +754,7 @@ model BotGrant {
   revokedByAuthUserId Int?
 
   @@index([studentId, botAuthUserId, capability, revokedAt])
+  @@schema("app")
 }
 
 model StudentCourseAttempt {
@@ -649,6 +779,7 @@ model StudentCourseAttempt {
   @@index([studentId, courseId])
   @@index([studentId, status])
   @@index([classId])
+  @@schema("app")
 }
 
 model ProfessorEvaluation {
@@ -671,6 +802,7 @@ model ProfessorEvaluation {
   @@unique([studentId, classId, professorId])
   @@index([classId, professorId])
   @@index([professorId])
+  @@schema("app")
 }
 
 model StudentAbsence {
@@ -690,6 +822,7 @@ model StudentAbsence {
   @@unique([studentCourseAttemptId, classScheduleId, date])
   @@index([studentCourseAttemptId, date])
   @@index([classScheduleId, date])
+  @@schema("app")
 }
 
 model Curriculum {
@@ -716,6 +849,7 @@ model Curriculum {
   updatedAt               DateTime               @updatedAt
 
   @@index([studentId, updatedAt])
+  @@schema("app")
 }
 
 model CurriculumCourse {
@@ -728,6 +862,7 @@ model CurriculumCourse {
 
   @@id([curriculumId, courseId])
   @@index([curriculumId, periodId])
+  @@schema("app")
 }
 
 model CurriculumPeriod {
@@ -741,6 +876,7 @@ model CurriculumPeriod {
   updatedAt           DateTime           @updatedAt
 
   @@unique([curriculumId, position])
+  @@schema("app")
 }
 
 model PeriodPlanning {
@@ -774,6 +910,7 @@ model PeriodPlanning {
   @@index([catalogProgramId])
   @@index([specializationId])
   @@index([languageId])
+  @@schema("app")
 }
 
 model PeriodPlanningManualCourse {
@@ -785,6 +922,7 @@ model PeriodPlanningManualCourse {
 
   @@id([periodPlanningId, courseId])
   @@index([courseId])
+  @@schema("app")
 }
 
 model CalendarEvent {
@@ -795,10 +933,13 @@ model CalendarEvent {
   tags        CalendarTag[]
 
   @@index([startDate, endDate])
+  @@schema("data")
 }
 
 model CalendarTag {
   id     Int             @id @default(autoincrement())
   name   String          @unique
   events CalendarEvent[]
+
+  @@schema("data")
 }

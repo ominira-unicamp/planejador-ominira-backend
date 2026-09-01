@@ -1,5 +1,6 @@
 import type { Principal } from "#/auth.js";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
+import type { FeedbackReportService } from "#/modules/feedback/feedback-report/FeedbackReport.service.js";
 import type { AuthUserService } from "#/modules/identity/auth-user/AuthUser.service.js";
 import type { BotGrantService } from "#/modules/identity/bot-grant/BotGrant.service.js";
 import type { CurrentUserService } from "#/modules/identity/current-user/CurrentUser.service.js";
@@ -28,6 +29,8 @@ export type Context = {
     periodPlanService: PeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
     studentSocialService: StudentSocialService;
+    feedbackReportService: FeedbackReportService;
+    requestIp: string;
 };
 
 export function createAppEndpointRegistries<
@@ -53,7 +56,9 @@ export function createAppEndpointRegistries<
             periodPlanService: request.scope.cradle.periodPlanService,
             professorEvaluationService:
                 request.scope.cradle.professorEvaluationService,
-            studentSocialService: request.scope.cradle.studentSocialService
+            studentSocialService: request.scope.cradle.studentSocialService,
+            feedbackReportService: request.scope.cradle.feedbackReportService,
+            requestIp: request.ip ?? "unknown"
         }),
         registerAuthorization: (method, path, authorization) =>
             authRegistry.addPolicy(method, path, authorization)

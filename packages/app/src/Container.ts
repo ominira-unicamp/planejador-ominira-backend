@@ -4,6 +4,11 @@ import type { RequestHandler } from "express";
 import type { AppConfig } from "#/Config.js";
 import { buildZodIds } from "#/PrismaValidator.js";
 import type { Principal } from "#/auth.js";
+import { FeedbackRateLimiter } from "#/modules/feedback/feedback-report/FeedbackRateLimiter.js";
+import {
+    createFeedbackReportService,
+    type FeedbackReportService
+} from "#/modules/feedback/feedback-report/FeedbackReport.service.js";
 import {
     createAuthUserService,
     type AuthUserService
@@ -61,6 +66,8 @@ export type AppCradle = {
     periodPlanService: PeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
     studentSocialService: StudentSocialService;
+    feedbackReportService: FeedbackReportService;
+    feedbackRateLimiter: FeedbackRateLimiter;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -84,7 +91,14 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         professorEvaluationService: asFunction(
             createProfessorEvaluationService
         ).scoped(),
-        studentSocialService: asFunction(createStudentSocialService).scoped()
+        studentSocialService: asFunction(createStudentSocialService).scoped(),
+        feedbackRateLimiter: asValue(
+            new FeedbackRateLimiter(
+                config.feedbackRateLimitMax,
+                config.feedbackRateLimitWindowSeconds * 1000
+            )
+        ),
+        feedbackReportService: asFunction(createFeedbackReportService).scoped()
     });
 }
 

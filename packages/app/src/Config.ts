@@ -8,6 +8,12 @@ const appConfigSchema = z
         disabledAuth: z.boolean().default(false),
         keycloakIssuer: z.string().url().optional(),
         keycloakAudience: z.string().min(1).optional(),
+        feedbackRateLimitMax: z.coerce.number().int().min(1).default(10),
+        feedbackRateLimitWindowSeconds: z.coerce
+            .number()
+            .int()
+            .min(1)
+            .default(900),
         nodeEnv: z
             .enum(["development", "test", "production"])
             .default("development")
@@ -43,6 +49,9 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
         disabledAuth: environment.DISABLED_AUTH === "true",
         keycloakIssuer: environment.KEYCLOAK_ISSUER?.replace(/\/$/, ""),
         keycloakAudience: environment.KEYCLOAK_AUDIENCE,
+        feedbackRateLimitMax: environment.FEEDBACK_RATE_LIMIT_MAX,
+        feedbackRateLimitWindowSeconds:
+            environment.FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
         nodeEnv: environment.NODE_ENV
     });
 }
