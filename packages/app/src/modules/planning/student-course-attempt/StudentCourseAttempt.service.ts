@@ -64,6 +64,10 @@ function invalidField(path: string[], message: string): ValidationIssue {
     return { code: "INVALID_VALUE", path, message };
 }
 
+function requiredField(path: string[], message: string): ValidationIssue {
+    return { code: "REQUIRED", path, message };
+}
+
 function validateEvaluation(
     input: AttemptInput,
     evaluationMode: CourseEvaluationMode
