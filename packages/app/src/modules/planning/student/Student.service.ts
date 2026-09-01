@@ -186,28 +186,22 @@ export function createStudentService({
                     )
                 );
             const existing = await prisma.student.findUnique({ where: { ra } });
-            if (existing?.authUserId === principal.authUserId)
+            if (principal.studentId !== null)
                 return err(
                     studentIdentityConflictProblem(
                         "Esta identidade já está vinculada a um aluno."
                     )
                 );
-            if (existing?.authUserId != null)
-                return err(
-                    studentIdentityConflictProblem(
-                        "Este RA já está vinculado a outra identidade."
-                    )
-                );
-            if (existing)
+            if (existing) {
+                await prisma.authUser.update({
+                    where: { id: principal.authUserId },
+                    data: { studentId: existing.id }
+                });
                 return ok({
-                    student: studentEntity.build(
-                        await prisma.student.update({
-                            where: { id: existing.id },
-                            data: { authUserId: principal.authUserId }
-                        })
-                    ),
+                    student: studentEntity.build(existing),
                     linked: true
                 });
+            }
             const validation = await validateAcademicSelection(prisma, {
                 catalogId: input.catalogId ?? null,
                 programId: input.programId ?? null,
@@ -218,22 +212,25 @@ export function createStudentService({
                 return err(studentReferenceNotFoundProblem(validation.fields));
             if (validation)
                 return err(invalidStudentProfileProblem(validation.fields));
-            return ok({
-                student: studentEntity.build(
-                    await prisma.student.create({
-                        data: {
-                            ra,
-                            name: input.name,
-                            programId: input.programId,
-                            specializationId: input.specializationId,
-                            catalogId: input.catalogId,
-                            entryYear: input.entryYear,
-                            languageId: input.languageId
-                        }
-                    })
-                ),
-                linked: false
+            const student = await prisma.$transaction(async (tx) => {
+                const student = await tx.student.create({
+                    data: {
+                        ra,
+                        name: input.name,
+                        programId: input.programId,
+                        specializationId: input.specializationId,
+                        catalogId: input.catalogId,
+                        entryYear: input.entryYear,
+                        languageId: input.languageId
+                    }
+                });
+                await tx.authUser.update({
+                    where: { id: principal.authUserId },
+                    data: { studentId: student.id }
+                });
+                return student;
             });
+            return ok({ student: studentEntity.build(student), linked: false });
         },
         async patch(id, input) {
             const existing = await prisma.student.findUnique({ where: { id } });
@@ -258,7 +255,7 @@ export function createStudentService({
         async remove(id, confirmationRa) {
             const existing = await prisma.student.findUnique({
                 where: { id },
-                select: { id: true, ra: true, authUserId: true }
+                select: { id: true, ra: true }
             });
             if (!existing) return err(studentNotFoundProblem());
             if (existing.ra !== confirmationRa)
@@ -284,10 +281,6 @@ export function createStudentService({
                     where: { studentId: id }
                 });
                 await tx.student.delete({ where: { id } });
-                if (existing.authUserId != null)
-                    await tx.authUser.delete({
-                        where: { id: existing.authUserId }
-                    });
             });
             return ok(undefined);
         }

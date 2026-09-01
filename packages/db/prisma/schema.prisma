@@ -105,12 +105,14 @@ model AuthUser {
 
   roles         AuthUserRole[]
   capabilities  AuthUserCapability[]
-  student       Student?
+  student       Student?             @relation("AuthUserStudent", fields: [studentId], references: [id], onDelete: SetNull)
+  studentId     Int?
   botGrants     BotGrant[]           @relation("BotGrantBot")
   grantsGiven   BotGrant[]           @relation("BotGrantGrantedBy")
   grantsRevoked BotGrant[]           @relation("BotGrantRevokedBy")
 
   @@unique([issuer, subject])
+  @@index([studentId])
 }
 
 model AuthUserRole {
@@ -559,8 +561,7 @@ model Student {
   id                   Int             @id @default(autoincrement())
   ra                   String          @unique
   name                 String
-  authUser             AuthUser?       @relation(fields: [authUserId], references: [id])
-  authUserId           Int?            @unique
+  authUsers            AuthUser[]      @relation("AuthUserStudent")
   program              Program?        @relation(fields: [programId], references: [id])
   programId            Int?
   specialization       Specialization? @relation(fields: [specializationId], references: [id])

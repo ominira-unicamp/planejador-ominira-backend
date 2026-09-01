@@ -243,7 +243,7 @@ export function createStudentSocialService({
             const where = {
                 id: { not: studentId },
                 publicProfileEnabled: true,
-                authUser: { status: "ACTIVE" as const },
+                authUsers: { some: { status: "ACTIVE" as const } },
                 ...(z.string().uuid().safeParse(input.query).success
                     ? { OR: [{ publicId: input.query }, visibleName] }
                     : visibleName)
@@ -273,7 +273,7 @@ export function createStudentSocialService({
                     publicId,
                     id: { not: studentId },
                     publicProfileEnabled: true,
-                    authUser: { status: "ACTIVE" }
+                    authUsers: { some: { status: "ACTIVE" } }
                 },
                 select: personSelection
             });
@@ -313,7 +313,7 @@ export function createStudentSocialService({
                 where: {
                     publicId: targetPublicId,
                     publicProfileEnabled: true,
-                    authUser: { status: "ACTIVE" }
+                    authUsers: { some: { status: "ACTIVE" } }
                 },
                 select: { id: true }
             });

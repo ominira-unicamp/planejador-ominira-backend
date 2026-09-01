@@ -11,7 +11,6 @@ import { match } from "path-to-regexp";
 import {
     AuthRoles,
     policies,
-    raFromDacEmail,
     type AuthorizationPolicy,
     type AuthRole,
     type Capability
@@ -93,8 +92,7 @@ async function resolvePrincipal(payload: TokenPayload, req: Request) {
         where: { issuer_subject: { issuer: tokenIssuer, subject } },
         include: {
             roles: true,
-            capabilities: true,
-            student: { select: { id: true } }
+            capabilities: true
         }
     });
 
@@ -111,26 +109,27 @@ async function resolvePrincipal(payload: TokenPayload, req: Request) {
             },
             include: {
                 roles: true,
-                capabilities: true,
-                student: { select: { id: true } }
+                capabilities: true
             }
         });
     }
 
-    if (!authUser.student) {
-        const ra = raFromDacEmail(authUser.email);
-        if (ra) {
-            const student = await req.prisma.student.findUnique({
-                where: { ra },
-                select: { id: true, authUserId: true }
+    const studentIdentity = studentIdentityFromToken(payload);
+    if (
+        authUser.studentId === null &&
+        authUser.roles.some((entry) => entry.role === AuthRoles.STUDENT) &&
+        studentIdentity
+    ) {
+        const student = await req.prisma.student.findUnique({
+            where: { ra: studentIdentity.ra },
+            select: { id: true }
+        });
+        if (student) {
+            await req.prisma.authUser.update({
+                where: { id: authUser.id },
+                data: { studentId: student.id }
             });
-            if (student && student.authUserId == null) {
-                await req.prisma.student.update({
-                    where: { id: student.id },
-                    data: { authUserId: authUser.id }
-                });
-                authUser.student = { id: student.id };
-            }
+            authUser.studentId = student.id;
         }
     }
 
@@ -145,7 +144,7 @@ async function resolvePrincipal(payload: TokenPayload, req: Request) {
         capabilities: new Set(
             authUser.capabilities.map((entry) => entry.capability as Capability)
         ),
-        studentId: authUser.student?.id ?? null
+        studentId: authUser.studentId
     } satisfies Principal;
 }
 

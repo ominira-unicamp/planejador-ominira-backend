@@ -20,6 +20,7 @@ Table AuthUser {
   roles AuthUserRole [not null]
   capabilities AuthUserCapability [not null]
   student Student
+  studentId Int
   botGrants BotGrant [not null]
   grantsGiven BotGrant [not null]
   grantsRevoked BotGrant [not null]
@@ -317,6 +318,7 @@ Table Professor {
   id Int [pk, increment]
   name String [not null]
   classes Class [not null]
+  professorEvaluations ProfessorEvaluation [not null]
 }
 
 Table Room {
@@ -337,6 +339,7 @@ Table Class {
   classSchedules ClassSchedule [not null]
   periodPlannings PeriodPlanning [not null]
   studentCourseAttempts StudentCourseAttempt [not null]
+  professorEvaluations ProfessorEvaluation [not null]
 }
 
 Table ClassSchedule {
@@ -405,8 +408,7 @@ Table Student {
   id Int [pk, increment]
   ra String [unique, not null]
   name String [not null]
-  authUser AuthUser
-  authUserId Int [unique]
+  authUsers AuthUser [not null]
   program Program
   programId Int
   specialization Specialization
@@ -416,12 +418,41 @@ Table Student {
   entryYear Int
   language Language
   languageId Int
+  publicId String [unique, not null]
+  publicProfileEnabled Boolean [not null, default: false]
+  publicDisplayName String
+  publicBio String
+  showProgram Boolean [not null, default: false]
+  showSpecialization Boolean [not null, default: false]
+  showEntryYear Boolean [not null, default: false]
   courseAttempts StudentCourseAttempt [not null]
+  professorEvaluations ProfessorEvaluation [not null]
   periodPlannings PeriodPlanning [not null]
   curriculums Curriculum [not null]
   favoriteCurriculum Curriculum
   favoriteCurriculumId Int [unique]
   botGrants BotGrant [not null]
+  friendshipsAsA StudentFriendship [not null]
+  friendshipsAsB StudentFriendship [not null]
+  friendshipRequests StudentFriendship [not null]
+}
+
+Table StudentFriendship {
+  id Int [pk, increment]
+  studentA Student [not null]
+  studentAId Int [not null]
+  studentB Student [not null]
+  studentBId Int [not null]
+  requestedBy Student [not null]
+  requestedById Int [not null]
+  status StudentFriendshipStatus [not null, default: 'PENDING']
+  acceptedAt DateTime
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (studentAId, studentBId) [unique]
+  }
 }
 
 Table BotGrant {
@@ -455,6 +486,26 @@ Table StudentCourseAttempt {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   absences StudentAbsence [not null]
+}
+
+Table ProfessorEvaluation {
+  id Int [pk, increment]
+  student Student [not null]
+  studentId Int [not null]
+  class Class [not null]
+  classId Int [not null]
+  professor Professor [not null]
+  professorId Int [not null]
+  wouldTakeAgain Int [not null]
+  fairness Int [not null]
+  clarity Int [not null]
+  difficulty Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (studentId, classId, professorId) [unique]
+  }
 }
 
 Table StudentAbsence {
@@ -649,6 +700,13 @@ Enum StudentCapability {
   STUDENT_HISTORY_WRITE
   STUDENT_PLANNING_READ
   STUDENT_PLANNING_WRITE
+  STUDENT_SOCIAL_READ
+  STUDENT_SOCIAL_WRITE
+}
+
+Enum StudentFriendshipStatus {
+  PENDING
+  ACCEPTED
 }
 
 Enum CurriculumSuggestionType {
@@ -703,6 +761,8 @@ Enum StudentCourseAttemptStatus {
   SUFFICIENT
   INSUFFICIENT
 }
+
+Ref: AuthUser.studentId > Student.id [delete: Set Null]
 
 Ref: AuthUserRole.authUserId > AuthUser.id [delete: Cascade]
 
@@ -782,8 +842,6 @@ Ref: MealObservation.mealId > Meal.id [delete: Cascade]
 
 Ref: MealServiceNote.mealId > Meal.id [delete: Cascade]
 
-Ref: Student.authUserId - AuthUser.id
-
 Ref: Student.programId > Program.id
 
 Ref: Student.specializationId > Specialization.id
@@ -793,6 +851,12 @@ Ref: Student.catalogId > Catalog.id
 Ref: Student.languageId > Language.id
 
 Ref: Student.favoriteCurriculumId - Curriculum.id
+
+Ref: StudentFriendship.studentAId > Student.id [delete: Cascade]
+
+Ref: StudentFriendship.studentBId > Student.id [delete: Cascade]
+
+Ref: StudentFriendship.requestedById > Student.id [delete: Cascade]
 
 Ref: BotGrant.studentId > Student.id [delete: Cascade]
 
@@ -809,6 +873,12 @@ Ref: StudentCourseAttempt.courseId > Course.id
 Ref: StudentCourseAttempt.studyPeriodId > StudyPeriod.id
 
 Ref: StudentCourseAttempt.classId > Class.id [delete: Set Null]
+
+Ref: ProfessorEvaluation.studentId > Student.id [delete: Cascade]
+
+Ref: ProfessorEvaluation.classId > Class.id
+
+Ref: ProfessorEvaluation.professorId > Professor.id
 
 Ref: StudentAbsence.studentCourseAttemptId > StudentCourseAttempt.id [delete: Cascade]
 
