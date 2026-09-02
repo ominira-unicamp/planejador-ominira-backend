@@ -127,6 +127,15 @@ enum FeedbackReportTargetType {
   @@schema("app")
 }
 
+enum ExchangeNoticeDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+
+  @@schema("app")
+}
+
 model AuthUser {
   id          Int            @id @default(autoincrement())
   issuer      String
@@ -665,6 +674,7 @@ model ExchangeNotice {
   registrationEnd          DateTime?
 
   files ExchangeNoticeFile[]
+  deliveries ExchangeNoticeDelivery[]
 
   @@schema("data")
 }
@@ -744,6 +754,7 @@ model Student {
   friendshipRequests   StudentFriendship[]    @relation("StudentFriendshipRequester")
   feedbackReports      FeedbackReport[]
   exchangeNoticeSubscription ExchangeNoticeSubscription?
+  exchangeNoticeDeliveries   ExchangeNoticeDelivery[]
 
   @@schema("app")
 }
@@ -769,6 +780,29 @@ model ExchangeNoticeSubscriptionPlace {
   placeId Int
 
   @@id([subscriptionStudentId, placeId])
+  @@schema("app")
+}
+
+model ExchangeNoticeDelivery {
+  id Int @id @default(autoincrement())
+
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId Int
+
+  notice   ExchangeNotice @relation(fields: [noticeId], references: [id], onDelete: Cascade)
+  noticeId Int
+
+  status        ExchangeNoticeDeliveryStatus @default(PENDING)
+  attemptCount  Int                          @default(0)
+  nextAttemptAt DateTime                     @default(now())
+  processingAt  DateTime?
+  sentAt        DateTime?
+  lastError     String?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+
+  @@unique([studentId, noticeId])
+  @@index([status, nextAttemptAt])
   @@schema("app")
 }
 

@@ -1,11 +1,13 @@
 import { AuthRegistry } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
 import exchangeNoticeSubscription from "#/modules/exchange/exchange-notice-subscription/index.js";
+import exchangeNoticeUnsubscribe from "#/modules/exchange/exchange-notice-unsubscribe/index.js";
 import { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { Router } from "express";
 
 const controllers: ModuleDefinition["controllers"] = [
-    exchangeNoticeSubscription
+    exchangeNoticeSubscription,
+    exchangeNoticeUnsubscribe
 ];
 
 export default {

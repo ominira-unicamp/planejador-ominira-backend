@@ -9,6 +9,7 @@ COPY packages/api-core/package.json packages/api-core/package.json
 COPY packages/data/package.json packages/data/package.json
 COPY packages/app/package.json packages/app/package.json
 COPY packages/injection/package.json packages/injection/package.json
+COPY packages/notifier/package.json packages/notifier/package.json
 
 RUN npm ci
 
@@ -30,6 +31,10 @@ FROM runtime AS app
 
 EXPOSE 3001
 CMD ["npm", "run", "start", "--workspace", "@pomi/app"]
+
+FROM runtime AS notifier
+
+CMD ["npm", "run", "start", "--workspace", "@pomi/notifier"]
 
 FROM builder AS migrate
 

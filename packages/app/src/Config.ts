@@ -14,6 +14,7 @@ const appConfigSchema = z
             .int()
             .min(1)
             .default(900),
+        notifierUnsubscribeSecret: z.string().min(32).optional(),
         nodeEnv: z
             .enum(["development", "test", "production"])
             .default("development")
@@ -52,6 +53,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
         feedbackRateLimitMax: environment.FEEDBACK_RATE_LIMIT_MAX,
         feedbackRateLimitWindowSeconds:
             environment.FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
+        notifierUnsubscribeSecret: environment.NOTIFIER_UNSUBSCRIBE_SECRET,
         nodeEnv: environment.NODE_ENV
     });
 }

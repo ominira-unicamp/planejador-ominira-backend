@@ -5,6 +5,7 @@
         { "path": "./packages/api-core" },
         { "path": "./packages/data" },
         { "path": "./packages/app" },
-        { "path": "./packages/injection" }
+        { "path": "./packages/injection" },
+        { "path": "./packages/notifier" }
     ]
 }

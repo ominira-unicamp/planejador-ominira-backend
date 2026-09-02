@@ -8,6 +8,10 @@ import {
     createExchangeNoticeSubscriptionService,
     type ExchangeNoticeSubscriptionService
 } from "#/modules/exchange/exchange-notice-subscription/ExchangeNoticeSubscription.service.js";
+import {
+    createExchangeNoticeUnsubscribeService,
+    type ExchangeNoticeUnsubscribeService
+} from "#/modules/exchange/exchange-notice-unsubscribe/ExchangeNoticeUnsubscribe.service.js";
 import { FeedbackRateLimiter } from "#/modules/feedback/feedback-report/FeedbackRateLimiter.js";
 import {
     createFeedbackReportService,
@@ -73,6 +77,7 @@ export type AppCradle = {
     feedbackReportService: FeedbackReportService;
     feedbackRateLimiter: FeedbackRateLimiter;
     exchangeNoticeSubscriptionService: ExchangeNoticeSubscriptionService;
+    exchangeNoticeUnsubscribeService: ExchangeNoticeUnsubscribeService;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -106,6 +111,9 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         feedbackReportService: asFunction(createFeedbackReportService).scoped(),
         exchangeNoticeSubscriptionService: asFunction(
             createExchangeNoticeSubscriptionService
+        ).scoped(),
+        exchangeNoticeUnsubscribeService: asFunction(
+            createExchangeNoticeUnsubscribeService
         ).scoped()
     });
 }
