@@ -1,12 +1,29 @@
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import type { Logger } from "pino";
 
 import jsonErrorHandler from "./middleware/jsonErrorHandler.js";
 import sizeLimitMiddleware from "./middleware/sizeLimitMiddleware.js";
+import {
+    createHttpTelemetryMiddleware,
+    createLogger
+} from "./telemetry/logger.js";
 
-export function createBaseApplication(corsConfiguration?: string) {
+export type BaseApplicationOptions = {
+    corsOrigins?: string;
+    serviceName: string;
+    logger?: Logger;
+};
+
+export function createBaseApplication({
+    corsOrigins: corsConfiguration,
+    serviceName,
+    logger: configuredLogger
+}: BaseApplicationOptions) {
     const application = express();
+    const logger = configuredLogger ?? createLogger(serviceName);
+    application.use(createHttpTelemetryMiddleware(logger));
     const configuredOrigins = corsConfiguration ?? "*";
     const origins = configuredOrigins
         .split(",")

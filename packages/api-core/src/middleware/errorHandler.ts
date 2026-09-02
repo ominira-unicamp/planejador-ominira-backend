@@ -5,6 +5,7 @@ import {
     internalServerErrorProblem
 } from "../errors/ProblemDetails.js";
 import { sendProblem } from "../http/problemResponse.js";
+import { requestLogger } from "../telemetry/logger.js";
 
 function errorHandler(
     err: unknown,
@@ -16,9 +17,10 @@ function errorHandler(
         sendProblem(res, appErrorProblem(err, req.path));
         return;
     }
-    if (err && typeof err === "object" && "stack" in err) {
-        console.error((err as { stack?: string }).stack);
-    }
+    requestLogger(res)?.error(
+        { err, event: "http.request.failed", method: req.method },
+        "Erro não tratado durante requisição HTTP"
+    );
     sendProblem(res, internalServerErrorProblem(req.path));
 }
 

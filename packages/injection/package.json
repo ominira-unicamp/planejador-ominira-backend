@@ -18,6 +18,6 @@
         "zod": "^4.2.1"
     },
     "bin": {
-        "pomi-injection": "./dist/cli.js"
+        "pomi-injection": "./dist/src/cli.js"
     }
 }

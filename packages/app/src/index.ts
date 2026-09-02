@@ -1,6 +1,10 @@
 import "dotenv/config";
 
-import { createBaseApplication, errorHandler } from "@pomi/api-core";
+import {
+    createBaseApplication,
+    createLogger,
+    errorHandler
+} from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 
 import { loadAppConfig } from "#/Config.js";
@@ -11,7 +15,12 @@ import openApiRouter from "#/OpenApi.js";
 const config = loadAppConfig(process.env);
 const database = createDatabaseClient(config.databaseUrl);
 const container = createAppContainer(config, database);
-const application = createBaseApplication(config.corsOrigins);
+const logger = createLogger("pomi-app");
+const application = createBaseApplication({
+    corsOrigins: config.corsOrigins,
+    serviceName: "pomi-app",
+    logger
+});
 
 for (const path of [
     "/health",
@@ -32,14 +41,14 @@ application.use(errorHandler);
 
 const port = config.port;
 const server = application.listen(port, () => {
-    if (process.env.NODE_ENV !== "production") {
-        console.log(`POMI App docs: http://localhost:${port}/docs`);
-    }
+    logger.info({ event: "server.started", port }, "POMI App iniciada");
 });
 
 async function shutdown() {
+    logger.info({ event: "server.stopping" }, "POMI App encerrando");
     server.close();
     await database.$disconnect();
+    logger.info({ event: "server.stopped" }, "POMI App encerrada");
 }
 
 process.once("SIGINT", shutdown);

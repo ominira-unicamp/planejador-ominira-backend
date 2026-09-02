@@ -18,4 +18,5 @@ export * from "./PathSegment.js";
 export * from "./Result.js";
 export * from "./server.js";
 export * from "./SpecBuilder.js";
+export * from "./telemetry/logger.js";
 export * from "./Validation.js";

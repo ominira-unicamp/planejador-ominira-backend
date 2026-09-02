@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from "express";
 import { malformedJsonProblem } from "../errors/ProblemDetails.js";
 import { sendProblem } from "../http/problemResponse.js";
+import { requestLogger } from "../telemetry/logger.js";
 
 const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
     if (
@@ -9,7 +10,10 @@ const jsonErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
         err.status === 400 &&
         "body" in err
     ) {
-        console.error("Invalid JSON body:", err.message);
+        requestLogger(res)?.warn(
+            { err, event: "http.request.invalid_json", method: req.method },
+            "Corpo JSON inválido"
+        );
         return sendProblem(res, malformedJsonProblem(req.path));
     }
     next(err);

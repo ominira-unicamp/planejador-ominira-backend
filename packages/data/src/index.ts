@@ -1,6 +1,10 @@
 import "dotenv/config";
 
-import { createBaseApplication, errorHandler } from "@pomi/api-core";
+import {
+    createBaseApplication,
+    createLogger,
+    errorHandler
+} from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 
 import { loadDataConfig } from "#/Config.js";
@@ -11,7 +15,12 @@ import openApiRouter from "#/OpenApi.js";
 const config = loadDataConfig(process.env);
 const database = createDatabaseClient(config.databaseUrl);
 const container = createDataContainer(config, database);
-const application = createBaseApplication(config.corsOrigins);
+const logger = createLogger("pomi-data");
+const application = createBaseApplication({
+    corsOrigins: config.corsOrigins,
+    serviceName: "pomi-data",
+    logger
+});
 
 for (const path of [
     "/health",
@@ -32,14 +41,14 @@ application.use(errorHandler);
 
 const port = config.port;
 const server = application.listen(port, () => {
-    if (process.env.NODE_ENV !== "production") {
-        console.log(`POMI Data docs: http://localhost:${port}/docs`);
-    }
+    logger.info({ event: "server.started", port }, "POMI Data iniciada");
 });
 
 async function shutdown() {
+    logger.info({ event: "server.stopping" }, "POMI Data encerrando");
     server.close();
     await database.$disconnect();
+    logger.info({ event: "server.stopped" }, "POMI Data encerrada");
 }
 
 process.once("SIGINT", shutdown);

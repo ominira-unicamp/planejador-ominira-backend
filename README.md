@@ -120,6 +120,19 @@ o nível pode ser ajustado com `LOG_LEVEL` (ou, por compatibilidade,
 alterado com `OPENOBSERVE_STREAM`. Sem `OPENOBSERVE_URL`, nenhum envio remoto
 é realizado.
 
+### Logs e telemetria das APIs
+
+As APIs POMI Data e POMI App emitem logs JSON no stdout para cada requisição,
+com `requestId`, método, rota parametrizada, status e duração. O identificador
+também é devolvido em `X-Request-ID`, permitindo correlacionar uma resposta ao
+log correspondente. Corpos, tokens e cookies não são registrados.
+
+Use `LOG_LEVEL` para ajustar a verbosidade. Para enviar os mesmos eventos ao
+OpenObserve, defina `OPENOBSERVE_URL` e `OPENOBSERVE_AUTH` (ou
+`OPENOBSERVE_USER` e `OPENOBSERVE_PASSWORD`); `OPENOBSERVE_STREAM` é opcional e
+usa `pomi-api-logs` por padrão. Sem `OPENOBSERVE_URL`, a aplicação não realiza
+envio remoto.
+
 ### Acessando a Documentação
 
 Após iniciar os servidores, acesse:
