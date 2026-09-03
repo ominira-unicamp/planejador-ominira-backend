@@ -23,6 +23,7 @@ import {
     ATTR_SERVICE_VERSION
 } from "@opentelemetry/semantic-conventions";
 import { PrismaInstrumentation } from "@prisma/instrumentation";
+import type { ClientRequest, IncomingMessage } from "node:http";
 
 export let tracerProvider: NodeTracerProvider | undefined;
 export let meterProvider: MeterProvider | undefined;
@@ -103,13 +104,35 @@ export function initializeTelemetry(serviceName: string) {
         tracerProvider,
         meterProvider,
         instrumentations: [
-            new HttpInstrumentation(),
+            new HttpInstrumentation({
+                ignoreIncomingRequestHook: (request) =>
+                    isProbePath(request.url),
+                applyCustomAttributesOnSpan: (span, request) => {
+                    const route = requestRoute(request);
+                    if (route) span.setAttribute("http.route", route);
+                }
+            }),
             new ExpressInstrumentation(),
             new PrismaInstrumentation(),
             new RuntimeNodeInstrumentation({ monitoringPrecision: 5_000 }),
             new UndiciInstrumentation()
         ]
     });
+}
+
+function isProbePath(url: string | undefined) {
+    const path = url?.split("?", 1)[0];
+    return path === "/health" || path === "/ready";
+}
+
+function requestRoute(request: IncomingMessage | ClientRequest) {
+    const expressRequest = request as IncomingMessage & {
+        baseUrl?: string;
+        route?: { path?: unknown };
+    };
+    const route = expressRequest.route?.path;
+    if (typeof route !== "string") return undefined;
+    return `${expressRequest.baseUrl ?? ""}${route}` || "/";
 }
 
 export async function shutdownTelemetry() {

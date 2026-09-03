@@ -7,7 +7,7 @@ const restrictions = {
     "api-core": ["@pomi/db", "@pomi/data", "@pomi/app", "@pomi/injection"],
     "data": ["@pomi/app", "@pomi/injection"],
     "app": ["@pomi/data", "@pomi/injection"],
-    "injection": ["@pomi/api-core", "@pomi/data", "@pomi/app"]
+    "injection": ["@pomi/data", "@pomi/app"]
 };
 
 async function sourceFiles(directory) {

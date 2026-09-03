@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Writable } from "node:stream";
 
+import { trace } from "@opentelemetry/api";
 import type { RequestHandler, Response } from "express";
 import pino, { type Level, type Logger } from "pino";
 
@@ -48,6 +49,7 @@ export function createHttpTelemetryMiddleware(logger: Logger): RequestHandler {
     return (request, response, next) => {
         const requestId = requestIdFrom(request.header(REQUEST_ID_HEADER));
         const requestLogger = logger.child({ requestId });
+        const traceId = activeTraceId();
         const startedAt = process.hrtime.bigint();
         response.setHeader(REQUEST_ID_HEADER, requestId);
         response.locals.pomiLogger = requestLogger;
@@ -61,8 +63,15 @@ export function createHttpTelemetryMiddleware(logger: Logger): RequestHandler {
                 route: requestRoute(request),
                 statusCode: response.statusCode,
                 durationMs: Number(durationMs.toFixed(3)),
-                responseContentLength: contentLength(response)
+                responseContentLength: contentLength(response),
+                ...(traceId ? { trace_id: traceId } : {})
             };
+            const route = attributes.route;
+            if (
+                response.statusCode < 400 &&
+                (route === "/health" || route === "/ready")
+            )
+                return;
             if (response.statusCode >= 500)
                 requestLogger.error(attributes, "Requisição HTTP concluída");
             else if (response.statusCode >= 400)
@@ -71,6 +80,11 @@ export function createHttpTelemetryMiddleware(logger: Logger): RequestHandler {
         });
         next();
     };
+}
+
+function activeTraceId() {
+    const traceId = trace.getActiveSpan()?.spanContext().traceId;
+    return traceId && !/^0+$/.test(traceId) ? traceId : undefined;
 }
 
 export function requestLogger(response: Response): Logger | undefined {
