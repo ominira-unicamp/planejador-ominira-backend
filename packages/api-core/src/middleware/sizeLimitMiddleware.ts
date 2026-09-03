@@ -11,15 +11,19 @@ function responseTooLargeProblem(instance: string) {
     };
 }
 
+function bodyByteLength(body: unknown) {
+    const serializedBody =
+        typeof body === "string" ? body : (JSON.stringify(body) ?? "");
+    return Buffer.byteLength(serializedBody);
+}
+
 function sizeLimitMiddleware(_req: Request, res: Response, next: NextFunction) {
     const oldSend = res.send;
     const oldJson = res.json;
 
     res.json = function (body?: unknown): Response {
         const sizeLimit = 1024 * 1024 * 31; // 31 MB limit
-        const bodySize = Buffer.byteLength(
-            typeof body === "string" ? body : JSON.stringify(body)
-        );
+        const bodySize = bodyByteLength(body);
 
         if (bodySize > sizeLimit) {
             res.status(413).type(problemContentType);
@@ -34,9 +38,7 @@ function sizeLimitMiddleware(_req: Request, res: Response, next: NextFunction) {
 
     res.send = function (body?: unknown): Response {
         const sizeLimit = 1024 * 1024 * 31; // 31 MB limit
-        const bodySize = Buffer.byteLength(
-            typeof body === "string" ? body : JSON.stringify(body)
-        );
+        const bodySize = bodyByteLength(body);
 
         if (bodySize > sizeLimit) {
             res.status(413).type(problemContentType);
