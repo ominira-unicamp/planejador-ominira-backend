@@ -32,7 +32,8 @@ export async function runInjection(
     serviceFactory: (
         definition: InjectionDefinition
     ) => InjectionService = createInjectionService,
-    mode: InjectionRunMode = "all"
+    mode: InjectionRunMode = "all",
+    parameters: Record<string, unknown> = {}
 ) {
     if (!(["all", "obtain", "inject"] as InjectionRunMode[]).includes(mode))
         throw new Error(`Modo de execução inválido: ${mode}`);
@@ -44,7 +45,8 @@ export async function runInjection(
                 definition,
                 signal,
                 serviceFactory,
-                mode
+                mode,
+                parameters
             ),
         {
             attributes: {
@@ -62,7 +64,8 @@ async function runInjectionInternal(
     serviceFactory: (
         definition: InjectionDefinition
     ) => InjectionService = createInjectionService,
-    mode: InjectionRunMode = "all"
+    mode: InjectionRunMode = "all",
+    parameters: Record<string, unknown> = {}
 ) {
     loadInjectionEnv();
     if (mode !== "obtain" && !process.env.DATABASE_URL)
@@ -78,7 +81,7 @@ async function runInjectionInternal(
         config.configDirectory
     );
     const temporaryPath = `${inputPath}.${runId}.partial`;
-    const variables = {
+    const variables: Record<string, string> = {
         POMI_INJECTION_NAME: definition.name,
         POMI_INJECTION_RUN_ID: runId,
         POMI_INJECTION_OUTPUT: temporaryPath,
@@ -86,39 +89,95 @@ async function runInjectionInternal(
         POMI_CURRENT_YEAR: String(new Date().getFullYear()),
         POMI_CURRENT_SEMESTER: new Date().getMonth() < 6 ? "1" : "2"
     };
+    for (const [key, value] of Object.entries(parameters)) {
+        if (typeof value === "string" || typeof value === "number")
+            variables[
+                `POMI_PARTITION_${key.replaceAll("-", "_").toUpperCase()}`
+            ] = String(value);
+    }
     if (!isPathInside(config.rootDirectory, inputPath))
         throw new Error(`Arquivo de entrada fora da raiz: ${inputPath}`);
     await mkdir(dirname(inputPath), { recursive: true });
     try {
         if (mode !== "inject") {
-            await runProcess(
+            const scraperRunId = randomUUID();
+            logger.info(
                 {
-                    command: definition.obtain.command,
-                    args: definition.obtain.args.map((value) =>
-                        interpolate(value, variables)
-                    ),
-                    cwd: resolveCommandCwd(
-                        config.rootDirectory,
-                        config.configDirectory,
-                        definition.obtain.cwd
-                    ),
-                    env: {
-                        ...variables,
-                        ...Object.fromEntries(
-                            Object.entries(definition.obtain.env).map(
-                                ([key, value]) => [
-                                    key,
-                                    interpolate(value, variables)
-                                ]
-                            )
-                        )
-                    },
-                    timeoutMs: definition.obtain.timeoutMs,
-                    stderrToStdout: true,
-                    allowedExitCodes: definition.allowIssues ? [1] : undefined
+                    event: "injection.process.started",
+                    scraperRunId,
+                    command: definition.obtain.command
                 },
-                signal
+                "Processo do scrapper iniciado"
             );
+            try {
+                const processResult = await withTrace(
+                    "injection.obtain",
+                    () =>
+                        runProcess(
+                            {
+                                command: definition.obtain.command,
+                                args: partitionArgs(
+                                    definition.obtain.args,
+                                    parameters
+                                ).map((value) => interpolate(value, variables)),
+                                cwd: resolveCommandCwd(
+                                    config.rootDirectory,
+                                    config.configDirectory,
+                                    definition.obtain.cwd
+                                ),
+                                env: {
+                                    ...variables,
+                                    POMI_SCRAPER_RUN_ID: scraperRunId,
+                                    OTEL_SERVICE_NAME: "unicamp-scrapper",
+                                    ...Object.fromEntries(
+                                        Object.entries(
+                                            definition.obtain.env
+                                        ).map(([key, value]) => [
+                                            key,
+                                            interpolate(value, variables)
+                                        ])
+                                    )
+                                },
+                                timeoutMs: definition.obtain.timeoutMs,
+                                stderrToStdout: true,
+                                allowedExitCodes: definition.allowIssues
+                                    ? [1]
+                                    : undefined
+                            },
+                            signal
+                        ),
+                    {
+                        attributes: {
+                            "injection.name": definition.name,
+                            "injection.scraper_run_id": scraperRunId
+                        }
+                    }
+                )();
+                logger.info(
+                    {
+                        event: "injection.process.completed",
+                        scraperRunId,
+                        ...processResult
+                    },
+                    "Processo do scrapper concluído"
+                );
+            } catch (error) {
+                const event =
+                    error instanceof Error && error.message.includes("timeout")
+                        ? "injection.process.timeout"
+                        : signal?.aborted
+                          ? "injection.process.cancelled"
+                          : "injection.process.failed";
+                logger.error(
+                    {
+                        event,
+                        scraperRunId,
+                        err: error
+                    },
+                    "Processo do scrapper falhou"
+                );
+                throw error;
+            }
             await access(temporaryPath);
             await rename(temporaryPath, inputPath);
             logger.info({ inputPath }, "Obtenção concluída");
@@ -160,6 +219,24 @@ async function runInjectionInternal(
     } finally {
         await rm(temporaryPath, { force: true });
     }
+}
+
+function partitionArgs(args: string[], parameters: Record<string, unknown>) {
+    const firstYear = parameters.firstYear ?? parameters.first_year;
+    const lastYear = parameters.lastYear ?? parameters.last_year;
+    const instituteCode = parameters.instituteCode ?? parameters.institute_code;
+    const result = args.map((value, index) => {
+        const previous = args[index - 1];
+        if (previous === "--first-year") return String(firstYear);
+        if (previous === "--last-year") return String(lastYear);
+        return value;
+    });
+    if (
+        typeof instituteCode === "string" &&
+        !result.includes("--institute-code")
+    )
+        return [...result, "--institute-code", instituteCode];
+    return result;
 }
 
 async function writeInjectionIssuesFile({

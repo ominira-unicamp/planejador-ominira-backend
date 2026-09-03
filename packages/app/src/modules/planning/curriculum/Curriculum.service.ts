@@ -61,8 +61,40 @@ export type CurriculumService = {
 function selectionData(selection: CreateCurriculumInput["selection"]) {
     return {
         catalogProgramId: selection?.catalogProgramId ?? null,
-        catalogSpecializationId: selection?.catalogSpecializationId ?? null,
-        catalogLanguageId: selection?.catalogLanguageId ?? null
+        specializationId: selection?.specializationId ?? null,
+        languageId: selection?.languageId ?? null
+    };
+}
+
+async function resolveSelection(
+    prisma: TransactionClient | PrismaClient,
+    selection: ReturnType<typeof selectionData>
+) {
+    const [specialization, language] = await Promise.all([
+        selection.specializationId === null ||
+        selection.catalogProgramId === null
+            ? null
+            : prisma.catalogSpecialization.findFirst({
+                  where: {
+                      catalogProgramId: selection.catalogProgramId,
+                      specializationId: selection.specializationId
+                  },
+                  select: { id: true }
+              }),
+        selection.languageId === null || selection.catalogProgramId === null
+            ? null
+            : prisma.catalogLanguage.findFirst({
+                  where: {
+                      catalogProgramId: selection.catalogProgramId,
+                      languageId: selection.languageId
+                  },
+                  select: { id: true }
+              })
+    ]);
+    return {
+        catalogProgramId: selection.catalogProgramId,
+        catalogSpecializationId: specialization?.id ?? null,
+        catalogLanguageId: language?.id ?? null
     };
 }
 
@@ -84,7 +116,11 @@ function planningStartData(
 
 async function selectionFields(
     prisma: TransactionClient,
-    selection: ReturnType<typeof selectionData>
+    selection: ReturnType<typeof selectionData>,
+    resolved: {
+        catalogSpecializationId: number | null;
+        catalogLanguageId: number | null;
+    }
 ): Promise<ProblemField[]> {
     const fields: ProblemField[] = [];
     const [program, specialization, language] = await Promise.all([
@@ -94,16 +130,23 @@ async function selectionFields(
                   where: { id: selection.catalogProgramId },
                   select: { id: true }
               }),
-        selection.catalogSpecializationId === null
+        selection.specializationId === null ||
+        selection.catalogProgramId === null
             ? null
-            : prisma.catalogSpecialization.findUnique({
-                  where: { id: selection.catalogSpecializationId },
+            : prisma.catalogSpecialization.findFirst({
+                  where: {
+                      id: resolved.catalogSpecializationId ?? -1,
+                      catalogProgramId: selection.catalogProgramId
+                  },
                   select: { catalogProgramId: true }
               }),
-        selection.catalogLanguageId === null
+        selection.languageId === null || selection.catalogProgramId === null
             ? null
-            : prisma.catalogLanguage.findUnique({
-                  where: { id: selection.catalogLanguageId },
+            : prisma.catalogLanguage.findFirst({
+                  where: {
+                      id: resolved.catalogLanguageId ?? -1,
+                      catalogProgramId: selection.catalogProgramId
+                  },
                   select: { catalogProgramId: true }
               })
     ]);
@@ -114,23 +157,23 @@ async function selectionFields(
             message: "O programa de catálogo informado não foi encontrado."
         });
     if (
-        selection.catalogSpecializationId !== null &&
+        selection.specializationId !== null &&
         (!specialization ||
             specialization.catalogProgramId !== selection.catalogProgramId)
     )
         fields.push({
             code: specialization ? "INVALID_VALUE" : "REFERENCE_NOT_FOUND",
-            path: ["selection", "catalogSpecializationId"],
+            path: ["selection", "specializationId"],
             message:
                 "A habilitação não pertence ao programa de catálogo informado."
         });
     if (
-        selection.catalogLanguageId !== null &&
+        selection.languageId !== null &&
         (!language || language.catalogProgramId !== selection.catalogProgramId)
     )
         fields.push({
             code: language ? "INVALID_VALUE" : "REFERENCE_NOT_FOUND",
-            path: ["selection", "catalogLanguageId"],
+            path: ["selection", "languageId"],
             message: "A língua não pertence ao programa de catálogo informado."
         });
     return fields;
@@ -310,9 +353,17 @@ export function createCurriculumService({
                 : err(curriculumNotFoundProblem());
         },
         async create(studentId, input) {
-            const selection = selectionData(input.selection);
+            const requestedSelection = selectionData(input.selection);
+            const selection = await resolveSelection(
+                prisma,
+                requestedSelection
+            );
             const fields = [
-                ...(await selectionFields(prisma, selection)),
+                ...(await selectionFields(
+                    prisma,
+                    requestedSelection,
+                    selection
+                )),
                 ...(await courseFields(
                     prisma,
                     (input.courses ?? []).map(({ courseId }) => courseId),
@@ -350,25 +401,36 @@ export function createCurriculumService({
                 select: {
                     catalogProgramId: true,
                     catalogSpecializationId: true,
-                    catalogLanguageId: true
+                    catalogLanguageId: true,
+                    catalogSpecialization: {
+                        select: { specializationId: true }
+                    },
+                    catalogLanguage: { select: { languageId: true } }
                 }
             });
             if (!existing) return err(curriculumNotFoundProblem());
-            const selection = {
+            const requestedSelection = selectionData({
                 catalogProgramId:
-                    input.selection?.catalogProgramId !== undefined
-                        ? input.selection.catalogProgramId
-                        : existing.catalogProgramId,
-                catalogSpecializationId:
-                    input.selection?.catalogSpecializationId !== undefined
-                        ? input.selection.catalogSpecializationId
-                        : existing.catalogSpecializationId,
-                catalogLanguageId:
-                    input.selection?.catalogLanguageId !== undefined
-                        ? input.selection.catalogLanguageId
-                        : existing.catalogLanguageId
-            };
-            const fields = await selectionFields(prisma, selection);
+                    input.selection?.catalogProgramId ??
+                    existing.catalogProgramId,
+                specializationId:
+                    input.selection?.specializationId ??
+                    existing.catalogSpecialization?.specializationId ??
+                    null,
+                languageId:
+                    input.selection?.languageId ??
+                    existing.catalogLanguage?.languageId ??
+                    null
+            });
+            const selection = await resolveSelection(
+                prisma,
+                requestedSelection
+            );
+            const fields = await selectionFields(
+                prisma,
+                requestedSelection,
+                selection
+            );
             if (fields.length) return err(curriculumInputProblem(fields));
             try {
                 await prisma.$transaction(async (tx) => {

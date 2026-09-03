@@ -20,7 +20,13 @@ const injectionSchema = z.object({
         fileName: z.string().min(1)
     }),
     options: z.record(z.string(), z.unknown()).default({}),
-    allowIssues: z.boolean().default(false)
+    allowIssues: z.boolean().default(false),
+    partitioning: z
+        .object({
+            kind: z.literal("year"),
+            firstYear: z.number().int().min(1900)
+        })
+        .optional()
 });
 
 export const injectionConfigSchema = z.object({

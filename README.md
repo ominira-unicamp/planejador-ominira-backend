@@ -105,6 +105,14 @@ npm run injection:validate
 npm run injection:list
 npm run injection:run -- academic-data
 npm run injection:watch
+
+# Enfileirar uma execução manual (retorna o ID do job)
+npm run injection:request -- academic-data all
+npm run notifier:request
+
+# Consultar o estado de um job
+npm run injection:job-status -- <job-id>
+npm run notifier:job-status -- <job-id>
 ```
 
 O `watch` executa uma injection por vez, registra falhas e continua no próximo

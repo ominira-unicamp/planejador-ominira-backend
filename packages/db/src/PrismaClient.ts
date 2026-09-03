@@ -11,9 +11,11 @@ export function createDatabaseClient(
     connectionString: string,
     options: Readonly<{ max?: number }> = {}
 ): DatabaseClient {
+    const connectionUrl = new URL(connectionString);
     return new PrismaClient({
         adapter: new PrismaPg({
             connectionString,
+            password: decodeURIComponent(connectionUrl.password),
             ...options,
             max: options.max ?? DEFAULT_DATABASE_POOL_MAX
         })

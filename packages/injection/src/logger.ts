@@ -1,3 +1,4 @@
+import { trace } from "@opentelemetry/api";
 import pino, { type Level, type Logger } from "pino";
 import { createOpenObserveStream, openObserveConfig } from "./openobserve.js";
 
@@ -18,7 +19,8 @@ export function createInjectionLogger(injection: string, runId: string) {
     const level = (process.env.LOG_LEVEL ??
         process.env.POMI_INJECTION_LOG_LEVEL ??
         "info") as Level;
-    const local = pino({ level }, pino.destination(1));
+    const options = { level, mixin: traceContext };
+    const local = pino(options, pino.destination(1));
     const streams: pino.StreamEntry[] = [
         {
             level,
@@ -36,7 +38,7 @@ export function createInjectionLogger(injection: string, runId: string) {
                 )
             )
         });
-    const logger = pino({ level }, pino.multistream(streams)).child({
+    const logger = pino(options, pino.multistream(streams)).child({
         component: "pomi-injection",
         injection,
         runId
@@ -47,4 +49,10 @@ export function createInjectionLogger(injection: string, runId: string) {
             "Registro alterado"
         );
     return logger;
+}
+
+function traceContext() {
+    const spanContext = trace.getActiveSpan()?.spanContext();
+    if (!spanContext || /^0+$/.test(spanContext.traceId)) return {};
+    return { trace_id: spanContext.traceId };
 }

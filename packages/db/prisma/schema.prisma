@@ -136,6 +136,30 @@ enum ExchangeNoticeDeliveryStatus {
   @@schema("app")
 }
 
+enum JobRequestType {
+  INJECTION
+  NOTIFIER
+
+  @@schema("app")
+}
+
+enum JobRequestStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+
+  @@schema("app")
+}
+
+enum JobRequestTrigger {
+  SCHEDULED
+  MANUAL
+
+  @@schema("app")
+}
+
 model AuthUser {
   id          Int            @id @default(autoincrement())
   issuer      String
@@ -156,6 +180,36 @@ model AuthUser {
 
   @@unique([issuer, subject])
   @@index([studentId])
+  @@schema("app")
+}
+
+model JobRequest {
+  id                 String           @id @default(uuid())
+  type               JobRequestType
+  name               String
+  parentJobId        String?
+  partitionKey       String?
+  parameters         Json?
+  mode               String?
+  status             JobRequestStatus  @default(QUEUED)
+  trigger            JobRequestTrigger
+  availableAt        DateTime         @default(now())
+  scheduledFor       DateTime?
+  deduplicationKey   String?          @unique
+  requestedBy        String?
+  runId              String?
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  errorMessage       String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  parent             JobRequest?      @relation("JobRequestPartitions", fields: [parentJobId], references: [id], onDelete: SetNull)
+  partitions         JobRequest[]     @relation("JobRequestPartitions")
+
+  @@index([type, status, availableAt])
+  @@index([type, name, status])
+  @@index([type, name, partitionKey, status])
   @@schema("app")
 }
 

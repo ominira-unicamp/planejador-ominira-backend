@@ -13,6 +13,7 @@
         "dev": "NODE_OPTIONS=--conditions=development tsx --import @pomi/api-core/telemetry/bootstrap watch src/cli.ts",
         "build": "tsc -b",
         "start": "node --import @pomi/api-core/telemetry/bootstrap dist/src/cli.js",
+        "pomi-notifier": "NODE_OPTIONS=--conditions=development tsx --import @pomi/api-core/telemetry/bootstrap src/cli.ts",
         "test": "NODE_OPTIONS=--conditions=development tsx --test test/**/*.test.ts"
     },
     "dependencies": {

@@ -37,6 +37,7 @@ export type TraceOptions<Args extends unknown[] = unknown[]> = Readonly<{
 }>;
 
 let initialized = false;
+let prismaInstrumentation: PrismaInstrumentation | undefined;
 
 export function initializeTelemetry(serviceName: string) {
     if (initialized) return;
@@ -113,11 +114,25 @@ export function initializeTelemetry(serviceName: string) {
                 }
             }),
             new ExpressInstrumentation(),
-            new PrismaInstrumentation(),
+            (prismaInstrumentation = new PrismaInstrumentation({
+                ignoreSpanTypes: []
+            })),
             new RuntimeNodeInstrumentation({ monitoringPrecision: 5_000 }),
             new UndiciInstrumentation()
         ]
     });
+}
+
+export async function withoutPrismaTracing<Result>(
+    operation: () => Promise<Result>
+): Promise<Result> {
+    if (!prismaInstrumentation) return operation();
+    prismaInstrumentation.disable();
+    try {
+        return await operation();
+    } finally {
+        prismaInstrumentation.enable();
+    }
 }
 
 function isProbePath(url: string | undefined) {
