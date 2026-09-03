@@ -9,6 +9,7 @@ import {
     createHttpTelemetryMiddleware,
     createLogger
 } from "./telemetry/logger.js";
+import { createHttpMetricsMiddleware } from "./telemetry/metrics.js";
 
 export type BaseApplicationOptions = {
     corsOrigins?: string;
@@ -24,6 +25,7 @@ export function createBaseApplication({
     const application = express();
     const logger = configuredLogger ?? createLogger(serviceName);
     application.use(createHttpTelemetryMiddleware(logger));
+    application.use(createHttpMetricsMiddleware());
     const configuredOrigins = corsConfiguration ?? "*";
     const origins = configuredOrigins
         .split(",")

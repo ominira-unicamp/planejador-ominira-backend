@@ -1,9 +1,10 @@
-import "dotenv/config";
-
 import {
     createBaseApplication,
     createLogger,
-    errorHandler
+    createReadinessHandler,
+    createVersionHandler,
+    errorHandler,
+    shutdownTelemetry
 } from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 
@@ -24,6 +25,8 @@ const application = createBaseApplication({
 
 for (const path of [
     "/health",
+    "/ready",
+    "/version",
     "/openapi.json",
     "/student-openapi.json",
     "/student-docs",
@@ -34,6 +37,21 @@ for (const path of [
 
 application.use(appScopeMiddleware(container));
 application.get("/health", (_req, res) => res.json({ status: "ok" }));
+application.get(
+    "/ready",
+    createReadinessHandler(() => database.$queryRaw`SELECT 1`)
+);
+application.get(
+    "/version",
+    createVersionHandler({
+        service: "pomi-app",
+        version: process.env.SERVICE_VERSION ?? "unknown",
+        environment:
+            process.env.DEPLOYMENT_ENVIRONMENT_NAME ??
+            process.env.NODE_ENV ??
+            "development"
+    })
+);
 application.use(appControllers.authRegistry.middleware());
 application.use(openApiRouter);
 application.use(appControllers.router);
@@ -46,9 +64,21 @@ const server = application.listen(port, () => {
 
 async function shutdown() {
     logger.info({ event: "server.stopping" }, "POMI App encerrando");
-    server.close();
-    await database.$disconnect();
-    logger.info({ event: "server.stopped" }, "POMI App encerrada");
+    const timeout = setTimeout(() => process.exit(1), 10_000);
+    timeout.unref();
+    try {
+        await new Promise<void>((resolve, reject) =>
+            server.close((error) => (error ? reject(error) : resolve()))
+        );
+        await database.$disconnect();
+        await shutdownTelemetry();
+        logger.info({ event: "server.stopped" }, "POMI App encerrada");
+    } catch (error) {
+        logger.error({ err: error }, "Falha ao encerrar POMI App");
+        process.exitCode = 1;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 process.once("SIGINT", shutdown);

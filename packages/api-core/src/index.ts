@@ -13,10 +13,13 @@ export { default as sizeLimitMiddleware } from "./middleware/sizeLimitMiddleware
 export * from "./openapi/EndpointOpenApi.js";
 export { default as RequestBuilder } from "./openapi/RequestBuilder.js";
 export { default as ResponseBuilder } from "./openapi/ResponseBuilder.js";
+export * from "./operational.js";
 export * from "./pagination.js";
 export * from "./PathSegment.js";
 export * from "./Result.js";
 export * from "./server.js";
 export * from "./SpecBuilder.js";
 export * from "./telemetry/logger.js";
+export * from "./telemetry/metrics.js";
+export * from "./telemetry/tracing.js";
 export * from "./Validation.js";

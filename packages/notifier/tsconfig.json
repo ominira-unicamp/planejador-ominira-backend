@@ -8,5 +8,5 @@
         "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
     },
     "include": ["src/**/*.ts", "test/**/*.ts"],
-    "references": [{ "path": "../db" }]
+    "references": [{ "path": "../api-core" }, { "path": "../db" }]
 }

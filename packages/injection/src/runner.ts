@@ -1,3 +1,4 @@
+import { withTrace } from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 import { randomUUID } from "node:crypto";
 import {
@@ -35,6 +36,34 @@ export async function runInjection(
 ) {
     if (!(["all", "obtain", "inject"] as InjectionRunMode[]).includes(mode))
         throw new Error(`Modo de execução inválido: ${mode}`);
+    return withTrace(
+        "injection.run",
+        () =>
+            runInjectionInternal(
+                config,
+                definition,
+                signal,
+                serviceFactory,
+                mode
+            ),
+        {
+            attributes: {
+                "injection.name": definition.name,
+                "injection.mode": mode
+            }
+        }
+    )();
+}
+
+async function runInjectionInternal(
+    config: InjectionConfig,
+    definition: InjectionDefinition,
+    signal?: AbortSignal,
+    serviceFactory: (
+        definition: InjectionDefinition
+    ) => InjectionService = createInjectionService,
+    mode: InjectionRunMode = "all"
+) {
     loadInjectionEnv();
     if (mode !== "obtain" && !process.env.DATABASE_URL)
         throw new Error(
@@ -104,7 +133,7 @@ export async function runInjection(
             throw new Error(
                 "DATABASE_URL deve ser configurada para executar a injection"
             );
-        const prisma = createDatabaseClient(databaseUrl);
+        const prisma = createDatabaseClient(databaseUrl, { max: 1 });
         let persistenceError: unknown;
         try {
             try {

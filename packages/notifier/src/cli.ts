@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-import "dotenv/config";
-
+import { shutdownTelemetry } from "@pomi/api-core";
 import { createDatabaseClient } from "@pomi/db";
 import pino from "pino";
 
@@ -9,7 +8,7 @@ import { ExchangeNoticeNotifier } from "#/modules/exchange/ExchangeNoticeNotifie
 
 const config = loadNotifierConfig(process.env);
 const logger = pino({ level: config.logLevel });
-const database = createDatabaseClient(config.databaseUrl);
+const database = createDatabaseClient(config.databaseUrl, { max: 2 });
 const notifier = new ExchangeNoticeNotifier(database, config, logger);
 const controller = new AbortController();
 
@@ -35,7 +34,11 @@ async function main() {
             );
         });
     }
-    await database.$disconnect();
+    try {
+        await database.$disconnect();
+    } finally {
+        await shutdownTelemetry();
+    }
 }
 
 void main();

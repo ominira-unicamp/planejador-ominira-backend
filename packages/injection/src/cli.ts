@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { shutdownTelemetry } from "@pomi/api-core";
 import { Command } from "commander";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -110,10 +111,18 @@ program.command("watch").action(async () => {
     }
 });
 
-program.parseAsync().catch((error: unknown) => {
-    cliLogger.error(
-        { err: error, event: "injection.cli.error" },
-        "Falha ao executar o CLI"
-    );
-    process.exitCode = 1;
-});
+async function main() {
+    try {
+        await program.parseAsync();
+    } catch (error) {
+        cliLogger.error(
+            { err: error, event: "injection.cli.error" },
+            "Falha ao executar o CLI"
+        );
+        process.exitCode = 1;
+    } finally {
+        await shutdownTelemetry();
+    }
+}
+
+void main();

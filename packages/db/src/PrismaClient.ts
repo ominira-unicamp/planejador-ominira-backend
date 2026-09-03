@@ -5,12 +5,18 @@ import {
 } from "../prisma/generated/client.js";
 export type DatabaseClient = PrismaClient;
 
+const DEFAULT_DATABASE_POOL_MAX = 4;
+
 export function createDatabaseClient(
     connectionString: string,
     options: Readonly<{ max?: number }> = {}
 ): DatabaseClient {
     return new PrismaClient({
-        adapter: new PrismaPg({ connectionString, ...options })
+        adapter: new PrismaPg({
+            connectionString,
+            ...options,
+            max: options.max ?? DEFAULT_DATABASE_POOL_MAX
+        })
     });
 }
 

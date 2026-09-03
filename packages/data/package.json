@@ -10,9 +10,9 @@
         }
     },
     "scripts": {
-        "dev": "NODE_OPTIONS=--conditions=development tsx watch src/index.ts",
+        "dev": "NODE_OPTIONS=--conditions=development tsx --import @pomi/api-core/telemetry/bootstrap watch src/index.ts",
         "build": "tsc -b",
-        "start": "node dist/src/index.js",
+        "start": "node --import @pomi/api-core/telemetry/bootstrap dist/src/index.js",
         "test": "NODE_OPTIONS=--conditions=development tsx --test test/**/*.test.ts"
     },
     "dependencies": {
