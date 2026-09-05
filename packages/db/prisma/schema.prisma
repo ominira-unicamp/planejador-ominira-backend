@@ -100,6 +100,7 @@ enum StudentCapability {
   STUDENT_SOCIAL_READ
   STUDENT_SOCIAL_WRITE
   STUDENT_FEEDBACK_WRITE
+  STUDENT_FEEDBACK_READ
 
   @@schema("app")
 }
@@ -123,6 +124,14 @@ enum FeedbackReportTargetType {
   GENERAL
   FEATURE
   ACADEMIC_RESOURCE
+
+  @@schema("app")
+}
+
+enum FeedbackReportStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
 
   @@schema("app")
 }
@@ -874,13 +883,17 @@ model FeedbackReport {
   title       String @db.VarChar(160)
   description String
   sourcePath  String? @db.VarChar(300)
+  status      FeedbackReportStatus @default(OPEN)
+  adminMessage String? @db.Text
 
   reporterStudent   Student? @relation(fields: [reporterStudentId], references: [id], onDelete: SetNull)
   reporterStudentId Int?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([createdAt])
+  @@index([status, createdAt])
   @@index([reporterStudentId])
   @@index([academicResourceType, academicResourceId])
   @@schema("app")

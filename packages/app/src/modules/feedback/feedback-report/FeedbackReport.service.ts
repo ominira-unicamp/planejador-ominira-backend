@@ -3,14 +3,89 @@ import IO from "#/modules/feedback/feedback-report/FeedbackReport.contract.js";
 import {
     feedbackRateLimitProblem,
     feedbackReferenceNotFoundProblem,
+    feedbackReportNotFoundProblem,
     type FeedbackReportProblem
 } from "#/modules/feedback/feedback-report/FeedbackReport.problems.js";
 import { err, ok, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { FeedbackReportStatus, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type Input = z.infer<typeof IO.body>;
+type Report = z.infer<typeof IO.schemas.report>;
+type AdminPatchInput = z.infer<typeof IO.patchAdmin.request>["body"];
 type Receipt = { createdAt: string };
+
+function buildReport(report: {
+    id: number;
+    kind: "BUG" | "SUGGESTION" | "DATA_ISSUE";
+    targetType: "GENERAL" | "FEATURE" | "ACADEMIC_RESOURCE";
+    featureKey: string | null;
+    academicResourceType: string | null;
+    academicResourceId: number | null;
+    title: string;
+    description: string;
+    sourcePath: string | null;
+    status: FeedbackReportStatus;
+    adminMessage: string | null;
+    reporterStudentId: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+}): Report {
+    const target =
+        report.targetType === "GENERAL"
+            ? { type: "GENERAL" as const }
+            : report.targetType === "FEATURE"
+              ? {
+                    type: "FEATURE" as const,
+                    featureKey: report.featureKey as Report["target"] extends {
+                        type: "FEATURE";
+                        featureKey: infer FeatureKey;
+                    }
+                        ? FeatureKey
+                        : never
+                }
+              : {
+                    type: "ACADEMIC_RESOURCE" as const,
+                    academicResourceType:
+                        report.academicResourceType as Report["target"] extends {
+                            type: "ACADEMIC_RESOURCE";
+                            academicResourceType: infer ResourceType;
+                        }
+                            ? ResourceType
+                            : never,
+                    academicResourceId: report.academicResourceId!
+                };
+    return {
+        id: report.id,
+        kind: report.kind,
+        target,
+        title: report.title,
+        description: report.description,
+        sourcePath: report.sourcePath,
+        status: report.status,
+        adminMessage: report.adminMessage,
+        reporterStudentId: report.reporterStudentId,
+        createdAt: report.createdAt.toISOString(),
+        updatedAt: report.updatedAt.toISOString()
+    } as Report;
+}
+
+const reportSelection = {
+    id: true,
+    kind: true,
+    targetType: true,
+    featureKey: true,
+    academicResourceType: true,
+    academicResourceId: true,
+    title: true,
+    description: true,
+    sourcePath: true,
+    status: true,
+    adminMessage: true,
+    reporterStudentId: true,
+    createdAt: true,
+    updatedAt: true
+} as const;
 
 async function academicResourceExists(
     prisma: PrismaClient,
@@ -121,6 +196,14 @@ export type FeedbackReportService = {
             >
         >
     >;
+    listForStudent(studentId: number): Promise<Report[]>;
+    listForAdmin(): Promise<Report[]>;
+    patchAdmin(
+        id: number,
+        input: AdminPatchInput
+    ): Promise<
+        Result<Report, ReturnType<typeof feedbackReportNotFoundProblem>>
+    >;
 };
 
 export function createFeedbackReportService({
@@ -168,6 +251,39 @@ export function createFeedbackReportService({
         },
         async createForStudent(studentId, input) {
             return create(input, studentId);
+        },
+        async listForStudent(studentId) {
+            const reports = await prisma.feedbackReport.findMany({
+                where: { reporterStudentId: studentId },
+                select: reportSelection,
+                orderBy: { createdAt: "desc" }
+            });
+            return reports.map(buildReport);
+        },
+        async listForAdmin() {
+            const reports = await prisma.feedbackReport.findMany({
+                select: reportSelection,
+                orderBy: { createdAt: "desc" }
+            });
+            return reports.map(buildReport);
+        },
+        async patchAdmin(id, input) {
+            const existing = await prisma.feedbackReport.findUnique({
+                where: { id },
+                select: { id: true }
+            });
+            if (!existing) return err(feedbackReportNotFoundProblem());
+            const report = await prisma.feedbackReport.update({
+                where: { id },
+                data: {
+                    ...(input.status ? { status: input.status } : {}),
+                    ...(input.adminMessage !== undefined
+                        ? { adminMessage: input.adminMessage }
+                        : {})
+                },
+                select: reportSelection
+            });
+            return ok(buildReport(report));
         }
     };
 }

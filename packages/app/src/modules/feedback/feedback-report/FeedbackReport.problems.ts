@@ -1,5 +1,6 @@
 import {
     ReferenceNotFoundProblem,
+    ResourceNotFoundProblem,
     defineProblem,
     prefixProblemFields,
     problemResponse,
@@ -53,10 +54,16 @@ export const feedbackRateLimitProblem = (retryAfterSeconds: number) =>
         retryAfterSeconds
     });
 
+export const feedbackReportNotFoundProblem = () =>
+    ResourceNotFoundProblem.create({
+        detail: "A solicitação não foi encontrada."
+    });
+
 export type FeedbackReportProblem =
     | ReturnType<typeof feedbackReferenceNotFoundProblem>
     | ReturnType<typeof invalidFeedbackReportProblem>
-    | ReturnType<typeof feedbackRateLimitProblem>;
+    | ReturnType<typeof feedbackRateLimitProblem>
+    | ReturnType<typeof feedbackReportNotFoundProblem>;
 
 export const feedbackReportProblemResponses = {
     [ReferenceNotFoundProblem.type]: problemResponse(
@@ -69,5 +76,6 @@ export const feedbackReportProblemResponses = {
         (problem, context: ProblemResponseContext) =>
             prefixProblemFields(problem, context.inputLocation)
     ),
-    [FeedbackRateLimitProblem.type]: problemResponse(FeedbackRateLimitProblem)
+    [FeedbackRateLimitProblem.type]: problemResponse(FeedbackRateLimitProblem),
+    [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
 } satisfies ProblemResponseMap<FeedbackReportProblem, ProblemResponseContext>;
