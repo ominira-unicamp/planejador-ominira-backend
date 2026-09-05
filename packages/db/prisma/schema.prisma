@@ -17,7 +17,7 @@ generator dbml {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["data", "app"]
+  schemas  = ["data", "app", "unicamp_data_portal"]
 }
 
 enum YearPeriods {
@@ -52,6 +52,90 @@ enum CatalogCoursePrerequisiteKind {
   SPECIAL
 
   @@schema("data")
+}
+
+enum CareerCode {
+  A
+  C
+  C3
+  C4
+  C5
+  D
+  F
+  G
+  H
+  I
+  J
+  L
+  M
+  MS3
+  MS3_1 @map("MS3.1")
+  MS3_2 @map("MS3.2")
+  MS5_1 @map("MS5.1")
+  MS5_2 @map("MS5.2")
+  MS5_3 @map("MS5.3")
+  MS6
+  O
+
+  @@map("data_portal_career_code")
+  @@schema("unicamp_data_portal")
+}
+
+enum ProfessorRank {
+  PROFESSOR_ASSOCIADO                         @map("Professor Associado")
+  PROFESSOR_ASSOCIADO_I                       @map("Professor Associado I")
+  PROFESSOR_ASSOCIADO_II                      @map("Professor Associado II")
+  PROFESSOR_ASSOCIADO_III                     @map("Professor Associado III")
+  PROFESSOR_ASSISTENTE                        @map("Professor Assistente")
+  PROFESSOR_DOUTOR                            @map("Professor Doutor")
+  PROFESSOR_DOUTOR_I                          @map("Professor Doutor I")
+  PROFESSOR_DOUTOR_II                         @map("Professor Doutor II")
+  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_II  @map("Professor Magistério Secundário Técnico II")
+  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_III @map("Professor Magistério Secundário Técnico III")
+  PROFESSOR_PLENO                             @map("Professor Pleno")
+  PROFESSOR_TITULAR                           @map("Professor Titular")
+  PROF_TITULAR_PS                             @map("PROF TITULAR-PS")
+  PROFESSOR_SENIOR                            @map("PROFESSOR SENIOR")
+  DOCENTE_ENSINO_LINGUAS_I                    @map("Docente em Ensino de Línguas I")
+  DOCENTE_ENSINO_LINGUAS_III                  @map("Docente em Ensino de Línguas III")
+  DOCENTE_EDUCACAO_ESPECIAL_REABILITACAO_V    @map("Docente em Educação Especial e Reabilitação V")
+
+  @@map("data_portal_professor_rank")
+  @@schema("unicamp_data_portal")
+}
+
+enum PositionCategory {
+  MA_I   @map("MA-I")
+  MA_II  @map("MA-II")
+  MA_III @map("MA-III")
+  MTS_C  @map("MTS-C")
+
+  @@map("data_portal_position_category")
+  @@schema("unicamp_data_portal")
+}
+
+enum IdentifierSystem {
+  LATTES
+  ORCID
+  SCOPUS
+  WEB_OF_SCIENCE
+  PUBLONS
+  GOOGLE_SCHOLAR
+  SCIELO
+  FAPESP
+
+  @@map("data_portal_identifier_system")
+  @@schema("unicamp_data_portal")
+}
+
+enum TrainingDegree {
+  POST_DOCTORATE
+  DOCTORATE
+  MASTER
+  UNDERGRADUATE
+
+  @@map("data_portal_training_degree")
+  @@schema("unicamp_data_portal")
 }
 
 enum PeriodPlanningGuideMode {
@@ -193,28 +277,28 @@ model AuthUser {
 }
 
 model JobRequest {
-  id                 String           @id @default(uuid())
-  type               JobRequestType
-  name               String
-  parentJobId        String?
-  partitionKey       String?
-  parameters         Json?
-  mode               String?
-  status             JobRequestStatus  @default(QUEUED)
-  trigger            JobRequestTrigger
-  availableAt        DateTime         @default(now())
-  scheduledFor       DateTime?
-  deduplicationKey   String?          @unique
-  requestedBy        String?
-  runId              String?
-  startedAt          DateTime?
-  finishedAt         DateTime?
-  errorMessage       String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  id               String            @id @default(uuid())
+  type             JobRequestType
+  name             String
+  parentJobId      String?
+  partitionKey     String?
+  parameters       Json?
+  mode             String?
+  status           JobRequestStatus  @default(QUEUED)
+  trigger          JobRequestTrigger
+  availableAt      DateTime          @default(now())
+  scheduledFor     DateTime?
+  deduplicationKey String?           @unique
+  requestedBy      String?
+  runId            String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  errorMessage     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
-  parent             JobRequest?      @relation("JobRequestPartitions", fields: [parentJobId], references: [id], onDelete: SetNull)
-  partitions         JobRequest[]     @relation("JobRequestPartitions")
+  parent     JobRequest?  @relation("JobRequestPartitions", fields: [parentJobId], references: [id], onDelete: SetNull)
+  partitions JobRequest[] @relation("JobRequestPartitions")
 
   @@index([type, status, availableAt])
   @@index([type, name, status])
@@ -243,12 +327,26 @@ model AuthUserCapability {
 // ----------------------- Academic Models ----------------------- //
 
 model Unit {
-  id       Int        @id @default(autoincrement())
-  code     String     @unique
-  courses  Course[]
-  prefixes Prefixes[]
-  programs Program[]
+  id                          Int                          @id @default(autoincrement())
+  code                        String                       @unique
+  courses                     Course[]
+  prefixes                    Prefixes[]
+  programs                    Program[]
+  departments                 Department[]
+  professorDataPortalProfiles ProfessorDataPortalProfile[]
 
+  @@schema("data")
+}
+
+model Department {
+  id     Int    @id @default(autoincrement())
+  name   String
+  unitId Int
+
+  unit     Unit                         @relation(fields: [unitId], references: [id])
+  profiles ProfessorDataPortalProfile[]
+
+  @@unique([unitId, name])
   @@schema("data")
 }
 
@@ -567,17 +665,17 @@ model CourseRequirement {
 
 model DataAuditEvent {
   id            BigInt             @id @default(autoincrement())
-  schemaName    String              @db.VarChar(63)
-  tableName     String              @db.VarChar(63)
+  schemaName    String             @db.VarChar(63)
+  tableName     String             @db.VarChar(63)
   recordKey     Json
   operation     DataAuditOperation
   before        Json?
   after         Json?
   auditContext  Json?
-  runId         String?             @db.Uuid
-  injectionName String?             @db.VarChar(100)
+  runId         String?            @db.Uuid
+  injectionName String?            @db.VarChar(100)
   transactionId BigInt
-  occurredAt    DateTime            @default(now())
+  occurredAt    DateTime           @default(now())
 
   @@index([schemaName, tableName, occurredAt])
   @@index([runId, occurredAt])
@@ -601,12 +699,143 @@ model StudyPeriod {
 }
 
 model Professor {
-  id                   Int                   @id @default(autoincrement())
+  id                   Int                         @id @default(autoincrement())
   name                 String
   classes              Class[]
   professorEvaluations ProfessorEvaluation[]
+  dataPortalProfile    ProfessorDataPortalProfile?
 
   @@schema("data")
+}
+
+model ProfessorDataPortalProfile {
+  id             Int     @id @default(autoincrement())
+  professorId    Int     @unique
+  portalId       Int     @unique
+  name           String
+  email          String?
+  lattesAbstract String?
+  unitId         Int
+  departmentId   Int?
+  positionId     Int?
+
+  professor     Professor                   @relation(fields: [professorId], references: [id])
+  unit          Unit                        @relation(fields: [unitId], references: [id])
+  department    Department?                 @relation(fields: [departmentId], references: [id])
+  position      ProfessorPosition?          @relation(fields: [positionId], references: [id])
+  identities    ProfessorExternalIdentity[]
+  citationNames ProfessorCitationName[]
+  trainings     ProfessorTraining[]
+  keywords      ProfessorKeyword[]
+  coauthors     ProfessorCoauthor[]
+
+  @@index([unitId])
+  @@index([departmentId])
+  @@index([positionId])
+  @@map("data_portal_professor_profile")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorPosition {
+  id         Int               @id @default(autoincrement())
+  careerCode CareerCode?
+  rank       ProfessorRank?
+  category   PositionCategory?
+
+  profiles ProfessorDataPortalProfile[]
+
+  @@unique([careerCode, rank, category])
+  @@map("data_portal_position")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorExternalIdentity {
+  id         Int              @id @default(autoincrement())
+  profileId  Int
+  system     IdentifierSystem
+  externalId String
+
+  profile ProfessorDataPortalProfile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, system, externalId])
+  @@index([system, externalId])
+  @@map("data_portal_external_identity")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorCitationName {
+  id        Int    @id @default(autoincrement())
+  profileId Int
+  name      String
+
+  profile ProfessorDataPortalProfile @relation(fields: [profileId], references: [id])
+
+  @@unique([profileId, name])
+  @@map("data_portal_citation_name")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorTraining {
+  id              Int            @id @default(autoincrement())
+  profileId       Int
+  degree          TrainingDegree
+  institutionName String
+  startYear       Int?
+  endYear         Int?
+
+  profile ProfessorDataPortalProfile @relation(fields: [profileId], references: [id])
+
+  @@index([profileId])
+  @@map("data_portal_training")
+  @@schema("unicamp_data_portal")
+}
+
+model Keyword {
+  id             Int    @id @default(autoincrement())
+  name           String
+  normalizedName String @unique
+
+  profiles ProfessorKeyword[]
+
+  @@map("data_portal_keyword")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorKeyword {
+  profileId Int
+  keywordId Int
+  count     Int?
+
+  profile ProfessorDataPortalProfile @relation(fields: [profileId], references: [id])
+  keyword Keyword                    @relation(fields: [keywordId], references: [id])
+
+  @@id([profileId, keywordId])
+  @@map("data_portal_professor_keyword")
+  @@schema("unicamp_data_portal")
+}
+
+model Coauthor {
+  id             Int    @id @default(autoincrement())
+  name           String
+  normalizedName String @unique
+
+  profiles ProfessorCoauthor[]
+
+  @@map("data_portal_coauthor")
+  @@schema("unicamp_data_portal")
+}
+
+model ProfessorCoauthor {
+  profileId  Int
+  coauthorId Int
+  count      Int?
+
+  profile  ProfessorDataPortalProfile @relation(fields: [profileId], references: [id])
+  coauthor Coauthor                   @relation(fields: [coauthorId], references: [id])
+
+  @@id([profileId, coauthorId])
+  @@map("data_portal_professor_coauthor")
+  @@schema("unicamp_data_portal")
 }
 
 model Room {
@@ -750,8 +979,8 @@ model MealServiceNote {
 }
 
 model ExchangeNotice {
-  id         Int    @id @default(autoincrement())
-  naturalKey String @unique
+  id         Int     @id @default(autoincrement())
+  naturalKey String  @unique
   number     String?
   issuer     String?
   title      String?
@@ -763,14 +992,14 @@ model ExchangeNotice {
   registrationStart        DateTime?
   registrationEnd          DateTime?
 
-  files ExchangeNoticeFile[]
+  files      ExchangeNoticeFile[]
   deliveries ExchangeNoticeDelivery[]
 
   @@schema("data")
 }
 
 model ExchangeNoticeFile {
-  id             Int    @id @default(autoincrement())
+  id             Int     @id @default(autoincrement())
   name           String
   normalizedName String
   url            String?
@@ -833,17 +1062,17 @@ model Student {
   showSpecialization   Boolean         @default(false)
   showEntryYear        Boolean         @default(false)
 
-  courseAttempts       StudentCourseAttempt[]
-  professorEvaluations ProfessorEvaluation[]
-  periodPlannings      PeriodPlanning[]
-  curriculums          Curriculum[]
-  favoriteCurriculum   Curriculum?            @relation("StudentFavoriteCurriculum", fields: [favoriteCurriculumId], references: [id], onDelete: SetNull)
-  favoriteCurriculumId Int?                   @unique
-  botGrants            BotGrant[]
-  friendshipsAsA       StudentFriendship[]    @relation("StudentFriendshipsAsA")
-  friendshipsAsB       StudentFriendship[]    @relation("StudentFriendshipsAsB")
-  friendshipRequests   StudentFriendship[]    @relation("StudentFriendshipRequester")
-  feedbackReports      FeedbackReport[]
+  courseAttempts             StudentCourseAttempt[]
+  professorEvaluations       ProfessorEvaluation[]
+  periodPlannings            PeriodPlanning[]
+  curriculums                Curriculum[]
+  favoriteCurriculum         Curriculum?                 @relation("StudentFavoriteCurriculum", fields: [favoriteCurriculumId], references: [id], onDelete: SetNull)
+  favoriteCurriculumId       Int?                        @unique
+  botGrants                  BotGrant[]
+  friendshipsAsA             StudentFriendship[]         @relation("StudentFriendshipsAsA")
+  friendshipsAsB             StudentFriendship[]         @relation("StudentFriendshipsAsB")
+  friendshipRequests         StudentFriendship[]         @relation("StudentFriendshipRequester")
+  feedbackReports            FeedbackReport[]
   exchangeNoticeSubscription ExchangeNoticeSubscription?
   exchangeNoticeDeliveries   ExchangeNoticeDelivery[]
 
@@ -857,8 +1086,8 @@ model ExchangeNoticeSubscription {
   enabled Boolean @default(false)
 
   places    ExchangeNoticeSubscriptionPlace[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime                          @default(now())
+  updatedAt DateTime                          @updatedAt
 
   @@schema("app")
 }
@@ -902,16 +1131,16 @@ model FeedbackReport {
 
   kind       FeedbackReportKind
   targetType FeedbackReportTargetType
-  featureKey String? @db.VarChar(64)
+  featureKey String?                  @db.VarChar(64)
 
   academicResourceType String? @db.VarChar(64)
   academicResourceId   Int?
 
-  title       String @db.VarChar(160)
-  description String
-  sourcePath  String? @db.VarChar(300)
-  status      FeedbackReportStatus @default(OPEN)
-  adminMessage String? @db.Text
+  title        String               @db.VarChar(160)
+  description  String
+  sourcePath   String?              @db.VarChar(300)
+  status       FeedbackReportStatus @default(OPEN)
+  adminMessage String?              @db.Text
 
   reporterStudent   Student? @relation(fields: [reporterStudentId], references: [id], onDelete: SetNull)
   reporterStudentId Int?
