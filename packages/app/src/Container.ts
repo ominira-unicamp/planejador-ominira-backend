@@ -50,6 +50,10 @@ import {
     type StudentCourseAttemptService
 } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
 import {
+    createStudentHistoryImportService,
+    type StudentHistoryImportService
+} from "#/modules/planning/student-history-import/StudentHistoryImport.service.js";
+import {
     createStudentService,
     type StudentService
 } from "#/modules/planning/student/Student.service.js";
@@ -65,6 +69,7 @@ export type AppCradle = {
     principal: Principal | undefined;
     zodIds: ReturnType<typeof buildZodIds>;
     studentCourseAttemptService: StudentCourseAttemptService;
+    studentHistoryImportService: StudentHistoryImportService;
     studentAbsenceService: StudentAbsenceService;
     studentService: StudentService;
     currentUserService: CurrentUserService;
@@ -90,6 +95,9 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         zodIds: asFunction(buildZodIds).scoped(),
         studentCourseAttemptService: asFunction(
             createStudentCourseAttemptService
+        ).scoped(),
+        studentHistoryImportService: asFunction(
+            createStudentHistoryImportService
         ).scoped(),
         studentAbsenceService: asFunction(createStudentAbsenceService).scoped(),
         studentService: asFunction(createStudentService).scoped(),

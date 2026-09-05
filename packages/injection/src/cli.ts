@@ -13,10 +13,12 @@ import {
     JobRequestType
 } from "@pomi/db";
 import { Command } from "commander";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import pino from "pino";
-import { loadInjectionConfig } from "./config.js";
+import { loadInjectionConfig, type InjectionDefinition } from "./config.js";
 import { loadInjectionEnv } from "./env.js";
 import { injectionNames } from "./registry.js";
 import type { InjectionRunMode } from "./runner.js";
@@ -60,6 +62,7 @@ program
     .description("enfileira uma injection para execução pelo worker")
     .option("--first-year <year>", "primeiro ano da partição", parseYear)
     .option("--last-year <year>", "último ano da partição", parseYear)
+    .option("--institute-code <code>", "sigla do instituto")
     .option("--partition-key <key>", "identificador da partição")
     .action(async (name: string, mode = "all", command: Command) => {
         const options = command.opts<PartitionOptions>();
@@ -171,19 +174,11 @@ program.command("watch").action(async () => {
                     now + injection.schedule.intervalMs
                 );
                 try {
-                    const partitions = injection.partitioning
-                        ? Array.from(
-                              {
-                                  length:
-                                      new Date().getFullYear() -
-                                      injection.partitioning.firstYear +
-                                      1
-                              },
-                              (_, index) =>
-                                  injection.partitioning!.firstYear + index
-                          )
-                        : [undefined];
-                    for (const year of partitions) {
+                    const partitions = await discoverPartitions(
+                        config,
+                        injection
+                    );
+                    for (const partition of partitions) {
                         try {
                             await enqueueJob(database, {
                                 type: JobRequestType.INJECTION,
@@ -192,22 +187,19 @@ program.command("watch").action(async () => {
                                 trigger: JobRequestTrigger.SCHEDULED,
                                 scheduledFor: new Date(now),
                                 requestedBy: "scheduler",
-                                partitionKey:
-                                    year === undefined
-                                        ? undefined
-                                        : String(year),
-                                parameters:
-                                    year === undefined
-                                        ? undefined
-                                        : { firstYear: year, lastYear: year },
-                                deduplicationKey:
-                                    year === undefined
-                                        ? `injection:${injection.name}:${now}`
-                                        : `injection:${injection.name}:${year}:${now}`
+                                partitionKey: partition?.key,
+                                parameters: partition?.parameters,
+                                deduplicationKey: !partition
+                                    ? `injection:${injection.name}:${now}`
+                                    : `injection:${injection.name}:${partition.key}:${now}`
                             });
                         } catch (error) {
                             cliLogger.debug(
-                                { err: error, injection: injection.name, year },
+                                {
+                                    err: error,
+                                    injection: injection.name,
+                                    partition: partition?.key
+                                },
                                 "Partição já pendente"
                             );
                         }
@@ -291,6 +283,7 @@ type PartitionOptions = {
     firstYear?: number;
     lastYear?: number;
     partitionKey?: string;
+    instituteCode?: string;
 };
 
 function parseYear(value: string) {
@@ -301,11 +294,125 @@ function parseYear(value: string) {
 }
 
 function partitionParameters(options: PartitionOptions) {
-    if (options.firstYear === undefined && options.lastYear === undefined)
+    if (
+        options.firstYear === undefined &&
+        options.lastYear === undefined &&
+        options.instituteCode === undefined
+    )
         return undefined;
     const firstYear = options.firstYear ?? options.lastYear;
     const lastYear = options.lastYear ?? options.firstYear;
-    return { firstYear, lastYear };
+    const partitionKey =
+        options.partitionKey ??
+        options.instituteCode ??
+        (firstYear === undefined || lastYear === undefined
+            ? undefined
+            : `${firstYear}-${lastYear}`);
+    return {
+        ...(partitionKey === undefined ? {} : { partitionKey }),
+        ...(firstYear === undefined ? {} : { firstYear }),
+        ...(lastYear === undefined ? {} : { lastYear }),
+        ...(options.instituteCode === undefined
+            ? {}
+            : { instituteCode: options.instituteCode })
+    };
+}
+
+type DiscoveredPartition = {
+    key: string;
+    parameters: Record<string, unknown>;
+};
+
+async function discoverPartitions(
+    config: Awaited<ReturnType<typeof loadInjectionConfig>>,
+    definition: InjectionDefinition
+): Promise<Array<DiscoveredPartition | undefined>> {
+    if (!definition.partitioning) return [undefined];
+    if (definition.partitioning.kind === "year") {
+        const { firstYear } = definition.partitioning;
+        return Array.from(
+            {
+                length: new Date().getFullYear() - firstYear + 1
+            },
+            (_, index) => {
+                const year = firstYear + index;
+                return {
+                    key: String(year),
+                    parameters: {
+                        firstYear: year,
+                        lastYear: year,
+                        partitionKey: String(year)
+                    }
+                };
+            }
+        );
+    }
+    const year = new Date().getFullYear();
+    const semester = new Date().getMonth() < 6 ? 1 : 2;
+    const codes = await discoverInstituteCodes(
+        config.rootDirectory,
+        year,
+        semester
+    );
+    if (codes.length === 0)
+        throw new Error("A página raiz não retornou institutos");
+    return codes.map((instituteCode) => ({
+        key: instituteCode,
+        parameters: {
+            instituteCode,
+            year,
+            semester,
+            partitionKey: instituteCode
+        }
+    }));
+}
+
+async function discoverInstituteCodes(
+    rootDirectory: string,
+    year: number,
+    semester: 1 | 2
+): Promise<string[]> {
+    const child = spawn(
+        "node",
+        [
+            "--import",
+            "unicamp-scrapper-cli/dist/telemetry-bootstrap.js",
+            "unicamp-scrapper-cli/dist/index.js",
+            "caderno-horarios-pagina",
+            "--year",
+            String(year),
+            "--semester",
+            String(semester),
+            "--no-cache",
+            "--log-destination",
+            "stderr"
+        ],
+        {
+            cwd: join(rootDirectory, "scrapper-aulas"),
+            stdio: ["ignore", "pipe", "pipe"]
+        }
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8");
+    child.stderr?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk: string) => (stdout += chunk));
+    child.stderr?.on("data", (chunk: string) => (stderr += chunk));
+    const [result] = (await once(child, "close")) as [number | null];
+    if (result !== 0)
+        throw new Error(
+            `Falha ao descobrir institutos (${result ?? "signal"}): ${stderr.trim()}`
+        );
+    const parsed = JSON.parse(stdout) as {
+        data?: { institutes?: Array<{ instituteCode?: string }> };
+    };
+    return Array.from(
+        new Set(
+            (parsed.data?.institutes ?? [])
+                .map((institute) => institute.instituteCode?.trim())
+                .filter((code): code is string => Boolean(code))
+        )
+    );
 }
 
 function partitionKey(options: PartitionOptions) {

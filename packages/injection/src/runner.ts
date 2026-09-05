@@ -9,7 +9,7 @@ import {
     rm,
     writeFile
 } from "node:fs/promises";
-import { dirname } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import {
     interpolate,
     isPathInside,
@@ -75,10 +75,14 @@ async function runInjectionInternal(
     const databaseUrl = process.env.DATABASE_URL;
     const runId = randomUUID();
     const logger = createInjectionLogger(definition.name, runId);
-    const inputPath = resolveInputPath(
+    const baseInputPath = resolveInputPath(
         definition,
         config.rootDirectory,
         config.configDirectory
+    );
+    const inputPath = partitionInputPath(
+        baseInputPath,
+        parameters.partitionKey
     );
     const temporaryPath = `${inputPath}.${runId}.partial`;
     const variables: Record<string, string> = {
@@ -227,8 +231,10 @@ function partitionArgs(args: string[], parameters: Record<string, unknown>) {
     const instituteCode = parameters.instituteCode ?? parameters.institute_code;
     const result = args.map((value, index) => {
         const previous = args[index - 1];
-        if (previous === "--first-year") return String(firstYear);
-        if (previous === "--last-year") return String(lastYear);
+        if (previous === "--first-year" && typeof firstYear === "number")
+            return String(firstYear);
+        if (previous === "--last-year" && typeof lastYear === "number")
+            return String(lastYear);
         return value;
     });
     if (
@@ -237,6 +243,15 @@ function partitionArgs(args: string[], parameters: Record<string, unknown>) {
     )
         return [...result, "--institute-code", instituteCode];
     return result;
+}
+
+function partitionInputPath(inputPath: string, partitionKey: unknown) {
+    if (typeof partitionKey !== "string" || partitionKey.length === 0)
+        return inputPath;
+    const extension = extname(inputPath);
+    const stem = basename(inputPath, extension);
+    const safeKey = partitionKey.replace(/[^a-zA-Z0-9_-]+/g, "-");
+    return join(dirname(inputPath), `${stem}.${safeKey}${extension}`);
 }
 
 async function writeInjectionIssuesFile({

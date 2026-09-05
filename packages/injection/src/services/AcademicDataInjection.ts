@@ -374,7 +374,7 @@ export async function injectAcademicData(
             .map((c) => `(${c.A}, ${c.B})`)
             .join(", ");
         await prisma.$executeRawUnsafe(
-            `INSERT INTO "_ClassToProfessor" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
+            `INSERT INTO "data"."_ClassToProfessor" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
         );
     }
 
@@ -391,7 +391,11 @@ export async function injectAcademicData(
         for (const instituteData of period.institutes) {
             for (const courseData of instituteData.courses) {
                 for (const classData of courseData.classes) {
-                    const turmaKey = `${period.year}-${period.semester}-${courseData.code}-${classData.name}`;
+                    const yearPeriod =
+                        period.semester === 1
+                            ? YearPeriods.FIRST_SEMESTER
+                            : YearPeriods.SECOND_SEMESTER;
+                    const turmaKey = `${period.year}-${yearPeriod}-${courseData.code}-${classData.name}`;
                     const classEntity = classesMap.get(turmaKey);
                     if (!classEntity)
                         throw new Error(`Turma não encontrada: ${turmaKey}`);

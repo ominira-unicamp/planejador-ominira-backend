@@ -22,10 +22,13 @@ const injectionSchema = z.object({
     options: z.record(z.string(), z.unknown()).default({}),
     allowIssues: z.boolean().default(false),
     partitioning: z
-        .object({
-            kind: z.literal("year"),
-            firstYear: z.number().int().min(1900)
-        })
+        .union([
+            z.object({
+                kind: z.literal("year"),
+                firstYear: z.number().int().min(1900)
+            }),
+            z.object({ kind: z.literal("institute") })
+        ])
         .optional()
 });
 

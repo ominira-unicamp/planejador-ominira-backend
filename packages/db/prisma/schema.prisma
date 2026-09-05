@@ -941,6 +941,7 @@ model StudentCourseAttempt {
 
   absences StudentAbsence[]
 
+  @@unique([studentId, courseId, studyPeriodId])
   @@index([studentId, studyPeriodId])
   @@index([studentId, courseId])
   @@index([studentId, status])
