@@ -7,6 +7,10 @@ import {
     type PrismaClient
 } from "../prisma/generated/client.js";
 
+type DatabaseExecutor = {
+    jobRequest: Prisma.TransactionClient["jobRequest"];
+};
+
 export type JobRequestMode = "all" | "obtain" | "inject";
 
 export type EnqueueJobInput = Readonly<{
@@ -24,7 +28,7 @@ export type EnqueueJobInput = Readonly<{
 }>;
 
 export async function enqueueJob(
-    prisma: PrismaClient,
+    prisma: DatabaseExecutor,
     input: EnqueueJobInput
 ): Promise<JobRequest> {
     const active = await prisma.jobRequest.findFirst({

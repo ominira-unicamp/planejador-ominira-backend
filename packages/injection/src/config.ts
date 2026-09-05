@@ -33,7 +33,11 @@ const injectionSchema = z.object({
                 kind: z.literal("year"),
                 firstYear: z.number().int().min(1900)
             }),
-            z.object({ kind: z.literal("institute") })
+            z.object({ kind: z.literal("institute") }),
+            z.object({
+                kind: z.literal("period-institute"),
+                firstYear: z.number().int().min(1900)
+            })
         ])
         .optional()
 });

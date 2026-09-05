@@ -6,6 +6,7 @@
             "name": "academic-data",
             "description": "Dados acadêmicos",
             "schedule": { "cron": "0 4 * * *" },
+            "partitioning": { "kind": "period-institute", "firstYear": 2018 },
             "obtain": {
                 "command": "<obtain-command>",
                 "args": [],

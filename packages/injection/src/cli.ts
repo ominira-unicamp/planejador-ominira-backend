@@ -65,8 +65,7 @@ program
     .option("--last-year <year>", "último ano da partição", parseYear)
     .option("--institute-code <code>", "sigla do instituto")
     .option("--partition-key <key>", "identificador da partição")
-    .action(async (name: string, mode = "all", command: Command) => {
-        const options = command.opts<PartitionOptions>();
+    .action(async (name: string, mode = "all", options: PartitionOptions) => {
         loadInjectionEnv();
         const config = await loadInjectionConfig(program.opts().config);
         const injection = config.injections.find((item) => item.name === name);
@@ -79,17 +78,27 @@ program
         try {
             const job = await withTrace(
                 "injection.job.request",
-                () =>
-                    enqueueJob(database, {
+                () => {
+                    const explicitPartition =
+                        options.partitionKey ?? partitionKey(options);
+                    const shouldExpand =
+                        Boolean(injection.partitioning) &&
+                        explicitPartition === undefined &&
+                        options.firstYear === undefined &&
+                        options.lastYear === undefined &&
+                        options.instituteCode === undefined;
+                    return enqueueJob(database, {
                         type: JobRequestType.INJECTION,
                         name,
                         mode: mode as "all" | "obtain" | "inject",
                         trigger: JobRequestTrigger.MANUAL,
-                        partitionKey:
-                            options.partitionKey ?? partitionKey(options),
-                        parameters: partitionParameters(options),
+                        partitionKey: explicitPartition,
+                        parameters: shouldExpand
+                            ? { root: true }
+                            : partitionParameters(options),
                         requestedBy: process.env.POMI_JOB_REQUESTED_BY ?? "cli"
-                    }),
+                    });
+                },
                 {
                     attributes: {
                         "injection.name": name,
@@ -183,36 +192,18 @@ program.command("watch").action(async () => {
                 );
                 const scheduledFor = scheduledAt;
                 try {
-                    const partitions = await discoverPartitions(
-                        config,
-                        injection
-                    );
-                    for (const partition of partitions) {
-                        try {
-                            await enqueueJob(database, {
-                                type: JobRequestType.INJECTION,
-                                name: injection.name,
-                                mode: "all",
-                                trigger: JobRequestTrigger.SCHEDULED,
-                                scheduledFor,
-                                requestedBy: "scheduler",
-                                partitionKey: partition?.key,
-                                parameters: partition?.parameters,
-                                deduplicationKey: !partition
-                                    ? `injection:${injection.name}:${scheduledFor.toISOString()}`
-                                    : `injection:${injection.name}:${partition.key}:${scheduledFor.toISOString()}`
-                            });
-                        } catch (error) {
-                            cliLogger.debug(
-                                {
-                                    err: error,
-                                    injection: injection.name,
-                                    partition: partition?.key
-                                },
-                                "Partição já pendente"
-                            );
-                        }
-                    }
+                    await enqueueJob(database, {
+                        type: JobRequestType.INJECTION,
+                        name: injection.name,
+                        mode: "all",
+                        trigger: JobRequestTrigger.SCHEDULED,
+                        scheduledFor,
+                        requestedBy: "scheduler",
+                        parameters: injection.partitioning
+                            ? { root: true }
+                            : undefined,
+                        deduplicationKey: `injection:${injection.name}:${scheduledFor.toISOString()}`
+                    });
                 } catch (error) {
                     cliLogger.debug(
                         { err: error, injection: injection.name },
@@ -233,6 +224,16 @@ program.command("watch").action(async () => {
                     });
                 } else {
                     try {
+                        if (isRootJob(job.parameters)) {
+                            await expandRootJob(
+                                database,
+                                config,
+                                injection,
+                                job
+                            );
+                            await finishJob(database, job.id, {});
+                            continue;
+                        }
                         const result = await runInjection(
                             config,
                             injection,
@@ -361,6 +362,36 @@ async function discoverPartitions(
             }
         );
     }
+    if (definition.partitioning.kind === "period-institute") {
+        const currentYear = new Date().getFullYear();
+        const partitions: DiscoveredPartition[] = [];
+        for (
+            let year = definition.partitioning.firstYear;
+            year <= currentYear;
+            year += 1
+        ) {
+            for (const semester of [1, 2] as const) {
+                const codes = await discoverInstituteCodes(
+                    config.rootDirectory,
+                    year,
+                    semester
+                );
+                for (const instituteCode of codes)
+                    partitions.push({
+                        key: `${year}-${semester}-${instituteCode}`,
+                        parameters: {
+                            year,
+                            semester,
+                            instituteCode,
+                            partitionKey: `${year}-${semester}-${instituteCode}`
+                        }
+                    });
+            }
+        }
+        if (partitions.length === 0)
+            throw new Error("As páginas raiz não retornaram institutos");
+        return partitions;
+    }
     const year = new Date().getFullYear();
     const semester = new Date().getMonth() < 6 ? 1 : 2;
     const codes = await discoverInstituteCodes(
@@ -427,6 +458,46 @@ async function discoverInstituteCodes(
                 .filter((code): code is string => Boolean(code))
         )
     );
+}
+
+function isRootJob(parameters: unknown): boolean {
+    return (
+        typeof parameters === "object" &&
+        parameters !== null &&
+        "root" in parameters &&
+        parameters.root === true
+    );
+}
+
+async function expandRootJob(
+    database: ReturnType<typeof createDatabaseClient>,
+    config: Awaited<ReturnType<typeof loadInjectionConfig>>,
+    injection: InjectionDefinition,
+    rootJob: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>
+) {
+    const partitions = await discoverPartitions(config, injection);
+    await database.$transaction(async (transaction) => {
+        for (const partition of partitions) {
+            const key = `injection:${rootJob.id}:${partition?.key ?? "default"}`;
+            const existing = await transaction.jobRequest.findUnique({
+                where: { deduplicationKey: key },
+                select: { id: true }
+            });
+            if (existing) continue;
+            await enqueueJob(transaction, {
+                type: JobRequestType.INJECTION,
+                name: injection.name,
+                mode: (rootJob.mode ?? "all") as "all" | "obtain" | "inject",
+                trigger: rootJob.trigger,
+                scheduledFor: rootJob.scheduledFor ?? undefined,
+                requestedBy: rootJob.requestedBy ?? undefined,
+                parentJobId: rootJob.id,
+                partitionKey: partition?.key,
+                parameters: partition?.parameters,
+                deduplicationKey: key
+            });
+        }
+    });
 }
 
 function partitionKey(options: PartitionOptions) {
