@@ -20,6 +20,7 @@ function statusAllowed(
     evaluation: CourseEvaluationMode,
     status: ImportInput["semesters"][number]["courses"][number]["status"]
 ) {
+    if (status === "APPROVED_BY_PROFICIENCY") return true;
     if (status === "DROPPED") return true;
     if (evaluation === "CONCEPT") return status === "SUFFICIENT";
     if (evaluation === "ATTENDANCE")
@@ -201,6 +202,9 @@ export function createStudentHistoryImportService({
                         await tx.studentCourseAttempt.update({
                             where: { id: existing.id },
                             data: {
+                                ...(row.status === "APPROVED_BY_PROFICIENCY"
+                                    ? { classId: null }
+                                    : {}),
                                 studyPeriodId: row.studyPeriodId,
                                 evaluationMode: row.evaluationMode,
                                 status: row.status,

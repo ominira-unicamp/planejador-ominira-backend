@@ -30,6 +30,7 @@ const course = z.object({
     status: z.enum([
         "APPROVED",
         "APPROVED_BY_ATTENDANCE",
+        "APPROVED_BY_PROFICIENCY",
         "DROPPED",
         "FAILED_BY_ATTENDANCE",
         "SUFFICIENT"

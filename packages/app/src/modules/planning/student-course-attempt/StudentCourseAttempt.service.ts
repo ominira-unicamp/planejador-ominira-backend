@@ -80,6 +80,7 @@ function validateEvaluation(
             "ENROLLED",
             "DROPPED",
             "APPROVED",
+            "APPROVED_BY_PROFICIENCY",
             "FAILED_BY_GRADE",
             "FAILED_BY_ATTENDANCE"
         ],
@@ -87,15 +88,29 @@ function validateEvaluation(
             "ENROLLED",
             "DROPPED",
             "APPROVED_BY_ATTENDANCE",
+            "APPROVED_BY_PROFICIENCY",
             "FAILED_BY_ATTENDANCE"
         ],
-        CONCEPT: ["ENROLLED", "DROPPED", "SUFFICIENT", "INSUFFICIENT"]
+        CONCEPT: [
+            "ENROLLED",
+            "DROPPED",
+            "APPROVED_BY_PROFICIENCY",
+            "SUFFICIENT",
+            "INSUFFICIENT"
+        ]
     };
     if (!allowedStatuses[evaluationMode].includes(input.status))
         issues.push(
             invalidField(
                 ["status"],
                 "O resultado informado não é compatível com a modalidade de avaliação."
+            )
+        );
+    if (input.status === "APPROVED_BY_PROFICIENCY" && grade !== null)
+        issues.push(
+            invalidField(
+                ["grade"],
+                "Uma disciplina aprovada por proficiência não possui nota numérica."
             )
         );
     if (noResult && grade !== null)
@@ -168,6 +183,17 @@ async function validateAttempt(
             message: "A turma informada não foi encontrada."
         });
     if (fields.length > 0) return { kind: "reference", fields };
+
+    if (input.status === "APPROVED_BY_PROFICIENCY" && input.classId != null)
+        return {
+            kind: "invalid",
+            fields: [
+                invalidField(
+                    ["classId"],
+                    "Uma disciplina aprovada por proficiência não pode estar vinculada a uma turma."
+                )
+            ]
+        };
 
     if (!classData) {
         if (!input.evaluationMode)
