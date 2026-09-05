@@ -5,6 +5,10 @@ import {
     PrismaClient
 } from "@pomi/db";
 import { readFile } from "node:fs/promises";
+import {
+    withAuditTransaction,
+    type InjectionAuditContext
+} from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
@@ -370,6 +374,7 @@ async function importCatalog(
             "transactionTimeout" | "transactionMaxWait"
         >
     >,
+    auditContext: InjectionAuditContext,
     logger: InjectionContext["logger"],
     changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
@@ -388,7 +393,9 @@ async function importCatalog(
         );
         return;
     }
-    const result = await prisma.$transaction(
+    const result = await withAuditTransaction(
+        prisma,
+        auditContext,
         async (tx) => {
             const existingCatalog = await tx.catalog.findFirst({
                 where: { year: source.year }
@@ -602,7 +609,7 @@ async function importCatalog(
 }
 
 export async function injectCatalogs(
-    { prisma, inputPath, logger }: InjectionContext,
+    { prisma, inputPath, logger, auditContext }: InjectionContext,
     {
         transactionTimeout = 600_000,
         transactionMaxWait = 60_000
@@ -641,6 +648,7 @@ export async function injectCatalogs(
                 transactionTimeout,
                 transactionMaxWait
             },
+            auditContext,
             logger,
             changes
         );

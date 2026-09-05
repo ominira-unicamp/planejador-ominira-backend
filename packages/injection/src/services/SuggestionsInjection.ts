@@ -1,5 +1,9 @@
 import { CurriculumSuggestionType } from "@pomi/db";
 import { readFile } from "node:fs/promises";
+import {
+    withAuditTransaction,
+    type InjectionAuditContext
+} from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { legacyCourseCode, normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
@@ -64,6 +68,7 @@ async function importSuggestion(
     transactionTimeout: number,
     transactionMaxWait: number,
     prisma: InjectionContext["prisma"],
+    auditContext: InjectionAuditContext,
     logger: InjectionContext["logger"],
     changes: Parameters<InjectionContext["logger"]["change"]>[0][]
 ) {
@@ -79,7 +84,9 @@ async function importSuggestion(
 
     const { code, name } = normalizeSuggestion(suggestion);
 
-    return prisma.$transaction(
+    return withAuditTransaction(
+        prisma,
+        auditContext,
         async (tx) => {
             let type: CurriculumSuggestionType;
             let catalogSpecializationId: number | null = null;
@@ -268,7 +275,7 @@ async function runWithConcurrency<T>(
 }
 
 export async function injectSuggestions(
-    { prisma, inputPath, logger }: InjectionContext,
+    { prisma, inputPath, logger, auditContext }: InjectionContext,
     {
         concurrency = 4,
         transactionTimeout = 120_000,
@@ -372,6 +379,7 @@ export async function injectSuggestions(
                     transactionTimeout,
                     transactionMaxWait,
                     prisma,
+                    auditContext,
                     logger,
                     changes
                 );

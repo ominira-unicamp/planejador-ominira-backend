@@ -5,6 +5,10 @@ import {
     Prisma
 } from "@pomi/db";
 import { readFile } from "node:fs/promises";
+import {
+    withAuditTransaction,
+    type InjectionAuditContext
+} from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { legacyCourseCode, normalizeCourseCode } from "./course-code.js";
 import { unwrapScrapeData } from "./scrape-input.js";
@@ -127,7 +131,7 @@ function isIgnoredSourceIssue(value: unknown) {
 }
 
 export async function injectCatalogDisciplines(
-    { prisma, inputPath, logger }: InjectionContext,
+    { prisma, inputPath, logger, auditContext }: InjectionContext,
     {
         transactionTimeout = 1_800_000,
         transactionMaxWait = 60_000,
@@ -172,6 +176,7 @@ export async function injectCatalogDisciplines(
             logger,
             changes,
             errors,
+            auditContext,
             transactionTimeout,
             transactionMaxWait
         });
@@ -182,6 +187,7 @@ export async function injectCatalogDisciplines(
             logger,
             changes,
             errors,
+            auditContext,
             transactionTimeout,
             transactionMaxWait
         });
@@ -196,6 +202,7 @@ export async function injectCatalogDisciplines(
 
 type PhaseContext = {
     prisma: InjectionContext["prisma"];
+    auditContext: InjectionAuditContext;
     catalogs: Catalog[];
     logger: InjectionContext["logger"];
     changes: Parameters<InjectionContext["logger"]["change"]>[0][];
@@ -227,7 +234,9 @@ async function setTransactionLimits(
 
 async function ensureCatalogs(context: PhaseContext) {
     const years = [...new Set(context.catalogs.map(({ year }) => year))];
-    await context.prisma.$transaction(
+    await withAuditTransaction(
+        context.prisma,
+        context.auditContext,
         async (tx) => {
             await setTransactionLimits(tx, context.transactionTimeout);
             for (const year of years)
@@ -343,7 +352,9 @@ async function injectCatalogPhase(context: PhaseContext) {
         { phase: "catalog", total },
         "Iniciando fase de catálogo"
     );
-    const result = await context.prisma.$transaction(
+    const result = await withAuditTransaction(
+        context.prisma,
+        context.auditContext,
         async (tx) => {
             await setTransactionLimits(tx, context.transactionTimeout);
             for (const source of sources) {
@@ -745,7 +756,9 @@ async function injectRelationshipsPhase(context: PhaseContext) {
     let imported = 0;
     let skipped = 0;
     let savepointCounter = 0;
-    const result = await context.prisma.$transaction(
+    const result = await withAuditTransaction(
+        context.prisma,
+        context.auditContext,
         async (tx) => {
             await setTransactionLimits(tx, context.transactionTimeout);
             for (const source of sources) {

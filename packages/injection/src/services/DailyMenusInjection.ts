@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { withAuditTransaction } from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 
 const mealInputSchema = z.object({
@@ -195,7 +196,9 @@ async function persistMenu({
     }
     if (normalized.length === 0) return [];
 
-    return context.prisma.$transaction(
+    return withAuditTransaction(
+        context.prisma,
+        context.auditContext,
         async (tx) => {
             const changes = [] as Parameters<
                 InjectionContext["logger"]["change"]

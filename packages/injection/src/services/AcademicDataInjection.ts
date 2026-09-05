@@ -1,5 +1,6 @@
 import { DayOfWeek, YearPeriods, studyPeriodCode } from "@pomi/db";
 import { readFile } from "node:fs/promises";
+import { withAuditTransaction } from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
@@ -69,7 +70,7 @@ async function mapWithConcurrency<T, R>(
 }
 
 export async function injectAcademicData(
-    { prisma, inputPath, logger }: InjectionContext,
+    { prisma, inputPath, logger, auditContext }: InjectionContext,
     { databaseConcurrency = 8 }: AcademicDataInjectionOptions = {}
 ) {
     if (!Number.isInteger(databaseConcurrency) || databaseConcurrency < 1)
@@ -141,10 +142,12 @@ export async function injectAcademicData(
     }
 
     logger.info(`🏛️  Inserindo ${allUnits.size} institutos...`);
-    await prisma.unit.createMany({
-        data: Array.from(allUnits.values()),
-        skipDuplicates: true
-    });
+    await withAuditTransaction(prisma, auditContext, (transaction) =>
+        transaction.unit.createMany({
+            data: Array.from(allUnits.values()),
+            skipDuplicates: true
+        })
+    );
 
     logger.info(`👨‍🏫 Inserindo ${allProfessors.size} professores...`);
     const existingProfessorNames = new Set(
@@ -156,7 +159,9 @@ export async function injectAcademicData(
         ({ name }) => !existingProfessorNames.has(name)
     );
     if (newProfessors.length > 0)
-        await prisma.professor.createMany({ data: newProfessors });
+        await withAuditTransaction(prisma, auditContext, (transaction) =>
+            transaction.professor.createMany({ data: newProfessors })
+        );
     for (const professor of newProfessors)
         changes.push({
             entity: "Professor",
@@ -167,26 +172,30 @@ export async function injectAcademicData(
         });
 
     logger.info(`🚪 Inserindo ${allRooms.size} salas...`);
-    await prisma.room.createMany({
-        data: Array.from(allRooms.values()),
-        skipDuplicates: true
-    });
+    await withAuditTransaction(prisma, auditContext, (transaction) =>
+        transaction.room.createMany({
+            data: Array.from(allRooms.values()),
+            skipDuplicates: true
+        })
+    );
 
     logger.info(`📅 Inserindo ${studyPeriods.size} períodos de estudo...`);
     await mapWithConcurrency(
         [...studyPeriods.values()],
         databaseConcurrency,
         (studyPeriod) =>
-            prisma.studyPeriod.upsert({
-                where: {
-                    year_yearPeriod: {
-                        year: studyPeriod.year,
-                        yearPeriod: studyPeriod.yearPeriod
-                    }
-                },
-                create: studyPeriod,
-                update: { startDate: studyPeriod.startDate }
-            })
+            withAuditTransaction(prisma, auditContext, (transaction) =>
+                transaction.studyPeriod.upsert({
+                    where: {
+                        year_yearPeriod: {
+                            year: studyPeriod.year,
+                            yearPeriod: studyPeriod.yearPeriod
+                        }
+                    },
+                    create: studyPeriod,
+                    update: { startDate: studyPeriod.startDate }
+                })
+            )
     );
 
     const unitsMap = new Map(
@@ -201,16 +210,18 @@ export async function injectAcademicData(
             const unit = unitsMap.get(course.unitCode);
             if (!unit)
                 throw new Error(`Unidade não encontrada: ${course.unitCode}`);
-            return prisma.course.upsert({
-                where: { code: course.code },
-                create: {
-                    code: course.code,
-                    name: course.name,
-                    credits: course.credits,
-                    unitId: unit.id
-                },
-                update: { unitId: unit.id }
-            });
+            return withAuditTransaction(prisma, auditContext, (transaction) =>
+                transaction.course.upsert({
+                    where: { code: course.code },
+                    create: {
+                        code: course.code,
+                        name: course.name,
+                        credits: course.credits,
+                        unitId: unit.id
+                    },
+                    update: { unitId: unit.id }
+                })
+            );
         }
     );
 
@@ -304,21 +315,26 @@ export async function injectAcademicData(
         databaseConcurrency,
         async (classData) => {
             const existingClass = classesMap.get(classData.turmaKey);
-            const persisted = existingClass
-                ? await prisma.class.update({
-                      where: { id: existingClass.id },
-                      data: { reservations: classData.reservations },
-                      include: { course: true, studyPeriod: true }
-                  })
-                : await prisma.class.create({
-                      data: {
-                          code: classData.code,
-                          courseId: classData.courseId,
-                          studyPeriodId: classData.studyPeriodId,
-                          reservations: classData.reservations
-                      },
-                      include: { course: true, studyPeriod: true }
-                  });
+            const persisted = await withAuditTransaction(
+                prisma,
+                auditContext,
+                (transaction) =>
+                    existingClass
+                        ? transaction.class.update({
+                              where: { id: existingClass.id },
+                              data: { reservations: classData.reservations },
+                              include: { course: true, studyPeriod: true }
+                          })
+                        : transaction.class.create({
+                              data: {
+                                  code: classData.code,
+                                  courseId: classData.courseId,
+                                  studyPeriodId: classData.studyPeriodId,
+                                  reservations: classData.reservations
+                              },
+                              include: { course: true, studyPeriod: true }
+                          })
+            );
             if (!existingClass)
                 changes.push({
                     entity: "Class",
@@ -373,8 +389,10 @@ export async function injectAcademicData(
             .slice(start, start + 1_000)
             .map((c) => `(${c.A}, ${c.B})`)
             .join(", ");
-        await prisma.$executeRawUnsafe(
-            `INSERT INTO "data"."_ClassToProfessor" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
+        await withAuditTransaction(prisma, auditContext, (transaction) =>
+            transaction.$executeRawUnsafe(
+                `INSERT INTO "data"."_ClassToProfessor" ("A", "B") VALUES ${values} ON CONFLICT DO NOTHING`
+            )
         );
     }
 
@@ -463,7 +481,9 @@ export async function injectAcademicData(
     );
     logger.info(`📅 Inserindo ${newSchedules.length} horários novos...`);
     if (newSchedules.length > 0)
-        await prisma.classSchedule.createMany({ data: newSchedules });
+        await withAuditTransaction(prisma, auditContext, (transaction) =>
+            transaction.classSchedule.createMany({ data: newSchedules })
+        );
     for (const schedule of newSchedules)
         changes.push({
             entity: "ClassSchedule",

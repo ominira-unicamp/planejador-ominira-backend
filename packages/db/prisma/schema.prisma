@@ -524,6 +524,14 @@ enum CourseRequirementType {
   @@schema("data")
 }
 
+enum DataAuditOperation {
+  CREATE
+  UPDATE
+  DELETE
+
+  @@schema("data")
+}
+
 model CourseBlock {
   id      Int             @id @default(autoincrement())
   type    CourseBlockType
@@ -554,6 +562,25 @@ model CourseRequirement {
   prefixId      Int?
 
   @@index([courseBlockId])
+  @@schema("data")
+}
+
+model DataAuditEvent {
+  id            BigInt             @id @default(autoincrement())
+  schemaName    String              @db.VarChar(63)
+  tableName     String              @db.VarChar(63)
+  recordKey     Json
+  operation     DataAuditOperation
+  before        Json?
+  after         Json?
+  auditContext  Json?
+  runId         String?             @db.Uuid
+  injectionName String?             @db.VarChar(100)
+  transactionId BigInt
+  occurredAt    DateTime            @default(now())
+
+  @@index([schemaName, tableName, occurredAt])
+  @@index([runId, occurredAt])
   @@schema("data")
 }
 

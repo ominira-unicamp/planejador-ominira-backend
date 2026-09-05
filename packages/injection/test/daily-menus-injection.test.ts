@@ -145,6 +145,7 @@ test("não altera refeição já sincronizada", async () => {
         },
         $transaction: async (callback: (tx: unknown) => Promise<unknown>) =>
             callback({
+                $executeRaw: async () => undefined,
                 dailyMenu: {
                     create: async () => {
                         mutations += 1;
@@ -166,6 +167,12 @@ test("não altera refeição já sincronizada", async () => {
             prisma: prisma as never,
             inputPath,
             runId: "run-id",
+            auditContext: {
+                source: "injection",
+                runId: "run-id",
+                injectionName: "daily-menus",
+                mode: "all"
+            },
             logger: log.logger as never
         });
     } finally {

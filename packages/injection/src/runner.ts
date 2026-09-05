@@ -10,6 +10,7 @@ import {
     writeFile
 } from "node:fs/promises";
 import { basename, dirname, extname, join } from "node:path";
+import type { InjectionAuditContext } from "./audit-context.js";
 import {
     interpolate,
     isPathInside,
@@ -24,6 +25,10 @@ import { runProcess } from "./process.js";
 import { createInjectionService, type InjectionService } from "./registry.js";
 
 export type InjectionRunMode = "all" | "obtain" | "inject";
+export type InjectionRunContext = Pick<
+    InjectionAuditContext,
+    "jobId" | "trigger" | "requestedBy"
+>;
 
 export async function runInjection(
     config: InjectionConfig,
@@ -33,7 +38,8 @@ export async function runInjection(
         definition: InjectionDefinition
     ) => InjectionService = createInjectionService,
     mode: InjectionRunMode = "all",
-    parameters: Record<string, unknown> = {}
+    parameters: Record<string, unknown> = {},
+    executionContext: InjectionRunContext = {}
 ) {
     if (!(["all", "obtain", "inject"] as InjectionRunMode[]).includes(mode))
         throw new Error(`Modo de execução inválido: ${mode}`);
@@ -46,7 +52,8 @@ export async function runInjection(
                 signal,
                 serviceFactory,
                 mode,
-                parameters
+                parameters,
+                executionContext
             ),
         {
             attributes: {
@@ -65,7 +72,8 @@ async function runInjectionInternal(
         definition: InjectionDefinition
     ) => InjectionService = createInjectionService,
     mode: InjectionRunMode = "all",
-    parameters: Record<string, unknown> = {}
+    parameters: Record<string, unknown> = {},
+    executionContext: InjectionRunContext = {}
 ) {
     loadInjectionEnv();
     if (mode !== "obtain" && !process.env.DATABASE_URL)
@@ -200,7 +208,24 @@ async function runInjectionInternal(
         let persistenceError: unknown;
         try {
             try {
-                await service.run({ prisma, inputPath, runId, logger, signal });
+                await service.run({
+                    prisma,
+                    inputPath,
+                    runId,
+                    auditContext: {
+                        source: "injection",
+                        runId,
+                        injectionName: definition.name,
+                        mode: mode === "inject" ? "inject" : "all",
+                        trigger: executionContext.trigger ?? "MANUAL",
+                        requestedBy: executionContext.requestedBy ?? "cli",
+                        ...(executionContext.jobId
+                            ? { jobId: executionContext.jobId }
+                            : {})
+                    },
+                    logger,
+                    signal
+                });
             } catch (error) {
                 persistenceError = error;
                 logger.error(

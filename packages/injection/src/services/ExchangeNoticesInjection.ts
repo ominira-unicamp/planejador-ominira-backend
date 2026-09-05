@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
+import { withAuditTransaction } from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 
 const fileSchema = z.object({ name: z.string(), url: z.string() });
@@ -154,7 +155,9 @@ export async function injectExchangeNotices(
         if (context.signal?.aborted)
             throw context.signal.reason ?? new Error("Injection cancelada");
         try {
-            const changes = await context.prisma.$transaction(
+            const changes = await withAuditTransaction(
+                context.prisma,
+                context.auditContext,
                 async (tx) => {
                     const placeName = notice.place.trim();
                     const normalizedPlaceName = normalize(placeName);

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { withAuditTransaction } from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
 import { unwrapScrapeData } from "./scrape-input.js";
 
@@ -111,7 +112,7 @@ function readCalendarEvents(
 }
 
 export async function injectCalendar(
-    { prisma, inputPath, logger }: InjectionContext,
+    { prisma, inputPath, logger, auditContext }: InjectionContext,
     {
         transactionTimeout = 600_000,
         transactionMaxWait = 60_000
@@ -142,7 +143,9 @@ export async function injectCalendar(
     );
 
     const changes = [] as Parameters<InjectionContext["logger"]["change"]>[0][];
-    await prisma.$transaction(
+    await withAuditTransaction(
+        prisma,
+        auditContext,
         async (transaction) => {
             const existingTagNames = new Set(
                 (

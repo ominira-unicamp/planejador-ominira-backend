@@ -232,7 +232,12 @@ program.command("watch").action(async () => {
                             (job.mode ?? "all") as InjectionRunMode,
                             job.parameters && typeof job.parameters === "object"
                                 ? (job.parameters as Record<string, unknown>)
-                                : undefined
+                                : undefined,
+                            {
+                                jobId: job.id,
+                                trigger: job.trigger,
+                                requestedBy: job.requestedBy ?? undefined
+                            }
                         );
                         await finishJob(database, job.id, {
                             runId: result.runId
