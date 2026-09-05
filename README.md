@@ -115,9 +115,11 @@ npm run injection:job-status -- <job-id>
 npm run notifier:job-status -- <job-id>
 ```
 
-O `watch` executa uma injection por vez, registra falhas e continua no próximo
-intervalo. O diretório de dados e o lock do scheduler ficam sob a raiz
-configurada, sem remover arquivos existentes. Os tipos predefinidos são
+O `watch` executa uma injection por vez, registra falhas e aguarda a próxima
+ocorrência cron definida em cada entrada. As expressões usam cinco campos e o
+fuso horário local do processo (configurável por `TZ`). O diretório de dados e
+o lock do scheduler ficam sob a raiz configurada, sem remover arquivos
+existentes. Os tipos predefinidos são
 `academic-data`, `calendar`, `catalogs`, `catalog-disciplines`, `daily-menus`,
 `exchange-notices` e `suggestions`.
 As alterações persistidas são emitidas como eventos JSON pelo Pino no stdout;

@@ -38,7 +38,7 @@ export class ExchangeNoticeNotifier {
     async run(): Promise<void> {
         return withTrace("notifier.cycle", () => this.runCycle(), {
             attributes: {
-                "notifier.interval_ms": this.config.intervalMs
+                "notifier.cron": this.config.cron
             }
         })();
     }
@@ -49,7 +49,7 @@ export class ExchangeNoticeNotifier {
         this.logger.info(
             {
                 cycleId,
-                intervalMs: this.config.intervalMs,
+                cron: this.config.cron,
                 maxAttempts: this.config.maxAttempts
             },
             "Ciclo de notificações iniciado."

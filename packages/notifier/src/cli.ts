@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { trace } from "@opentelemetry/api";
 import {
+    nextCronOccurrence,
     shutdownTelemetry,
     withoutPrismaTracing,
     withTrace
@@ -70,20 +71,24 @@ async function main() {
     const logger = pino({ level: config.logLevel, mixin: traceContext });
     const database = createDatabaseClient(config.databaseUrl, { max: 2 });
     const notifier = new ExchangeNoticeNotifier(database, config, logger);
-    let nextScheduledAt = 0;
+    let nextScheduledAt = nextCronOccurrence(config.cron);
     while (!controller.signal.aborted) {
         try {
-            const now = Date.now();
-            if (now >= nextScheduledAt) {
-                nextScheduledAt = now + config.intervalMs;
+            const now = new Date();
+            if (nextScheduledAt && now >= nextScheduledAt) {
+                const scheduledFor = nextScheduledAt;
+                nextScheduledAt = nextCronOccurrence(
+                    config.cron,
+                    new Date(now.getTime() + 1_000)
+                );
                 try {
                     await enqueueJob(database, {
                         type: JobRequestType.NOTIFIER,
                         name: "notifier-cycle",
                         trigger: JobRequestTrigger.SCHEDULED,
-                        scheduledFor: new Date(now),
+                        scheduledFor,
                         requestedBy: "scheduler",
-                        deduplicationKey: `notifier:${now}`
+                        deduplicationKey: `notifier:${scheduledFor.toISOString()}`
                     });
                 } catch (error) {
                     logger.debug(

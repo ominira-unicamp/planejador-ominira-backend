@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import {
+    nextCronOccurrence,
     shutdownTelemetry,
     withoutPrismaTracing,
     withTrace
@@ -159,20 +160,28 @@ program.command("watch").action(async () => {
     const database = createDatabaseClient(process.env.DATABASE_URL ?? "", {
         max: 1
     });
-    const nextRun = new Map(config.injections.map((item) => [item.name, 0]));
+    const nextRun = new Map(
+        config.injections.flatMap((item) =>
+            item.schedule
+                ? [[item.name, nextCronOccurrence(item.schedule.cron)]]
+                : []
+        )
+    );
     try {
         while (!controller.signal.aborted) {
-            const now = Date.now();
+            const now = new Date();
             for (const injection of config.injections) {
-                if (
-                    !injection.schedule ||
-                    (nextRun.get(injection.name) ?? 0) > now
-                )
-                    continue;
+                if (!injection.schedule) continue;
+                const scheduledAt = nextRun.get(injection.name);
+                if (!scheduledAt || scheduledAt > now) continue;
                 nextRun.set(
                     injection.name,
-                    now + injection.schedule.intervalMs
+                    nextCronOccurrence(
+                        injection.schedule.cron,
+                        new Date(now.getTime() + 1_000)
+                    )
                 );
+                const scheduledFor = scheduledAt;
                 try {
                     const partitions = await discoverPartitions(
                         config,
@@ -185,13 +194,13 @@ program.command("watch").action(async () => {
                                 name: injection.name,
                                 mode: "all",
                                 trigger: JobRequestTrigger.SCHEDULED,
-                                scheduledFor: new Date(now),
+                                scheduledFor,
                                 requestedBy: "scheduler",
                                 partitionKey: partition?.key,
                                 parameters: partition?.parameters,
                                 deduplicationKey: !partition
-                                    ? `injection:${injection.name}:${now}`
-                                    : `injection:${injection.name}:${partition.key}:${now}`
+                                    ? `injection:${injection.name}:${scheduledFor.toISOString()}`
+                                    : `injection:${injection.name}:${partition.key}:${scheduledFor.toISOString()}`
                             });
                         } catch (error) {
                             cliLogger.debug(

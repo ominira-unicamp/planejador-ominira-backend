@@ -5,7 +5,7 @@
         {
             "name": "academic-data",
             "description": "Dados acadêmicos",
-            "schedule": { "intervalMs": 86400000 },
+            "schedule": { "cron": "0 4 * * *" },
             "obtain": {
                 "command": "<obtain-command>",
                 "args": [],
@@ -22,7 +22,7 @@
         {
             "name": "calendar",
             "description": "Calendário acadêmico",
-            "schedule": { "intervalMs": 86400000 },
+            "schedule": { "cron": "0 5 * * *" },
             "obtain": {
                 "command": "<obtain-command>",
                 "args": [],
@@ -42,7 +42,7 @@
         {
             "name": "catalog-disciplines",
             "description": "Disciplinas e relações do catálogo",
-            "schedule": { "intervalMs": 2592000000 },
+            "schedule": { "cron": "0 2 1 * *" },
             "obtain": {
                 "command": "<obtain-command>",
                 "args": [],
@@ -63,7 +63,7 @@
         {
             "name": "daily-menus",
             "description": "Cardápios dos restaurantes universitários",
-            "schedule": { "intervalMs": 21600000 },
+            "schedule": { "cron": "0 */6 * * *" },
             "obtain": {
                 "command": "node",
                 "args": [
@@ -93,7 +93,7 @@
         {
             "name": "exchange-notices",
             "description": "Editais de intercâmbio da DERI",
-            "schedule": { "intervalMs": 21600000 },
+            "schedule": { "cron": "30 */6 * * *" },
             "obtain": {
                 "command": "node",
                 "args": [

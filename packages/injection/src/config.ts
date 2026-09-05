@@ -1,3 +1,4 @@
+import { validateCronExpression } from "@pomi/api-core";
 import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { z } from "zod";
@@ -13,7 +14,12 @@ const commandSchema = z.object({
 const injectionSchema = z.object({
     name: z.string().regex(/^[a-z][a-z0-9-]*$/),
     description: z.string().optional(),
-    schedule: z.object({ intervalMs: z.number().int().positive() }).optional(),
+    schedule: z
+        .object({ cron: z.string().trim().min(1) })
+        .transform((schedule) => ({
+            cron: validateCronExpression(schedule.cron)
+        }))
+        .optional(),
     obtain: commandSchema,
     input: z.object({
         directory: z.string().min(1),

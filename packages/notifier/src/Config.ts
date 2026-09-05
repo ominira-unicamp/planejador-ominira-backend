@@ -1,3 +1,4 @@
+import { validateCronExpression } from "@pomi/api-core";
 import z from "zod";
 
 const configSchema = z.object({
@@ -5,7 +6,11 @@ const configSchema = z.object({
     appApiUrl: z.string().url(),
     frontendUrl: z.string().url(),
     unsubscribeSecret: z.string().min(32),
-    intervalMs: z.coerce.number().int().min(60_000).default(21_600_000),
+    cron: z
+        .string()
+        .trim()
+        .default("0 */6 * * *")
+        .transform((expression) => validateCronExpression(expression)),
     pollIntervalMs: z.coerce.number().int().min(1_000).default(5_000),
     maxAttempts: z.coerce.number().int().min(1).max(20).default(5),
     smtpHost: z.string().min(1),
@@ -26,7 +31,7 @@ export function loadNotifierConfig(
         appApiUrl: environment.POMI_APP_API_URL,
         frontendUrl: environment.POMI_FRONTEND_URL,
         unsubscribeSecret: environment.NOTIFIER_UNSUBSCRIBE_SECRET,
-        intervalMs: environment.NOTIFIER_INTERVAL_MS,
+        cron: environment.NOTIFIER_CRON,
         pollIntervalMs: environment.NOTIFIER_POLL_INTERVAL_MS,
         maxAttempts: environment.NOTIFIER_MAX_ATTEMPTS,
         smtpHost: environment.SMTP_HOST,
