@@ -18,6 +18,7 @@ const unitEntity = z
     .object({
         id: z.number().int(),
         code: z.string(),
+        name: z.string(),
         _paths: z
             .object({
                 classes: z.string(),

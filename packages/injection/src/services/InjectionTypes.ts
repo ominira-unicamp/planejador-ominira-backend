@@ -9,6 +9,7 @@ export type InjectionContext = {
     auditContext: InjectionAuditContext;
     logger: InjectionLogger;
     signal?: AbortSignal;
+    addIssue?: (issue: unknown) => void;
 };
 
 export type InjectionFunction<TOptions> = (

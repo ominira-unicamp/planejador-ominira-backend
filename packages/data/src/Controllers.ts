@@ -8,6 +8,7 @@ import { Router } from "express";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import course from "#/modules/academic/course/index.js";
 import academic from "#/modules/academic/index.js";
+import professorDataPortal from "#/modules/academic/professor-data-portal/index.js";
 import professor from "#/modules/academic/professor/index.js";
 import room from "#/modules/academic/room/index.js";
 import unit from "#/modules/academic/unit/index.js";
@@ -82,6 +83,7 @@ export const resourcesPaths = {
     curriculumSuggestion: curriculumSuggestion.paths,
     unit: unit.paths,
     professor: professor.paths,
+    professorDataPortal: professorDataPortal.paths,
     room: room.paths,
     studyPeriod: studyPeriods.paths,
     catalog: catalogController.paths,

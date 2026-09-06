@@ -116,6 +116,38 @@
                 "transactionTimeout": 60000,
                 "transactionMaxWait": 10000
             }
+        },
+        {
+            "name": "professors-data-portal",
+            "description": "Perfis de professores do Portal de Dados da Unicamp",
+            "schedule": { "cron": "0 4 * * 1" },
+            "obtain": {
+                "command": "pomi-scraper",
+                "args": [
+                    "professors-data-portal",
+                    "--output",
+                    "${POMI_INJECTION_OUTPUT}",
+                    "--concurrency",
+                    "24",
+                    "--page-concurrency",
+                    "8",
+                    "--request-interval-ms",
+                    "0"
+                ],
+                "cwd": ".",
+                "env": {},
+                "timeoutMs": 7200000
+            },
+            "input": {
+                "directory": "data/injections/professors-data-portal",
+                "fileName": "professors-data-portal.json"
+            },
+            "allowIssues": true,
+            "options": {
+                "databaseConcurrency": 4,
+                "transactionTimeout": 600000,
+                "transactionMaxWait": 60000
+            }
         }
     ]
 }

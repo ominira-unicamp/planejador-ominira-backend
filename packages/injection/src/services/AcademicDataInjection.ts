@@ -1,4 +1,10 @@
-import { DayOfWeek, YearPeriods, studyPeriodCode } from "@pomi/db";
+import {
+    DayOfWeek,
+    normalizeProfessorName,
+    preferProfessorName,
+    studyPeriodCode,
+    YearPeriods
+} from "@pomi/db";
 import { readFile } from "node:fs/promises";
 import { withAuditTransaction } from "../audit-context.js";
 import type { InjectionContext } from "./InjectionTypes.js";
@@ -35,6 +41,28 @@ interface AcademicData {
     year: number;
     semester: number;
     institutes: Instituto[];
+}
+
+export function collectProfessorName(
+    professors: Map<string, { name: string }>,
+    name: string
+) {
+    const normalizedName = normalizeProfessorName(name);
+    const existing = professors.get(normalizedName);
+    professors.set(normalizedName, {
+        name: preferProfessorName(existing?.name ?? name.trim(), name.trim())
+    });
+}
+
+export function selectNewProfessorNames(
+    professors: ReadonlyMap<string, { name: string }>,
+    existingProfessorNames: ReadonlySet<string>
+) {
+    return [...professors.entries()]
+        .filter(
+            ([normalizedName]) => !existingProfessorNames.has(normalizedName)
+        )
+        .map(([, professor]) => professor);
 }
 
 const dayOfWeekMap: Record<string, DayOfWeek> = {
@@ -86,7 +114,7 @@ export async function injectAcademicData(
     if (academicData.length === 0)
         throw new Error("Nenhum período acadêmico encontrado");
 
-    const allUnits: Map<string, { code: string }> = new Map();
+    const allUnits: Map<string, { code: string; name: string }> = new Map();
     const allProfessors: Map<string, { name: string }> = new Map();
     const allRooms: Map<string, { code: string }> = new Map();
     const allCourses: Map<
@@ -114,7 +142,16 @@ export async function injectAcademicData(
         studyPeriods.set(studyPeriodCode(period.year, yearPeriod), studyPeriod);
 
         for (const instituteData of period.institutes) {
-            allUnits.set(instituteData.code, { code: instituteData.code });
+            const unit = {
+                code: instituteData.code,
+                name: instituteData.name.trim()
+            };
+            const previous = allUnits.get(unit.code);
+            if (previous && previous.name !== unit.name)
+                throw new Error(
+                    `Nomes conflitantes para a unidade ${unit.code}: "${previous.name}" e "${unit.name}"`
+                );
+            allUnits.set(unit.code, unit);
 
             for (const courseData of instituteData.courses) {
                 allCourses.set(courseData.code, {
@@ -127,8 +164,8 @@ export async function injectAcademicData(
                 for (const classData of courseData.classes) {
                     classData.professors
                         .filter((d) => d && d.trim() !== "")
-                        .forEach((d) =>
-                            allProfessors.set(d.trim(), { name: d.trim() })
+                        .forEach((name) =>
+                            collectProfessorName(allProfessors, name)
                         );
 
                     classData.classes.forEach((classMeeting) =>
@@ -142,25 +179,61 @@ export async function injectAcademicData(
     }
 
     logger.info(`🏛️  Inserindo ${allUnits.size} institutos...`);
-    await withAuditTransaction(prisma, auditContext, (transaction) =>
-        transaction.unit.createMany({
-            data: Array.from(allUnits.values()),
-            skipDuplicates: true
-        })
-    );
+    await withAuditTransaction(prisma, auditContext, async (transaction) => {
+        for (const unit of allUnits.values())
+            await transaction.unit.upsert({
+                where: { code: unit.code },
+                create: unit,
+                update: { name: unit.name }
+            });
+    });
 
     logger.info(`👨‍🏫 Inserindo ${allProfessors.size} professores...`);
-    const existingProfessorNames = new Set(
-        (await prisma.professor.findMany({ select: { name: true } })).map(
-            ({ name }) => name
-        )
+    const existingProfessors = await prisma.professor.findMany({
+        select: { id: true, name: true }
+    });
+    const existingProfessorsByNormalizedName = new Map(
+        existingProfessors.map((professor) => [
+            normalizeProfessorName(professor.name),
+            professor
+        ])
     );
-    const newProfessors = [...allProfessors.values()].filter(
-        ({ name }) => !existingProfessorNames.has(name)
+    const existingProfessorNames = new Set(
+        existingProfessorsByNormalizedName.keys()
+    );
+    const newProfessors = selectNewProfessorNames(
+        allProfessors,
+        existingProfessorNames
     );
     if (newProfessors.length > 0)
         await withAuditTransaction(prisma, auditContext, (transaction) =>
             transaction.professor.createMany({ data: newProfessors })
+        );
+    const professorNameUpdates = [...allProfessors.entries()]
+        .map(([normalizedName, professor]) => {
+            const existing =
+                existingProfessorsByNormalizedName.get(normalizedName);
+            if (!existing) return undefined;
+            const name = preferProfessorName(existing.name, professor.name);
+            return name === existing.name
+                ? undefined
+                : { id: existing.id, before: existing.name, name };
+        })
+        .filter(
+            (update): update is { id: number; before: string; name: string } =>
+                update !== undefined
+        );
+    if (professorNameUpdates.length > 0)
+        await withAuditTransaction(
+            prisma,
+            auditContext,
+            async (transaction) => {
+                for (const update of professorNameUpdates)
+                    await transaction.professor.update({
+                        where: { id: update.id },
+                        data: { name: update.name }
+                    });
+            }
         );
     for (const professor of newProfessors)
         changes.push({
@@ -169,6 +242,14 @@ export async function injectAcademicData(
             key: { name: professor.name },
             before: null,
             after: professor
+        });
+    for (const update of professorNameUpdates)
+        changes.push({
+            entity: "Professor",
+            operation: "update",
+            key: { id: update.id },
+            before: { name: update.before },
+            after: { name: update.name }
         });
 
     logger.info(`🚪 Inserindo ${allRooms.size} salas...`);
@@ -226,7 +307,10 @@ export async function injectAcademicData(
     );
 
     const professorsMap = new Map(
-        (await prisma.professor.findMany()).map((p) => [p.name, p])
+        (await prisma.professor.findMany()).map((professor) => [
+            normalizeProfessorName(professor.name),
+            professor
+        ])
     );
     const roomsMap = new Map(
         (await prisma.room.findMany()).map((r) => [r.code, r])
@@ -276,7 +360,9 @@ export async function injectAcademicData(
                     const professorIds = classData.professors
                         .filter((d) => d && d.trim() !== "")
                         .map((d) => {
-                            const professor = professorsMap.get(d.trim());
+                            const professor = professorsMap.get(
+                                normalizeProfessorName(d)
+                            );
                             if (!professor)
                                 throw new Error(
                                     `Professor não encontrado: ${d.trim()}`

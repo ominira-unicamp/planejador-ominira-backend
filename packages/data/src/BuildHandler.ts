@@ -2,6 +2,7 @@ import { buildZodIds } from "#/PrismaValidator.js";
 import { AuthRegistry, type AuthorizationPolicy } from "#/auth.js";
 import type { CourseService } from "#/modules/academic/course/Course.service.js";
 import type { EvaluationSummaryService } from "#/modules/academic/evaluation-summary/EvaluationSummary.service.js";
+import type { ProfessorDataPortalService } from "#/modules/academic/professor-data-portal/ProfessorDataPortal.service.js";
 import type { ProfessorService } from "#/modules/academic/professor/Professor.service.js";
 import type { RoomService } from "#/modules/academic/room/Room.service.js";
 import type { UnitService } from "#/modules/academic/unit/Unit.service.js";
@@ -45,6 +46,7 @@ export type Context = {
     courseService: CourseService;
     evaluationSummaryService: EvaluationSummaryService;
     professorService: ProfessorService;
+    professorDataPortalService: ProfessorDataPortalService;
     roomService: RoomService;
     unitService: UnitService;
     catalogService: CatalogService;
@@ -94,6 +96,7 @@ export function buildHandler<
         courseService: req.scope.cradle.courseService,
         evaluationSummaryService: req.scope.cradle.evaluationSummaryService,
         professorService: req.scope.cradle.professorService,
+        professorDataPortalService: req.scope.cradle.professorDataPortalService,
         roomService: req.scope.cradle.roomService,
         unitService: req.scope.cradle.unitService,
         catalogService: req.scope.cradle.catalogService,
@@ -138,6 +141,8 @@ export function createDataEndpointRegistries<
             evaluationSummaryService:
                 request.scope.cradle.evaluationSummaryService,
             professorService: request.scope.cradle.professorService,
+            professorDataPortalService:
+                request.scope.cradle.professorDataPortalService,
             roomService: request.scope.cradle.roomService,
             unitService: request.scope.cradle.unitService,
             catalogService: request.scope.cradle.catalogService,

@@ -34,6 +34,7 @@ export function createProfessorService({
             const total = await prisma.professor.count({ where });
             const professors = await prisma.professor.findMany({
                 where,
+                include: { dataPortalProfile: { select: { id: true } } },
                 ...(query.page !== undefined || query.pageSize !== undefined
                     ? {
                           skip:
@@ -44,21 +45,36 @@ export function createProfessorService({
             });
             return {
                 total,
-                items: professors.map((professor) => ({
-                    ...professor,
-                    _paths: { entity: `/professors/${professor.id}` }
-                })) as ProfessorEntity[]
+                items: professors.map(
+                    ({ dataPortalProfile, ...professor }) => ({
+                        ...professor,
+                        _paths: {
+                            entity: `/professors/${professor.id}`,
+                            dataPortalProfile: dataPortalProfile
+                                ? `/professor-data-portal-profiles/${dataPortalProfile.id}`
+                                : null
+                        }
+                    })
+                ) as ProfessorEntity[]
             };
         },
         async getById(id) {
             const professor = await prisma.professor.findUnique({
-                where: { id }
+                where: { id },
+                include: { dataPortalProfile: { select: { id: true } } }
             });
             return professor
-                ? ok({
-                      ...professor,
-                      _paths: { entity: `/professors/${professor.id}` }
-                  } as ProfessorEntity)
+                ? ok(
+                      (({ dataPortalProfile, ...professor }) => ({
+                          ...professor,
+                          _paths: {
+                              entity: `/professors/${professor.id}`,
+                              dataPortalProfile: dataPortalProfile
+                                  ? `/professor-data-portal-profiles/${dataPortalProfile.id}`
+                                  : null
+                          }
+                      }))(professor) as ProfessorEntity
+                  )
                 : err(
                       ResourceNotFoundProblem.create({
                           detail: "Professor not found"

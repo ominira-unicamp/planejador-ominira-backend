@@ -2,6 +2,7 @@ import { AuthRegistry } from "#/auth.js";
 import type { ModuleDefinition } from "#/modules/Module.js";
 import course from "#/modules/academic/course/index.js";
 import evaluationSummary from "#/modules/academic/evaluation-summary/index.js";
+import professorDataPortal from "#/modules/academic/professor-data-portal/index.js";
 import professor from "#/modules/academic/professor/index.js";
 import room from "#/modules/academic/room/index.js";
 import unit from "#/modules/academic/unit/index.js";
@@ -13,6 +14,7 @@ const controllers: ModuleDefinition["controllers"] = [
     unit,
     course,
     professor,
+    professorDataPortal,
     room
 ];
 

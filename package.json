@@ -24,6 +24,7 @@
         "notifier:job-status": "npm run pomi-notifier --workspace @pomi/notifier -- job-status",
         "auth:bootstrap-admin": "npm run auth:bootstrap-admin --workspace @pomi/app",
         "prisma:generate": "npm run generate --workspace @pomi/db",
+        "db:sync-academic-position-catalog": "npm run sync:academic-position-catalog --workspace @pomi/db",
         "prisma:migrate:dev": "npm run migrate:dev --workspace @pomi/db",
         "prisma:deploy": "npm run migrate:deploy --workspace @pomi/db",
         "prisma:status": "npm run migrate:status --workspace @pomi/db",

@@ -54,63 +54,45 @@ enum CatalogCoursePrerequisiteKind {
   @@schema("data")
 }
 
-enum CareerCode {
-  A
-  C
-  C3
-  C4
-  C5
-  D
-  F
-  G
-  H
-  I
-  J
-  L
-  M
-  MS3
-  MS3_1 @map("MS3.1")
-  MS3_2 @map("MS3.2")
-  MS5_1 @map("MS5.1")
-  MS5_2 @map("MS5.2")
-  MS5_3 @map("MS5.3")
-  MS6
-  O
+enum AcademicRole {
+  PROFESSOR
+  RESEARCHER
+  POSTDOCTORAL_RESEARCHER
 
-  @@map("data_portal_career_code")
+  @@map("data_portal_academic_role")
   @@schema("unicamp_data_portal")
 }
 
-enum ProfessorRank {
-  PROFESSOR_ASSOCIADO                         @map("Professor Associado")
-  PROFESSOR_ASSOCIADO_I                       @map("Professor Associado I")
-  PROFESSOR_ASSOCIADO_II                      @map("Professor Associado II")
-  PROFESSOR_ASSOCIADO_III                     @map("Professor Associado III")
-  PROFESSOR_ASSISTENTE                        @map("Professor Assistente")
-  PROFESSOR_DOUTOR                            @map("Professor Doutor")
-  PROFESSOR_DOUTOR_I                          @map("Professor Doutor I")
-  PROFESSOR_DOUTOR_II                         @map("Professor Doutor II")
-  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_II  @map("Professor Magistério Secundário Técnico II")
-  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_III @map("Professor Magistério Secundário Técnico III")
-  PROFESSOR_PLENO                             @map("Professor Pleno")
-  PROFESSOR_TITULAR                           @map("Professor Titular")
-  PROF_TITULAR_PS                             @map("PROF TITULAR-PS")
-  PROFESSOR_SENIOR                            @map("PROFESSOR SENIOR")
-  DOCENTE_ENSINO_LINGUAS_I                    @map("Docente em Ensino de Línguas I")
-  DOCENTE_ENSINO_LINGUAS_III                  @map("Docente em Ensino de Línguas III")
-  DOCENTE_EDUCACAO_ESPECIAL_REABILITACAO_V    @map("Docente em Educação Especial e Reabilitação V")
+enum AcademicAffiliationType {
+  CAREER
+  COLLABORATOR
+  SENIOR
+  VISITING_INVITED
+  VISITING_SPECIALIST
+  POSTDOCTORAL_PROGRAM
 
-  @@map("data_portal_professor_rank")
+  @@map("data_portal_academic_affiliation_type")
   @@schema("unicamp_data_portal")
 }
 
-enum PositionCategory {
-  MA_I   @map("MA-I")
-  MA_II  @map("MA-II")
-  MA_III @map("MA-III")
-  MTS_C  @map("MTS-C")
+enum AcademicCareer {
+  MS
+  MA
+  MTS
+  MST
+  DEL
+  DEER
+  PQ
 
-  @@map("data_portal_position_category")
+  @@map("data_portal_academic_career")
+  @@schema("unicamp_data_portal")
+}
+
+enum AcademicPostdoctoralModality {
+  STANDARD
+  OM
+
+  @@map("data_portal_academic_postdoctoral_modality")
   @@schema("unicamp_data_portal")
 }
 
@@ -329,6 +311,7 @@ model AuthUserCapability {
 model Unit {
   id                          Int                          @id @default(autoincrement())
   code                        String                       @unique
+  name                        String
   courses                     Course[]
   prefixes                    Prefixes[]
   programs                    Program[]
@@ -722,7 +705,7 @@ model ProfessorDataPortalProfile {
   professor     Professor                   @relation(fields: [professorId], references: [id])
   unit          Unit                        @relation(fields: [unitId], references: [id])
   department    Department?                 @relation(fields: [departmentId], references: [id])
-  position      ProfessorPosition?          @relation(fields: [positionId], references: [id])
+  position      AcademicPosition?           @relation(fields: [positionId], references: [id])
   identities    ProfessorExternalIdentity[]
   citationNames ProfessorCitationName[]
   trainings     ProfessorTraining[]
@@ -736,15 +719,31 @@ model ProfessorDataPortalProfile {
   @@schema("unicamp_data_portal")
 }
 
-model ProfessorPosition {
-  id         Int               @id @default(autoincrement())
-  careerCode CareerCode?
-  rank       ProfessorRank?
-  category   PositionCategory?
+model AcademicCareerReference {
+  id               Int                @id @default(autoincrement())
+  career           AcademicCareer
+  code             String
+  rank             String?
+  category         String?
+  progressionOrder Int
+  active           Boolean            @default(true)
+  positions        AcademicPosition[]
 
-  profiles ProfessorDataPortalProfile[]
+  @@unique([career, code])
+  @@map("data_portal_academic_career_reference")
+  @@schema("unicamp_data_portal")
+}
 
-  @@unique([careerCode, rank, category])
+model AcademicPosition {
+  id                     Int                            @id @default(autoincrement())
+  canonicalKey           String                         @unique
+  role                   AcademicRole
+  affiliationType        AcademicAffiliationType
+  careerReferenceId      Int?
+  postdoctoralModality   AcademicPostdoctoralModality?
+  programCode            String?
+  careerReference        AcademicCareerReference?       @relation(fields: [careerReferenceId], references: [id])
+  profiles               ProfessorDataPortalProfile[]
   @@map("data_portal_position")
   @@schema("unicamp_data_portal")
 }

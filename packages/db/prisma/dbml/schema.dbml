@@ -2,12 +2,6 @@
 //// THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 //// ------------------------------------------------------
 
-Table User {
-  id Int [pk, increment]
-  email String [unique, not null]
-  name String [not null]
-}
-
 Table AuthUser {
   id Int [pk, increment]
   issuer String [not null]
@@ -28,6 +22,30 @@ Table AuthUser {
   indexes {
     (issuer, subject) [unique]
   }
+}
+
+Table JobRequest {
+  id String [pk]
+  type JobRequestType [not null]
+  name String [not null]
+  parentJobId String
+  partitionKey String
+  parameters Json
+  mode String
+  status JobRequestStatus [not null, default: 'QUEUED']
+  trigger JobRequestTrigger [not null]
+  availableAt DateTime [default: `now()`, not null]
+  scheduledFor DateTime
+  deduplicationKey String [unique]
+  requestedBy String
+  runId String
+  startedAt DateTime
+  finishedAt DateTime
+  errorMessage String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+  parent JobRequest
+  partitions JobRequest [not null]
 }
 
 Table AuthUserRole {
@@ -53,9 +71,24 @@ Table AuthUserCapability {
 Table Unit {
   id Int [pk, increment]
   code String [unique, not null]
+  name String
   courses Course [not null]
   prefixes Prefixes [not null]
   programs Program [not null]
+  departments Department [not null]
+  professorDataPortalProfiles data_portal_professor_profile [not null]
+}
+
+Table Department {
+  id Int [pk, increment]
+  name String [not null]
+  unitId Int [not null]
+  unit Unit [not null]
+  profiles data_portal_professor_profile [not null]
+
+  indexes {
+    (unitId, name) [unique]
+  }
 }
 
 Table Coordinator {
@@ -300,6 +333,21 @@ Table CourseRequirement {
   prefixId Int
 }
 
+Table DataAuditEvent {
+  id BigInt [pk, increment]
+  schemaName String [not null]
+  tableName String [not null]
+  recordKey Json [not null]
+  operation DataAuditOperation [not null]
+  before Json
+  after Json
+  auditContext Json
+  runId String
+  injectionName String
+  transactionId BigInt [not null]
+  occurredAt DateTime [default: `now()`, not null]
+}
+
 Table StudyPeriod {
   id Int [pk, increment]
   year Int [not null]
@@ -319,6 +367,111 @@ Table Professor {
   name String [not null]
   classes Class [not null]
   professorEvaluations ProfessorEvaluation [not null]
+  dataPortalProfile data_portal_professor_profile
+}
+
+Table data_portal_professor_profile {
+  id Int [pk, increment]
+  professorId Int [unique, not null]
+  portalId Int [unique, not null]
+  name String [not null]
+  email String
+  lattesAbstract String
+  unitId Int [not null]
+  departmentId Int
+  positionId Int
+  professor Professor [not null]
+  unit Unit [not null]
+  department Department
+  position data_portal_position
+  identities data_portal_external_identity [not null]
+  citationNames data_portal_citation_name [not null]
+  trainings data_portal_training [not null]
+  keywords data_portal_professor_keyword [not null]
+  coauthors data_portal_professor_coauthor [not null]
+}
+
+Table data_portal_position {
+  id Int [pk, increment]
+  careerCode CareerCode
+  rank ProfessorRank
+  category PositionCategory
+  profiles data_portal_professor_profile [not null]
+
+  indexes {
+    (careerCode, rank, category) [unique]
+  }
+}
+
+Table data_portal_external_identity {
+  id Int [pk, increment]
+  profileId Int [not null]
+  system IdentifierSystem [not null]
+  externalId String [not null]
+  profile data_portal_professor_profile [not null]
+
+  indexes {
+    (profileId, system, externalId) [unique]
+  }
+}
+
+Table data_portal_citation_name {
+  id Int [pk, increment]
+  profileId Int [not null]
+  name String [not null]
+  profile data_portal_professor_profile [not null]
+
+  indexes {
+    (profileId, name) [unique]
+  }
+}
+
+Table data_portal_training {
+  id Int [pk, increment]
+  profileId Int [not null]
+  degree TrainingDegree [not null]
+  institutionName String [not null]
+  startYear Int
+  endYear Int
+  profile data_portal_professor_profile [not null]
+}
+
+Table data_portal_keyword {
+  id Int [pk, increment]
+  name String [not null]
+  normalizedName String [unique, not null]
+  profiles data_portal_professor_keyword [not null]
+}
+
+Table data_portal_professor_keyword {
+  profileId Int [not null]
+  keywordId Int [not null]
+  count Int
+  profile data_portal_professor_profile [not null]
+  keyword data_portal_keyword [not null]
+
+  indexes {
+    (profileId, keywordId) [pk]
+  }
+}
+
+Table data_portal_coauthor {
+  id Int [pk, increment]
+  name String [not null]
+  normalizedName String [unique, not null]
+  profiles data_portal_professor_coauthor [not null]
+}
+
+Table data_portal_professor_coauthor {
+  profileId Int [not null]
+  coauthorId Int [not null]
+  count Int
+  profile data_portal_professor_profile [not null]
+  coauthor data_portal_coauthor [not null]
+
+  indexes {
+    (profileId, coauthorId) [pk]
+  }
 }
 
 Table Room {
@@ -404,6 +557,43 @@ Table MealServiceNote {
   }
 }
 
+Table ExchangeNotice {
+  id Int [pk, increment]
+  naturalKey String [unique, not null]
+  number String
+  issuer String
+  title String
+  placeId Int
+  place ExchangePlace
+  registrationOriginalText String
+  registrationStart DateTime
+  registrationEnd DateTime
+  files ExchangeNoticeFile [not null]
+  deliveries ExchangeNoticeDelivery [not null]
+}
+
+Table ExchangeNoticeFile {
+  id Int [pk, increment]
+  name String [not null]
+  normalizedName String [not null]
+  url String
+  noticeId Int [not null]
+  notice ExchangeNotice [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (noticeId, normalizedName) [unique]
+  }
+}
+
+Table ExchangePlace {
+  id Int [pk, increment]
+  name String [not null]
+  normalizedName String [unique, not null]
+  notices ExchangeNotice [not null]
+  noticeSubscriptionPlaces ExchangeNoticeSubscriptionPlace [not null]
+}
+
 Table Student {
   id Int [pk, increment]
   ra String [unique, not null]
@@ -435,6 +625,67 @@ Table Student {
   friendshipsAsA StudentFriendship [not null]
   friendshipsAsB StudentFriendship [not null]
   friendshipRequests StudentFriendship [not null]
+  feedbackReports FeedbackReport [not null]
+  exchangeNoticeSubscription ExchangeNoticeSubscription
+  exchangeNoticeDeliveries ExchangeNoticeDelivery [not null]
+}
+
+Table ExchangeNoticeSubscription {
+  student Student [not null]
+  studentId Int [pk]
+  enabled Boolean [not null, default: false]
+  places ExchangeNoticeSubscriptionPlace [not null]
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+}
+
+Table ExchangeNoticeSubscriptionPlace {
+  subscription ExchangeNoticeSubscription [not null]
+  subscriptionStudentId Int [not null]
+  place ExchangePlace [not null]
+  placeId Int [not null]
+
+  indexes {
+    (subscriptionStudentId, placeId) [pk]
+  }
+}
+
+Table ExchangeNoticeDelivery {
+  id Int [pk, increment]
+  student Student [not null]
+  studentId Int [not null]
+  notice ExchangeNotice [not null]
+  noticeId Int [not null]
+  status ExchangeNoticeDeliveryStatus [not null, default: 'PENDING']
+  attemptCount Int [not null, default: 0]
+  nextAttemptAt DateTime [default: `now()`, not null]
+  processingAt DateTime
+  sentAt DateTime
+  lastError String
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [not null]
+
+  indexes {
+    (studentId, noticeId) [unique]
+  }
+}
+
+Table FeedbackReport {
+  id Int [pk, increment]
+  kind FeedbackReportKind [not null]
+  targetType FeedbackReportTargetType [not null]
+  featureKey String
+  academicResourceType String
+  academicResourceId Int
+  title String [not null]
+  description String [not null]
+  sourcePath String
+  status FeedbackReportStatus [not null, default: 'OPEN']
+  adminMessage String
+  reporterStudent Student
+  reporterStudentId Int
+  createdAt DateTime [default: `now()`, not null]
+  updatedAt DateTime [default: `now()`, not null]
 }
 
 Table StudentFriendship {
@@ -486,6 +737,10 @@ Table StudentCourseAttempt {
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   absences StudentAbsence [not null]
+
+  indexes {
+    (studentId, courseId, studyPeriodId) [unique]
+  }
 }
 
 Table ProfessorEvaluation {
@@ -667,6 +922,75 @@ Enum CatalogCoursePrerequisiteKind {
   SPECIAL
 }
 
+Enum CareerCode {
+  A
+  C
+  C3
+  C4
+  C5
+  D
+  F
+  G
+  H
+  I
+  J
+  L
+  M
+  MS3
+  MS3_1
+  MS3_2
+  MS5_1
+  MS5_2
+  MS5_3
+  MS6
+  O
+}
+
+Enum ProfessorRank {
+  PROFESSOR_ASSOCIADO
+  PROFESSOR_ASSOCIADO_I
+  PROFESSOR_ASSOCIADO_II
+  PROFESSOR_ASSOCIADO_III
+  PROFESSOR_ASSISTENTE
+  PROFESSOR_DOUTOR
+  PROFESSOR_DOUTOR_I
+  PROFESSOR_DOUTOR_II
+  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_II
+  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_III
+  PROFESSOR_PLENO
+  PROFESSOR_TITULAR
+  PROF_TITULAR_PS
+  PROFESSOR_SENIOR
+  DOCENTE_ENSINO_LINGUAS_I
+  DOCENTE_ENSINO_LINGUAS_III
+  DOCENTE_EDUCACAO_ESPECIAL_REABILITACAO_V
+}
+
+Enum PositionCategory {
+  MA_I
+  MA_II
+  MA_III
+  MTS_C
+}
+
+Enum IdentifierSystem {
+  LATTES
+  ORCID
+  SCOPUS
+  WEB_OF_SCIENCE
+  PUBLONS
+  GOOGLE_SCHOLAR
+  SCIELO
+  FAPESP
+}
+
+Enum TrainingDegree {
+  POST_DOCTORATE
+  DOCTORATE
+  MASTER
+  UNDERGRADUATE
+}
+
 Enum PeriodPlanningGuideMode {
   CURRICULUM
   PROGRAM
@@ -702,11 +1026,56 @@ Enum StudentCapability {
   STUDENT_PLANNING_WRITE
   STUDENT_SOCIAL_READ
   STUDENT_SOCIAL_WRITE
+  STUDENT_FEEDBACK_WRITE
+  STUDENT_FEEDBACK_READ
 }
 
 Enum StudentFriendshipStatus {
   PENDING
   ACCEPTED
+}
+
+Enum FeedbackReportKind {
+  BUG
+  SUGGESTION
+  DATA_ISSUE
+}
+
+Enum FeedbackReportTargetType {
+  GENERAL
+  FEATURE
+  ACADEMIC_RESOURCE
+}
+
+Enum FeedbackReportStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+Enum ExchangeNoticeDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+Enum JobRequestType {
+  INJECTION
+  NOTIFIER
+}
+
+Enum JobRequestStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+Enum JobRequestTrigger {
+  SCHEDULED
+  MANUAL
 }
 
 Enum CurriculumSuggestionType {
@@ -724,6 +1093,12 @@ Enum CourseRequirementType {
   any
   prefix
   specific
+}
+
+Enum DataAuditOperation {
+  CREATE
+  UPDATE
+  DELETE
 }
 
 Enum DayOfWeek {
@@ -757,6 +1132,7 @@ Enum StudentCourseAttemptStatus {
   APPROVED
   FAILED_BY_GRADE
   APPROVED_BY_ATTENDANCE
+  APPROVED_BY_PROFICIENCY
   FAILED_BY_ATTENDANCE
   SUFFICIENT
   INSUFFICIENT
@@ -764,9 +1140,13 @@ Enum StudentCourseAttemptStatus {
 
 Ref: AuthUser.studentId > Student.id [delete: Set Null]
 
+Ref: JobRequest.parentJobId - JobRequest.id [delete: Set Null]
+
 Ref: AuthUserRole.authUserId > AuthUser.id [delete: Cascade]
 
 Ref: AuthUserCapability.authUserId > AuthUser.id [delete: Cascade]
+
+Ref: Department.unitId > Unit.id
 
 Ref: Prefixes.unitId > Unit.id
 
@@ -826,6 +1206,28 @@ Ref: CourseRequirement.courseId > Course.id
 
 Ref: CourseRequirement.prefixId > Prefixes.id
 
+Ref: data_portal_professor_profile.professorId - Professor.id
+
+Ref: data_portal_professor_profile.unitId > Unit.id
+
+Ref: data_portal_professor_profile.departmentId > Department.id
+
+Ref: data_portal_professor_profile.positionId > data_portal_position.id
+
+Ref: data_portal_external_identity.profileId > data_portal_professor_profile.id
+
+Ref: data_portal_citation_name.profileId > data_portal_professor_profile.id
+
+Ref: data_portal_training.profileId > data_portal_professor_profile.id
+
+Ref: data_portal_professor_keyword.profileId > data_portal_professor_profile.id
+
+Ref: data_portal_professor_keyword.keywordId > data_portal_keyword.id
+
+Ref: data_portal_professor_coauthor.profileId > data_portal_professor_profile.id
+
+Ref: data_portal_professor_coauthor.coauthorId > data_portal_coauthor.id
+
 Ref: Class.studyPeriodId > StudyPeriod.id
 
 Ref: Class.courseId > Course.id
@@ -842,6 +1244,10 @@ Ref: MealObservation.mealId > Meal.id [delete: Cascade]
 
 Ref: MealServiceNote.mealId > Meal.id [delete: Cascade]
 
+Ref: ExchangeNotice.placeId > ExchangePlace.id [delete: Set Null]
+
+Ref: ExchangeNoticeFile.noticeId > ExchangeNotice.id [delete: Cascade]
+
 Ref: Student.programId > Program.id
 
 Ref: Student.specializationId > Specialization.id
@@ -851,6 +1257,18 @@ Ref: Student.catalogId > Catalog.id
 Ref: Student.languageId > Language.id
 
 Ref: Student.favoriteCurriculumId - Curriculum.id
+
+Ref: ExchangeNoticeSubscription.studentId - Student.id [delete: Cascade]
+
+Ref: ExchangeNoticeSubscriptionPlace.subscriptionStudentId > ExchangeNoticeSubscription.studentId [delete: Cascade]
+
+Ref: ExchangeNoticeSubscriptionPlace.placeId > ExchangePlace.id [delete: Cascade]
+
+Ref: ExchangeNoticeDelivery.studentId > Student.id [delete: Cascade]
+
+Ref: ExchangeNoticeDelivery.noticeId > ExchangeNotice.id [delete: Cascade]
+
+Ref: FeedbackReport.reporterStudentId > Student.id [delete: Set Null]
 
 Ref: StudentFriendship.studentAId > Student.id [delete: Cascade]
 

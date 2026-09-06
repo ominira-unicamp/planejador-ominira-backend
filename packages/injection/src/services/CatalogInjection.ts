@@ -430,11 +430,14 @@ async function importCatalog(
                     where: { code: program.code },
                     select: { id: true, name: true, unitId: true }
                 });
-                const unit = await tx.unit.upsert({
+                const unit = await tx.unit.findUnique({
                     where: { code: program.unitCode },
-                    create: { code: program.unitCode },
-                    update: {}
+                    select: { id: true }
                 });
+                if (!unit)
+                    throw new Error(
+                        `Unidade ${program.unitCode} não encontrada; execute a injeção do caderno de horários antes do catálogo`
+                    );
                 const persisted = await tx.program.upsert({
                     where: { code: program.code },
                     create: {

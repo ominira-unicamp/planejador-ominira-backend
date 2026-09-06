@@ -25,7 +25,8 @@ const professorEntity = z
         id: z.number().int(),
         name: z.string(),
         _paths: z.object({
-            entity: z.string()
+            entity: z.string(),
+            dataPortalProfile: z.string().nullable()
         })
     })
     .strict()

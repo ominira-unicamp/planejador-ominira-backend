@@ -25,6 +25,10 @@ import {
 } from "./services/ExchangeNoticesInjection.js";
 import type { InjectionContext } from "./services/InjectionTypes.js";
 import {
+    injectProfessorDataPortal,
+    type ProfessorDataPortalInjectionOptions
+} from "./services/ProfessorDataPortalInjection.js";
+import {
     injectSuggestions,
     type SuggestionsInjectionOptions
 } from "./services/SuggestionsInjection.js";
@@ -80,6 +84,11 @@ const services: Record<
         createService(
             injectSuggestions,
             options as SuggestionsInjectionOptions & InjectionOptions
+        ),
+    "professors-data-portal": (options) =>
+        createService(
+            injectProfessorDataPortal,
+            options as ProfessorDataPortalInjectionOptions & InjectionOptions
         )
 };
 

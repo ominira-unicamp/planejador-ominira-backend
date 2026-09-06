@@ -10,7 +10,8 @@
     },
     "scripts": {
         "build": "tsc -b",
-        "test": "tsx --test test/**/*.test.ts",
+        "test": "tsx --test test/**/*.test.ts scripts/**/*.test.ts",
+        "sync:academic-position-catalog": "tsx scripts/sync-academic-position-catalog.ts",
         "generate": "prisma generate --config prisma.config.ts",
         "migrate:dev": "prisma migrate dev --config prisma.config.ts",
         "migrate:deploy": "prisma migrate deploy --config prisma.config.ts",

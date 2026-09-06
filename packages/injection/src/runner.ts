@@ -30,6 +30,15 @@ export type InjectionRunContext = Pick<
     "jobId" | "trigger" | "requestedBy"
 >;
 
+export function databasePoolMax(options: Record<string, unknown>) {
+    const databaseConcurrency = options.databaseConcurrency;
+    return typeof databaseConcurrency === "number" &&
+        Number.isInteger(databaseConcurrency) &&
+        databaseConcurrency > 0
+        ? databaseConcurrency
+        : 1;
+}
+
 export async function runInjection(
     config: InjectionConfig,
     definition: InjectionDefinition,
@@ -204,8 +213,11 @@ async function runInjectionInternal(
             throw new Error(
                 "DATABASE_URL deve ser configurada para executar a injection"
             );
-        const prisma = createDatabaseClient(databaseUrl, { max: 1 });
+        const prisma = createDatabaseClient(databaseUrl, {
+            max: databasePoolMax(definition.options)
+        });
         let persistenceError: unknown;
+        const serviceIssues: unknown[] = [];
         try {
             try {
                 await service.run({
@@ -224,7 +236,8 @@ async function runInjectionInternal(
                             : {})
                     },
                     logger,
-                    signal
+                    signal,
+                    addIssue: (issue) => serviceIssues.push(issue)
                 });
             } catch (error) {
                 persistenceError = error;
@@ -241,6 +254,7 @@ async function runInjectionInternal(
             inputPath,
             runId,
             error: persistenceError,
+            serviceIssues,
             logger
         });
         if (persistenceError) throw persistenceError;
@@ -284,12 +298,14 @@ async function writeInjectionIssuesFile({
     inputPath,
     runId,
     error,
+    serviceIssues,
     logger
 }: {
     definition: InjectionDefinition;
     inputPath: string;
     runId: string;
     error: unknown;
+    serviceIssues: unknown[];
     logger: ReturnType<typeof createInjectionLogger>;
 }) {
     const issuesPath = `${inputPath}.issues.json`;
@@ -302,7 +318,10 @@ async function writeInjectionIssuesFile({
             runId,
             generatedAt: new Date().toISOString(),
             inputPath,
-            issues: Array.isArray(input.issues) ? input.issues : [],
+            issues: [
+                ...(Array.isArray(input.issues) ? input.issues : []),
+                ...serviceIssues
+            ],
             error: error ? serializeError(error) : null
         };
         await writeFile(
