@@ -408,7 +408,8 @@ model Tag {
   parentTagId Int?
   children Tag[] @relation("TagHierarchy")
 
-  courseTags CourseTag[]
+  courseTags       CourseTag[]
+  studentInterests StudentTagInterest[]
 
   @@unique([categoryId, name])
   @@index([parentTagId])
@@ -422,6 +423,20 @@ model CourseTag {
   tagId    Int
 
   @@id([courseId, tagId])
+  @@index([tagId])
+  @@schema("app")
+}
+
+model StudentTagInterest {
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId Int
+
+  tag   Tag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId Int
+
+  createdAt DateTime @default(now())
+
+  @@id([studentId, tagId])
   @@index([tagId])
   @@schema("app")
 }
@@ -1121,6 +1136,7 @@ model Student {
   feedbackReports            FeedbackReport[]
   exchangeNoticeSubscription ExchangeNoticeSubscription?
   exchangeNoticeDeliveries   ExchangeNoticeDelivery[]
+  tagInterests               StudentTagInterest[]
 
   @@schema("app")
 }

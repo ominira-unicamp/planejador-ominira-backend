@@ -66,6 +66,10 @@ import {
     type StudentSocialService
 } from "#/modules/social/student-social/StudentSocial.service.js";
 import {
+    createStudentTagInterestService,
+    type StudentTagInterestService
+} from "#/modules/student-tag-interest/StudentTagInterest.service.js";
+import {
     createTaggingService,
     type TaggingService
 } from "#/modules/tagging/Tagging.service.js";
@@ -93,6 +97,7 @@ export type AppCradle = {
     exchangeNoticeSubscriptionService: ExchangeNoticeSubscriptionService;
     exchangeNoticeUnsubscribeService: ExchangeNoticeUnsubscribeService;
     taggingService: TaggingService;
+    studentTagInterestService: StudentTagInterestService;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -136,7 +141,10 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         exchangeNoticeUnsubscribeService: asFunction(
             createExchangeNoticeUnsubscribeService
         ).scoped(),
-        taggingService: asFunction(createTaggingService).scoped()
+        taggingService: asFunction(createTaggingService).scoped(),
+        studentTagInterestService: asFunction(
+            createStudentTagInterestService
+        ).scoped()
     });
 }
 

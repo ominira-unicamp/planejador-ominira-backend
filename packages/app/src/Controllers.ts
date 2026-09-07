@@ -12,9 +12,18 @@ import identity from "#/modules/identity/index.js";
 import type { ControllerDefinition } from "#/modules/Module.js";
 import planning from "#/modules/planning/index.js";
 import social from "#/modules/social/index.js";
+import studentTagInterest from "#/modules/student-tag-interest-module.js";
 import tagging from "#/modules/tagging-module.js";
 
-const modules = [identity, planning, social, feedback, exchange, tagging];
+const modules = [
+    identity,
+    planning,
+    social,
+    feedback,
+    exchange,
+    tagging,
+    studentTagInterest
+];
 const controllers: ControllerDefinition[] = modules.flatMap(
     (module) => module.controllers
 );

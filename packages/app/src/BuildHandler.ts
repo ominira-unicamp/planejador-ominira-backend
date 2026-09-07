@@ -15,6 +15,7 @@ import type { StudentCourseAttemptService } from "#/modules/planning/student-cou
 import type { StudentHistoryImportService } from "#/modules/planning/student-history-import/StudentHistoryImport.service.js";
 import type { StudentService } from "#/modules/planning/student/Student.service.js";
 import type { StudentSocialService } from "#/modules/social/student-social/StudentSocial.service.js";
+import type { StudentTagInterestService } from "#/modules/student-tag-interest/StudentTagInterest.service.js";
 import type { TaggingService } from "#/modules/tagging/Tagging.service.js";
 import {
     createEndpointRegistries,
@@ -40,6 +41,7 @@ export type Context = {
     exchangeNoticeSubscriptionService: ExchangeNoticeSubscriptionService;
     exchangeNoticeUnsubscribeService: ExchangeNoticeUnsubscribeService;
     taggingService: TaggingService;
+    studentTagInterestService: StudentTagInterestService;
     requestIp: string;
 };
 
@@ -77,6 +79,8 @@ export function createAppEndpointRegistries<
             exchangeNoticeUnsubscribeService:
                 request.scope.cradle.exchangeNoticeUnsubscribeService,
             taggingService: request.scope.cradle.taggingService,
+            studentTagInterestService:
+                request.scope.cradle.studentTagInterestService,
             requestIp: request.ip ?? "unknown"
         }),
         registerAuthorization: (method, path, authorization) =>
