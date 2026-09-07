@@ -66,6 +66,36 @@ function selectionData(selection: CreateCurriculumInput["selection"]) {
     };
 }
 
+function patchSelectionData(
+    selection: PatchCurriculumInput["selection"],
+    existing: {
+        catalogProgramId: number | null;
+        catalogSpecialization: { specializationId: number } | null;
+        catalogLanguage: { languageId: number } | null;
+    }
+) {
+    const catalogProgramId =
+        selection?.catalogProgramId !== undefined
+            ? selection.catalogProgramId
+            : existing.catalogProgramId;
+    const programChanged =
+        selection?.catalogProgramId !== undefined &&
+        catalogProgramId !== existing.catalogProgramId;
+    return selectionData({
+        catalogProgramId,
+        specializationId: programChanged
+            ? null
+            : selection?.specializationId !== undefined
+              ? selection.specializationId
+              : (existing.catalogSpecialization?.specializationId ?? null),
+        languageId: programChanged
+            ? null
+            : selection?.languageId !== undefined
+              ? selection.languageId
+              : (existing.catalogLanguage?.languageId ?? null)
+    });
+}
+
 async function resolveSelection(
     prisma: TransactionClient | PrismaClient,
     selection: ReturnType<typeof selectionData>
@@ -409,19 +439,10 @@ export function createCurriculumService({
                 }
             });
             if (!existing) return err(curriculumNotFoundProblem());
-            const requestedSelection = selectionData({
-                catalogProgramId:
-                    input.selection?.catalogProgramId ??
-                    existing.catalogProgramId,
-                specializationId:
-                    input.selection?.specializationId ??
-                    existing.catalogSpecialization?.specializationId ??
-                    null,
-                languageId:
-                    input.selection?.languageId ??
-                    existing.catalogLanguage?.languageId ??
-                    null
-            });
+            const requestedSelection = patchSelectionData(
+                input.selection,
+                existing
+            );
             const selection = await resolveSelection(
                 prisma,
                 requestedSelection
