@@ -54,7 +54,10 @@ const listCourseQuery = z
         }),
         unitId: z.coerce.number().int().optional(),
         unitCode: z.string().min(1).optional(),
-        courseCode: z.string().min(1).optional()
+        courseCode: z.string().min(1).optional(),
+        q: z.string().trim().min(1).optional(),
+        catalogYear: z.coerce.number().int().optional(),
+        tagId: z.coerce.number().int().positive().optional()
     })
     .openapi("ListCoursesQuery");
 export type ListQueryParams = z.infer<typeof listCourseQuery>;

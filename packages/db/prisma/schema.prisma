@@ -178,6 +178,14 @@ enum StudentFriendshipStatus {
   @@schema("app")
 }
 
+enum PeriodPlanningVisibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+
+  @@schema("app")
+}
+
 enum FeedbackReportKind {
   BUG
   SUGGESTION
@@ -1373,6 +1381,8 @@ model PeriodPlanning {
   specializationId       Int?
   language               Language?                       @relation(fields: [languageId], references: [id], onDelete: SetNull)
   languageId             Int?
+  visibility             PeriodPlanningVisibility @default(PRIVATE)
+  shareId                String                   @unique @default(dbgenerated("gen_random_uuid()"))
   createdAt              DateTime                        @default(now())
   updatedAt              DateTime                        @updatedAt
 
@@ -1385,6 +1395,7 @@ model PeriodPlanning {
   @@index([catalogProgramId])
   @@index([specializationId])
   @@index([languageId])
+  @@index([visibility, studyPeriodId, updatedAt])
   @@schema("app")
 }
 

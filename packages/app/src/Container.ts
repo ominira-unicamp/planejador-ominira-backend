@@ -42,6 +42,10 @@ import {
     type ProfessorEvaluationService
 } from "#/modules/planning/professor-evaluation/ProfessorEvaluation.service.js";
 import {
+    createSharedPeriodPlanService,
+    type SharedPeriodPlanService
+} from "#/modules/planning/shared-period-plan/SharedPeriodPlan.service.js";
+import {
     createStudentAbsenceService,
     type StudentAbsenceService
 } from "#/modules/planning/student-absence/StudentAbsence.service.js";
@@ -81,6 +85,7 @@ export type AppCradle = {
     authUserService: AuthUserService;
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
+    sharedPeriodPlanService: SharedPeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
     studentSocialService: StudentSocialService;
     feedbackReportService: FeedbackReportService;
@@ -111,6 +116,9 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         authUserService: asFunction(createAuthUserService).scoped(),
         curriculumService: asFunction(createCurriculumService).scoped(),
         periodPlanService: asFunction(createPeriodPlanService).scoped(),
+        sharedPeriodPlanService: asFunction(
+            createSharedPeriodPlanService
+        ).scoped(),
         professorEvaluationService: asFunction(
             createProfessorEvaluationService
         ).scoped(),

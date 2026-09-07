@@ -36,6 +36,45 @@ export const guideSchema = z
     })
     .strict();
 
+export const periodPlanningClass = z
+    .object({
+        id: z.number().int(),
+        code: z.string(),
+        reservations: z.array(z.number().int()),
+        courseId: z.number().int(),
+        courseCode: z.string(),
+        courseCredits: z.number(),
+        professors: z.array(
+            z
+                .object({
+                    id: z.number().int(),
+                    name: z.string()
+                })
+                .strict()
+        ),
+        classSchedules: z.array(
+            z
+                .object({
+                    id: z.number().int(),
+                    dayOfWeek: z.enum([
+                        "MONDAY",
+                        "TUESDAY",
+                        "WEDNESDAY",
+                        "THURSDAY",
+                        "FRIDAY",
+                        "SATURDAY",
+                        "SUNDAY"
+                    ]),
+                    start: z.string(),
+                    end: z.string(),
+                    roomId: z.number().int(),
+                    roomCode: z.string()
+                })
+                .strict()
+        )
+    })
+    .strict();
+
 const periodPlanningEntity = z
     .object({
         id: z.number().int(),
@@ -50,49 +89,12 @@ const periodPlanningEntity = z
             "SECOND_SEMESTER"
         ]),
         curriculumId: z.number().int().nullable(),
+        visibility: z.enum(["PRIVATE", "FRIENDS", "PUBLIC"]),
+        shareId: z.string().uuid(),
         guide: guideSchema,
         createdAt: z.string().datetime(),
         updatedAt: z.string().datetime(),
-        classes: z.array(
-            z
-                .object({
-                    id: z.number().int(),
-                    code: z.string(),
-                    reservations: z.array(z.number().int()),
-                    courseId: z.number().int(),
-                    courseCode: z.string(),
-                    courseCredits: z.number(),
-                    professors: z.array(
-                        z
-                            .object({
-                                id: z.number().int(),
-                                name: z.string()
-                            })
-                            .strict()
-                    ),
-                    classSchedules: z.array(
-                        z
-                            .object({
-                                id: z.number().int(),
-                                dayOfWeek: z.enum([
-                                    "MONDAY",
-                                    "TUESDAY",
-                                    "WEDNESDAY",
-                                    "THURSDAY",
-                                    "FRIDAY",
-                                    "SATURDAY",
-                                    "SUNDAY"
-                                ]),
-                                start: z.string(),
-                                end: z.string(),
-                                roomId: z.number().int(),
-                                roomCode: z.string()
-                            })
-                            .strict()
-                    )
-                })
-                .strict()
-        ),
+        classes: z.array(periodPlanningClass),
         _paths: z
             .object({
                 self: z.string(),
@@ -186,6 +188,7 @@ const create = {
 export const patchBody = z
     .object({
         name: z.string().trim().min(1).optional(),
+        visibility: z.enum(["PRIVATE", "FRIENDS", "PUBLIC"]).optional(),
         curriculumId: z.number().int().nullable().optional(),
         guide: guideSchema.optional(),
         classes: z

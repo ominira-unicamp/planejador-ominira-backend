@@ -9,6 +9,7 @@ import type { CurrentUserService } from "#/modules/identity/current-user/Current
 import type { CurriculumService } from "#/modules/planning/curriculum/Curriculum.service.js";
 import type { PeriodPlanService } from "#/modules/planning/period-plan/PeriodPlan.service.js";
 import type { ProfessorEvaluationService } from "#/modules/planning/professor-evaluation/ProfessorEvaluation.service.js";
+import type { SharedPeriodPlanService } from "#/modules/planning/shared-period-plan/SharedPeriodPlan.service.js";
 import type { StudentAbsenceService } from "#/modules/planning/student-absence/StudentAbsence.service.js";
 import type { StudentCourseAttemptService } from "#/modules/planning/student-course-attempt/StudentCourseAttempt.service.js";
 import type { StudentHistoryImportService } from "#/modules/planning/student-history-import/StudentHistoryImport.service.js";
@@ -32,6 +33,7 @@ export type Context = {
     authUserService: AuthUserService;
     curriculumService: CurriculumService;
     periodPlanService: PeriodPlanService;
+    sharedPeriodPlanService: SharedPeriodPlanService;
     professorEvaluationService: ProfessorEvaluationService;
     studentSocialService: StudentSocialService;
     feedbackReportService: FeedbackReportService;
@@ -64,6 +66,8 @@ export function createAppEndpointRegistries<
             authUserService: request.scope.cradle.authUserService,
             curriculumService: request.scope.cradle.curriculumService,
             periodPlanService: request.scope.cradle.periodPlanService,
+            sharedPeriodPlanService:
+                request.scope.cradle.sharedPeriodPlanService,
             professorEvaluationService:
                 request.scope.cradle.professorEvaluationService,
             studentSocialService: request.scope.cradle.studentSocialService,

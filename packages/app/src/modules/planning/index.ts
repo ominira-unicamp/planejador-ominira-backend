@@ -4,6 +4,7 @@ import curriculum from "#/modules/planning/curriculum/index.js";
 import periodPlan from "#/modules/planning/period-plan/index.js";
 import periodPlanAlias from "#/modules/planning/period-plan/PeriodPlanAlias.controller.js";
 import professorEvaluation from "#/modules/planning/professor-evaluation/index.js";
+import sharedPeriodPlan from "#/modules/planning/shared-period-plan/index.js";
 import studentAbsence from "#/modules/planning/student-absence/index.js";
 import studentCourseAttempt from "#/modules/planning/student-course-attempt/index.js";
 import studentHistoryImport from "#/modules/planning/student-history-import/index.js";
@@ -16,6 +17,7 @@ const controllers: ModuleDefinition["controllers"] = [
     curriculum,
     periodPlan,
     periodPlanAlias,
+    sharedPeriodPlan,
     professorEvaluation,
     studentCourseAttempt,
     studentHistoryImport,

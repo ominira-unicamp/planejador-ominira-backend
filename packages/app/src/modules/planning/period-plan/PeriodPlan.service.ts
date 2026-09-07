@@ -430,6 +430,9 @@ export function createPeriodPlanService({
                 where: { id },
                 data: {
                     ...(input.name !== undefined && { name: input.name }),
+                    ...(input.visibility !== undefined && {
+                        visibility: input.visibility
+                    }),
                     ...(guide ? guideUpdateData(guide) : {}),
                     ...(input.classes
                         ? { classes: classUpdateData(input.classes) }
