@@ -14,8 +14,7 @@ export const prismaCatalogCourseSelection = {
                     select: {
                         code: true,
                         kind: true,
-                        courseId: true,
-                        prefixId: true
+                        courseId: true
                     }
                 }
             }

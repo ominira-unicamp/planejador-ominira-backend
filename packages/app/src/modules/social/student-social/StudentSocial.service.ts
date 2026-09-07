@@ -21,10 +21,31 @@ const personSelection = {
     publicProfileEnabled: true,
     publicDisplayName: true,
     publicBio: true,
-    showProgram: true,
-    showSpecialization: true,
-    showEntryYear: true,
+    currentCoursesVisibility: true,
     entryYear: true,
+    tagInterests: {
+        include: { tag: { select: { id: true, name: true } } }
+    },
+    courseAttempts: {
+        where: { status: "ENROLLED" },
+        select: {
+            course: { select: { code: true, name: true } },
+            class: {
+                select: {
+                    code: true,
+                    classSchedules: {
+                        select: {
+                            id: true,
+                            dayOfWeek: true,
+                            start: true,
+                            end: true,
+                            room: { select: { code: true } }
+                        }
+                    }
+                }
+            }
+        }
+    },
     program: { select: { code: true, name: true } },
     specialization: { select: { code: true, name: true } }
 } as const;
@@ -36,10 +57,29 @@ type SelectedPerson = {
     publicProfileEnabled: boolean;
     publicDisplayName: string | null;
     publicBio: string | null;
-    showProgram: boolean;
-    showSpecialization: boolean;
-    showEntryYear: boolean;
+    currentCoursesVisibility: "PRIVATE" | "FRIENDS" | "PUBLIC";
     entryYear: number | null;
+    tagInterests: Array<{ tag: { id: number; name: string } }>;
+    courseAttempts: Array<{
+        course: { code: string; name: string };
+        class: {
+            code: string;
+            classSchedules: Array<{
+                id: number;
+                dayOfWeek:
+                    | "MONDAY"
+                    | "TUESDAY"
+                    | "WEDNESDAY"
+                    | "THURSDAY"
+                    | "FRIDAY"
+                    | "SATURDAY"
+                    | "SUNDAY";
+                start: string;
+                end: string;
+                room: { code: string };
+            }>;
+        } | null;
+    }>;
     program: { code: number; name: string } | null;
     specialization: { code: string; name: string } | null;
 };
@@ -47,19 +87,45 @@ type SelectedPerson = {
 function buildPerson(
     student: SelectedPerson,
     viewerStudentId: number,
-    forceMinimal = false
+    forceMinimal = false,
+    acceptedFriendIds?: ReadonlySet<number>
 ): Person {
     const disclose = student.publicProfileEnabled && !forceMinimal;
+    const canViewCurrentCourses =
+        !forceMinimal &&
+        (student.id === viewerStudentId ||
+            student.currentCoursesVisibility === "PUBLIC" ||
+            (student.currentCoursesVisibility === "FRIENDS" &&
+                acceptedFriendIds?.has(student.id) === true));
     return {
         publicId: student.publicId,
         displayName: student.publicDisplayName ?? student.name,
         bio: disclose ? student.publicBio : null,
-        program: disclose && student.showProgram ? student.program : null,
-        specialization:
-            disclose && student.showSpecialization
-                ? student.specialization
-                : null,
-        entryYear: disclose && student.showEntryYear ? student.entryYear : null,
+        interests: disclose
+            ? student.tagInterests
+                  .map(({ tag }) => ({ id: tag.id, name: tag.name }))
+                  .sort((left, right) =>
+                      left.name.localeCompare(right.name, "pt-BR")
+                  )
+            : [],
+        currentCourses: canViewCurrentCourses
+            ? student.courseAttempts.map(({ course, class: classData }) => ({
+                  courseCode: course.code,
+                  courseName: course.name,
+                  classCode: classData?.code ?? null,
+                  schedules:
+                      classData?.classSchedules.map((schedule) => ({
+                          id: schedule.id,
+                          dayOfWeek: schedule.dayOfWeek,
+                          start: schedule.start,
+                          end: schedule.end,
+                          roomCode: schedule.room.code
+                      })) ?? []
+              }))
+            : [],
+        program: disclose ? student.program : null,
+        specialization: disclose ? student.specialization : null,
+        entryYear: disclose ? student.entryYear : null,
         _paths: {
             self: `/student/${viewerStudentId}/people/${student.publicId}`
         }
@@ -71,14 +137,32 @@ function buildProfile(student: SelectedPerson): Profile {
         publicId: student.publicId,
         displayName: student.publicDisplayName ?? student.name,
         bio: student.publicBio,
+        interests: student.tagInterests
+            .map(({ tag }) => ({ id: tag.id, name: tag.name }))
+            .sort((left, right) =>
+                left.name.localeCompare(right.name, "pt-BR")
+            ),
+        currentCourses: student.courseAttempts.map(
+            ({ course, class: classData }) => ({
+                courseCode: course.code,
+                courseName: course.name,
+                classCode: classData?.code ?? null,
+                schedules:
+                    classData?.classSchedules.map((schedule) => ({
+                        id: schedule.id,
+                        dayOfWeek: schedule.dayOfWeek,
+                        start: schedule.start,
+                        end: schedule.end,
+                        roomCode: schedule.room.code
+                    })) ?? []
+            })
+        ),
         program: student.program,
         specialization: student.specialization,
         entryYear: student.entryYear,
         _paths: { self: `/student/${student.id}/public-profile` },
         enabled: student.publicProfileEnabled,
-        showProgram: student.showProgram,
-        showSpecialization: student.showSpecialization,
-        showEntryYear: student.showEntryYear
+        currentCoursesVisibility: student.currentCoursesVisibility
     };
 }
 
@@ -108,7 +192,12 @@ function buildFriendship(
                 : row.requestedById === studentId
                   ? "OUTGOING"
                   : "INCOMING",
-        friend: buildPerson(friend, studentId, !friend.publicProfileEnabled),
+        friend: buildPerson(
+            friend,
+            studentId,
+            !friend.publicProfileEnabled,
+            row.status === "ACCEPTED" ? new Set([friend.id]) : undefined
+        ),
         createdAt: row.createdAt.toISOString(),
         acceptedAt: row.acceptedAt?.toISOString() ?? null,
         _paths: {
@@ -214,9 +303,7 @@ export function createStudentSocialService({
                     publicProfileEnabled: input.enabled,
                     publicDisplayName: input.displayName,
                     publicBio: input.bio,
-                    showProgram: input.showProgram,
-                    showSpecialization: input.showSpecialization,
-                    showEntryYear: input.showEntryYear
+                    currentCoursesVisibility: input.currentCoursesVisibility
                 },
                 select: personSelection
             });
@@ -244,9 +331,11 @@ export function createStudentSocialService({
                 id: { not: studentId },
                 publicProfileEnabled: true,
                 authUsers: { some: { status: "ACTIVE" as const } },
-                ...(z.string().uuid().safeParse(input.query).success
-                    ? { OR: [{ publicId: input.query }, visibleName] }
-                    : visibleName)
+                ...(input.query === undefined
+                    ? {}
+                    : z.string().uuid().safeParse(input.query).success
+                      ? { OR: [{ publicId: input.query }, visibleName] }
+                      : visibleName)
             };
             const [students, total] = await Promise.all([
                 prisma.student.findMany({
@@ -258,9 +347,32 @@ export function createStudentSocialService({
                 }),
                 prisma.student.count({ where })
             ]);
+            const acceptedFriendIds = new Set<number>();
+            if (
+                students.some(
+                    (student) => student.currentCoursesVisibility === "FRIENDS"
+                )
+            ) {
+                const friendships = await prisma.studentFriendship.findMany({
+                    where: {
+                        status: "ACCEPTED",
+                        OR: [
+                            { studentAId: studentId },
+                            { studentBId: studentId }
+                        ]
+                    },
+                    select: { studentAId: true, studentBId: true }
+                });
+                for (const friendship of friendships)
+                    acceptedFriendIds.add(
+                        friendship.studentAId === studentId
+                            ? friendship.studentBId
+                            : friendship.studentAId
+                    );
+            }
             return {
                 items: students.map((student) =>
-                    buildPerson(student, studentId)
+                    buildPerson(student, studentId, false, acceptedFriendIds)
                 ),
                 page: input.page,
                 pageSize: input.pageSize,
@@ -277,13 +389,29 @@ export function createStudentSocialService({
                 },
                 select: personSelection
             });
-            return student
-                ? ok(buildPerson(student, studentId))
-                : err(
-                      socialNotFoundProblem(
-                          "O perfil público solicitado não foi encontrado."
-                      )
-                  );
+            if (!student)
+                return err(
+                    socialNotFoundProblem(
+                        "O perfil público solicitado não foi encontrado."
+                    )
+                );
+            const acceptedFriendIds = new Set<number>();
+            if (student.currentCoursesVisibility === "FRIENDS") {
+                const friendship = await prisma.studentFriendship.findFirst({
+                    where: {
+                        status: "ACCEPTED",
+                        OR: [
+                            { studentAId: studentId, studentBId: student.id },
+                            { studentAId: student.id, studentBId: studentId }
+                        ]
+                    },
+                    select: { id: true }
+                });
+                if (friendship) acceptedFriendIds.add(student.id);
+            }
+            return ok(
+                buildPerson(student, studentId, false, acceptedFriendIds)
+            );
         },
         async listFriendships(studentId, input) {
             const rows = await prisma.studentFriendship.findMany({

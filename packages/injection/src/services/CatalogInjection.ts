@@ -191,10 +191,10 @@ function parseRequirements(tableHtml: string) {
         const code = normalizeCourseCode(text(match[1]));
         let requirement: RequirementSource | undefined;
         if (code === "-----") requirement = { type: CourseRequirementType.any };
-        else if (/^[A-Z]{2}---$/.test(code))
+        else if (/^[A-Z0-9]+-+$/.test(code))
             requirement = {
                 type: CourseRequirementType.prefix,
-                code: code.slice(0, 2)
+                code: code.replace(/-+$/, "")
             };
         else if (/^(?:[A-Z]{2}\d{3}|F \d{3,4})$/.test(code))
             requirement = { type: CourseRequirementType.specific, code };
@@ -314,8 +314,7 @@ async function replaceCourseBlocks(
     tx: TxType,
     parent: CourseBlockParent,
     blocks: CourseBlockSource[],
-    courseIds: Map<string, number>,
-    prefixIds: Map<string, number>
+    courseIds: Map<string, number>
 ) {
     await tx.courseBlock.deleteMany({ where: parent });
     const missing = new Set<string>();
@@ -334,12 +333,7 @@ async function replaceCourseBlocks(
                     }
                     return [{ type: requirement.type, courseId }];
                 }
-                const prefixId = prefixIds.get(requirement.code!);
-                if (prefixId === undefined) {
-                    missing.add(`${requirement.code}---`);
-                    return [];
-                }
-                return [{ type: requirement.type, prefixId }];
+                return [{ type: requirement.type, prefix: requirement.code }];
             }
         );
         if (requirements.length === 0) continue;
@@ -367,7 +361,6 @@ async function importCatalog(
     prisma: PrismaClient,
     source: CatalogSource,
     courseIds: Map<string, number>,
-    prefixIds: Map<string, number>,
     options: Required<
         Pick<
             CatalogInjectionOptions,
@@ -505,8 +498,7 @@ async function importCatalog(
                         tx,
                         { catalogProgramId: catalogProgram.id },
                         program.blocks,
-                        courseIds,
-                        prefixIds
+                        courseIds
                     )
                 );
                 for (const specialization of program.specializations) {
@@ -547,8 +539,7 @@ async function importCatalog(
                                     catalogSpecialization.id
                             },
                             specialization.blocks,
-                            courseIds,
-                            prefixIds
+                            courseIds
                         )
                     );
                     specializationsLinked += 1;
@@ -579,8 +570,7 @@ async function importCatalog(
                             tx,
                             { catalogLanguageId: catalogLanguage.id },
                             language.blocks,
-                            courseIds,
-                            prefixIds
+                            courseIds
                         )
                     );
                     languagesLinked += 1;
@@ -622,15 +612,11 @@ export async function injectCatalogs(
         throw new Error("transactionTimeout deve ser um inteiro positivo");
     if (!Number.isInteger(transactionMaxWait) || transactionMaxWait < 1)
         throw new Error("transactionMaxWait deve ser um inteiro positivo");
-    const [courses, prefixes] = await Promise.all([
-        prisma.course.findMany({ select: { id: true, code: true } }),
-        prisma.prefixes.findMany({ select: { id: true, prefix: true } })
-    ]);
+    const courses = await prisma.course.findMany({
+        select: { id: true, code: true }
+    });
     const courseIds = new Map(
         courses.map((course) => [normalizeCourseCode(course.code), course.id])
-    );
-    const prefixIds = new Map(
-        prefixes.map((prefix) => [prefix.prefix.toUpperCase(), prefix.id])
     );
     const catalogs = normalizeCatalogs(
         JSON.parse(await readFile(inputPath, "utf8"))
@@ -646,7 +632,6 @@ export async function injectCatalogs(
             prisma,
             catalog,
             courseIds,
-            prefixIds,
             {
                 transactionTimeout,
                 transactionMaxWait

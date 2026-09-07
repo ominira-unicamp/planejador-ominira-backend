@@ -121,19 +121,24 @@ export function createSharedPeriodPlanService({
             { studentBId: viewerId, status: "ACCEPTED" as const }
         ]
     });
-    const sharedWhere = (studentId: number) => ({
-        OR: [
-            { visibility: "PUBLIC" as const },
-            {
-                visibility: "FRIENDS" as const,
-                student: { friendshipsAsA: { some: findFriend(studentId) } }
-            },
-            {
-                visibility: "FRIENDS" as const,
-                student: { friendshipsAsB: { some: findFriend(studentId) } }
-            }
-        ]
-    });
+    const sharedWhere = (studentId: number, ownerPublicId?: string) => {
+        const visibility = {
+            OR: [
+                { visibility: "PUBLIC" as const },
+                {
+                    visibility: "FRIENDS" as const,
+                    student: { friendshipsAsA: { some: findFriend(studentId) } }
+                },
+                {
+                    visibility: "FRIENDS" as const,
+                    student: { friendshipsAsB: { some: findFriend(studentId) } }
+                }
+            ]
+        };
+        return ownerPublicId
+            ? { AND: [{ student: { publicId: ownerPublicId } }, visibility] }
+            : visibility;
+    };
     return {
         async listPublic(input) {
             const where = publicWhere(input);
@@ -162,7 +167,7 @@ export function createSharedPeriodPlanService({
             return row ? ok(buildShared(row)) : err(notFound());
         },
         async listForStudent(studentId, input) {
-            const where = sharedWhere(studentId);
+            const where = sharedWhere(studentId, input.ownerPublicId);
             const [rows, total] = await Promise.all([
                 prisma.periodPlanning.findMany({
                     ...selection,

@@ -200,6 +200,7 @@ export const patchBody = z
                     .transform((arr) => new Set(arr))
             })
             .partial()
+            .optional()
     })
     .strict();
 

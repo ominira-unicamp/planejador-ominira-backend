@@ -19,12 +19,6 @@ export const prismaBlockSetSelection = {
                             select: { id: true, catalogId: true }
                         }
                     }
-                },
-                prefix: {
-                    select: {
-                        id: true,
-                        prefix: true
-                    }
                 }
             }
         }
@@ -116,8 +110,7 @@ function transformCourseBlocks(
                 courseId: req.courseId,
                 courseCode: req.course?.code ?? null,
                 courseName: req.course?.name ?? null,
-                prefixId: req.prefixId,
-                prefix: req.prefix?.prefix ?? null,
+                prefix: req.prefix,
                 catalogCourseId: catalogCourse?.id ?? null,
                 _paths: {
                     catalogCourse: catalogCourse
@@ -139,8 +132,7 @@ function transformCourseBlocks(
                 courseId: req.courseId,
                 courseCode: req.course?.code ?? null,
                 courseName: req.course?.name ?? null,
-                prefixId: req.prefixId,
-                prefix: req.prefix?.prefix ?? null,
+                prefix: req.prefix,
                 catalogCourseId: catalogCourse?.id ?? null,
                 _paths: {
                     catalogCourse: catalogCourse

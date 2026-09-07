@@ -321,7 +321,6 @@ model Unit {
   code                        String                       @unique
   name                        String
   courses                     Course[]
-  prefixes                    Prefixes[]
   programs                    Program[]
   departments                 Department[]
   professorDataPortalProfiles ProfessorDataPortalProfile[]
@@ -350,19 +349,6 @@ model Coordinator {
   @@schema("data")
 }
 
-model Prefixes {
-  id     Int    @id @default(autoincrement())
-  prefix String @unique
-  unit   Unit   @relation(fields: [unitId], references: [id])
-  unitId Int
-
-  courseRequirements       CourseRequirement[]
-  courses                  Course[]
-  catalogPrerequisiteItems CatalogCoursePrerequisiteItem[]
-
-  @@schema("data")
-}
-
 model Course {
   id       Int       @id @default(autoincrement())
   code     String    @unique
@@ -370,8 +356,6 @@ model Course {
   credits  Int
   unit     Unit?     @relation(fields: [unitId], references: [id])
   unitId   Int?
-  prefix   Prefixes? @relation(fields: [prefixId], references: [id])
-  prefixId Int?
 
   classes                     Class[]
   catalogCourses              CatalogCourse[]
@@ -383,7 +367,6 @@ model Course {
   catalogPrerequisiteItems    CatalogCoursePrerequisiteItem[]
   courseTags                  CourseTag[]
 
-  @@index([prefixId])
   @@index([unitId])
   @@schema("data")
 }
@@ -512,10 +495,8 @@ model CatalogCoursePrerequisiteItem {
   code     String
   kind     CatalogCoursePrerequisiteKind
   courseId Int?
-  prefixId Int?
 
-  course Course?   @relation(fields: [courseId], references: [id])
-  prefix Prefixes? @relation(fields: [prefixId], references: [id])
+  course Course? @relation(fields: [courseId], references: [id])
 
   @@schema("data")
 }
@@ -701,8 +682,7 @@ model CourseRequirement {
   type          CourseRequirementType
   course        Course?               @relation(fields: [courseId], references: [id])
   courseId      Int?
-  prefix        Prefixes?             @relation(fields: [prefixId], references: [id])
-  prefixId      Int?
+  prefix        String?
 
   @@index([courseBlockId])
   @@schema("data")
@@ -1101,6 +1081,14 @@ enum StudentCourseAttemptStatus {
   @@schema("app")
 }
 
+enum StudentCurrentCoursesVisibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+
+  @@schema("app")
+}
+
 model Student {
   id                   Int             @id @default(autoincrement())
   ra                   String          @unique
@@ -1119,9 +1107,7 @@ model Student {
   publicProfileEnabled Boolean         @default(false)
   publicDisplayName    String?         @db.VarChar(80)
   publicBio            String?         @db.VarChar(280)
-  showProgram          Boolean         @default(false)
-  showSpecialization   Boolean         @default(false)
-  showEntryYear        Boolean         @default(false)
+  currentCoursesVisibility StudentCurrentCoursesVisibility @default(PRIVATE)
 
   courseAttempts             StudentCourseAttempt[]
   professorEvaluations       ProfessorEvaluation[]

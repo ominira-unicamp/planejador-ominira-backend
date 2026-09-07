@@ -236,11 +236,22 @@ export function createStudentService({
             const existing = await prisma.student.findUnique({ where: { id } });
             if (!existing) return err(studentNotFoundProblem());
             const validation = await validateAcademicSelection(prisma, {
-                catalogId: input.catalogId ?? existing.catalogId,
-                programId: input.programId ?? existing.programId,
+                catalogId:
+                    input.catalogId !== undefined
+                        ? input.catalogId
+                        : existing.catalogId,
+                programId:
+                    input.programId !== undefined
+                        ? input.programId
+                        : existing.programId,
                 specializationId:
-                    input.specializationId ?? existing.specializationId,
-                languageId: input.languageId ?? existing.languageId
+                    input.specializationId !== undefined
+                        ? input.specializationId
+                        : existing.specializationId,
+                languageId:
+                    input.languageId !== undefined
+                        ? input.languageId
+                        : existing.languageId
             });
             if (validation?.kind === "reference")
                 return err(studentReferenceNotFoundProblem(validation.fields));

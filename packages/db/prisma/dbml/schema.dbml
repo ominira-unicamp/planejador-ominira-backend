@@ -71,9 +71,8 @@ Table AuthUserCapability {
 Table Unit {
   id Int [pk, increment]
   code String [unique, not null]
-  name String
+  name String [not null]
   courses Course [not null]
-  prefixes Prefixes [not null]
   programs Program [not null]
   departments Department [not null]
   professorDataPortalProfiles data_portal_professor_profile [not null]
@@ -97,16 +96,6 @@ Table Coordinator {
   catalogCourses CatalogCourse [not null]
 }
 
-Table Prefixes {
-  id Int [pk, increment]
-  prefix String [unique, not null]
-  unit Unit [not null]
-  unitId Int [not null]
-  courseRequirements CourseRequirement [not null]
-  courses Course [not null]
-  catalogPrerequisiteItems CatalogCoursePrerequisiteItem [not null]
-}
-
 Table Course {
   id Int [pk, increment]
   code String [unique, not null]
@@ -114,8 +103,6 @@ Table Course {
   credits Int [not null]
   unit Unit
   unitId Int
-  prefix Prefixes
-  prefixId Int
   classes Class [not null]
   catalogCourses CatalogCourse [not null]
   studentCourseAttempts StudentCourseAttempt [not null]
@@ -124,6 +111,52 @@ Table Course {
   suggestionCourses SuggestionCourse [not null]
   periodPlanningManualCourses PeriodPlanningManualCourse [not null]
   catalogPrerequisiteItems CatalogCoursePrerequisiteItem [not null]
+  courseTags CourseTag [not null]
+}
+
+Table Category {
+  id Int [pk, increment]
+  name String [unique, not null]
+  tags Tag [not null]
+}
+
+Table Tag {
+  id Int [pk, increment]
+  name String [not null]
+  category Category [not null]
+  categoryId Int [not null]
+  parent Tag
+  parentTagId Int
+  children Tag [not null]
+  courseTags CourseTag [not null]
+  studentInterests StudentTagInterest [not null]
+
+  indexes {
+    (categoryId, name) [unique]
+  }
+}
+
+Table CourseTag {
+  course Course [not null]
+  courseId Int [not null]
+  tag Tag [not null]
+  tagId Int [not null]
+
+  indexes {
+    (courseId, tagId) [pk]
+  }
+}
+
+Table StudentTagInterest {
+  student Student [not null]
+  studentId Int [not null]
+  tag Tag [not null]
+  tagId Int [not null]
+  createdAt DateTime [default: `now()`, not null]
+
+  indexes {
+    (studentId, tagId) [pk]
+  }
 }
 
 Table Catalog {
@@ -181,9 +214,7 @@ Table CatalogCoursePrerequisiteItem {
   code String [not null]
   kind CatalogCoursePrerequisiteKind [not null]
   courseId Int
-  prefixId Int
   course Course
-  prefix Prefixes
 }
 
 Table Program {
@@ -329,8 +360,7 @@ Table CourseRequirement {
   type CourseRequirementType [not null]
   course Course
   courseId Int
-  prefix Prefixes
-  prefixId Int
+  prefix String
 }
 
 Table DataAuditEvent {
@@ -391,16 +421,31 @@ Table data_portal_professor_profile {
   coauthors data_portal_professor_coauthor [not null]
 }
 
-Table data_portal_position {
+Table data_portal_academic_career_reference {
   id Int [pk, increment]
-  careerCode CareerCode
-  rank ProfessorRank
-  category PositionCategory
-  profiles data_portal_professor_profile [not null]
+  career AcademicCareer [not null]
+  code String [not null]
+  rank String
+  category String
+  progressionOrder Int [not null]
+  active Boolean [not null, default: true]
+  positions data_portal_position [not null]
 
   indexes {
-    (careerCode, rank, category) [unique]
+    (career, code) [unique]
   }
+}
+
+Table data_portal_position {
+  id Int [pk, increment]
+  canonicalKey String [unique, not null]
+  role AcademicRole [not null]
+  affiliationType AcademicAffiliationType [not null]
+  careerReferenceId Int
+  postdoctoralModality AcademicPostdoctoralModality
+  programCode String
+  careerReference data_portal_academic_career_reference
+  profiles data_portal_professor_profile [not null]
 }
 
 Table data_portal_external_identity {
@@ -612,9 +657,7 @@ Table Student {
   publicProfileEnabled Boolean [not null, default: false]
   publicDisplayName String
   publicBio String
-  showProgram Boolean [not null, default: false]
-  showSpecialization Boolean [not null, default: false]
-  showEntryYear Boolean [not null, default: false]
+  currentCoursesVisibility StudentCurrentCoursesVisibility [not null, default: 'PRIVATE']
   courseAttempts StudentCourseAttempt [not null]
   professorEvaluations ProfessorEvaluation [not null]
   periodPlannings PeriodPlanning [not null]
@@ -628,6 +671,7 @@ Table Student {
   feedbackReports FeedbackReport [not null]
   exchangeNoticeSubscription ExchangeNoticeSubscription
   exchangeNoticeDeliveries ExchangeNoticeDelivery [not null]
+  tagInterests StudentTagInterest [not null]
 }
 
 Table ExchangeNoticeSubscription {
@@ -849,6 +893,8 @@ Table PeriodPlanning {
   specializationId Int
   language Language
   languageId Int
+  visibility PeriodPlanningVisibility [not null, default: 'PRIVATE']
+  shareId String [unique, not null]
   createdAt DateTime [default: `now()`, not null]
   updatedAt DateTime [not null]
   classes Class [not null]
@@ -922,55 +968,34 @@ Enum CatalogCoursePrerequisiteKind {
   SPECIAL
 }
 
-Enum CareerCode {
-  A
-  C
-  C3
-  C4
-  C5
-  D
-  F
-  G
-  H
-  I
-  J
-  L
-  M
-  MS3
-  MS3_1
-  MS3_2
-  MS5_1
-  MS5_2
-  MS5_3
-  MS6
-  O
+Enum AcademicRole {
+  PROFESSOR
+  RESEARCHER
+  POSTDOCTORAL_RESEARCHER
 }
 
-Enum ProfessorRank {
-  PROFESSOR_ASSOCIADO
-  PROFESSOR_ASSOCIADO_I
-  PROFESSOR_ASSOCIADO_II
-  PROFESSOR_ASSOCIADO_III
-  PROFESSOR_ASSISTENTE
-  PROFESSOR_DOUTOR
-  PROFESSOR_DOUTOR_I
-  PROFESSOR_DOUTOR_II
-  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_II
-  PROFESSOR_MAGISTERIO_SECUNDARIO_TECNICO_III
-  PROFESSOR_PLENO
-  PROFESSOR_TITULAR
-  PROF_TITULAR_PS
-  PROFESSOR_SENIOR
-  DOCENTE_ENSINO_LINGUAS_I
-  DOCENTE_ENSINO_LINGUAS_III
-  DOCENTE_EDUCACAO_ESPECIAL_REABILITACAO_V
+Enum AcademicAffiliationType {
+  CAREER
+  COLLABORATOR
+  SENIOR
+  VISITING_INVITED
+  VISITING_SPECIALIST
+  POSTDOCTORAL_PROGRAM
 }
 
-Enum PositionCategory {
-  MA_I
-  MA_II
-  MA_III
-  MTS_C
+Enum AcademicCareer {
+  MS
+  MA
+  MTS
+  MST
+  DEL
+  DEER
+  PQ
+}
+
+Enum AcademicPostdoctoralModality {
+  STANDARD
+  OM
 }
 
 Enum IdentifierSystem {
@@ -1033,6 +1058,12 @@ Enum StudentCapability {
 Enum StudentFriendshipStatus {
   PENDING
   ACCEPTED
+}
+
+Enum PeriodPlanningVisibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
 }
 
 Enum FeedbackReportKind {
@@ -1138,6 +1169,12 @@ Enum StudentCourseAttemptStatus {
   INSUFFICIENT
 }
 
+Enum StudentCurrentCoursesVisibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+}
+
 Ref: AuthUser.studentId > Student.id [delete: Set Null]
 
 Ref: JobRequest.parentJobId - JobRequest.id [delete: Set Null]
@@ -1148,11 +1185,19 @@ Ref: AuthUserCapability.authUserId > AuthUser.id [delete: Cascade]
 
 Ref: Department.unitId > Unit.id
 
-Ref: Prefixes.unitId > Unit.id
-
 Ref: Course.unitId > Unit.id
 
-Ref: Course.prefixId > Prefixes.id
+Ref: Tag.categoryId > Category.id [delete: Restrict]
+
+Ref: Tag.parentTagId - Tag.id [delete: Restrict]
+
+Ref: CourseTag.courseId > Course.id [delete: Restrict]
+
+Ref: CourseTag.tagId > Tag.id [delete: Restrict]
+
+Ref: StudentTagInterest.studentId > Student.id [delete: Cascade]
+
+Ref: StudentTagInterest.tagId > Tag.id [delete: Cascade]
 
 Ref: CatalogCourse.catalogId > Catalog.id [delete: Cascade]
 
@@ -1165,8 +1210,6 @@ Ref: CatalogCoursePrerequisiteGroup.catalogCourseId > CatalogCourse.id [delete: 
 Ref: CatalogCoursePrerequisiteItem.groupId > CatalogCoursePrerequisiteGroup.id [delete: Cascade]
 
 Ref: CatalogCoursePrerequisiteItem.courseId > Course.id
-
-Ref: CatalogCoursePrerequisiteItem.prefixId > Prefixes.id
 
 Ref: Program.unitId > Unit.id
 
@@ -1204,8 +1247,6 @@ Ref: CourseRequirement.courseBlockId > CourseBlock.id [delete: Cascade]
 
 Ref: CourseRequirement.courseId > Course.id
 
-Ref: CourseRequirement.prefixId > Prefixes.id
-
 Ref: data_portal_professor_profile.professorId - Professor.id
 
 Ref: data_portal_professor_profile.unitId > Unit.id
@@ -1213,6 +1254,8 @@ Ref: data_portal_professor_profile.unitId > Unit.id
 Ref: data_portal_professor_profile.departmentId > Department.id
 
 Ref: data_portal_professor_profile.positionId > data_portal_position.id
+
+Ref: data_portal_position.careerReferenceId > data_portal_academic_career_reference.id
 
 Ref: data_portal_external_identity.profileId > data_portal_professor_profile.id
 

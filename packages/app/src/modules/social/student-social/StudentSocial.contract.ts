@@ -20,11 +20,51 @@ const friendshipPath = sidPath.extend({
 const academicReference = z
     .object({ code: z.union([z.string(), z.number()]), name: z.string() })
     .strict();
+const currentCourse = z
+    .object({
+        courseCode: z.string(),
+        courseName: z.string(),
+        classCode: z.string().nullable(),
+        schedules: z
+            .array(
+                z
+                    .object({
+                        id: z.number().int().positive(),
+                        dayOfWeek: z.enum([
+                            "MONDAY",
+                            "TUESDAY",
+                            "WEDNESDAY",
+                            "THURSDAY",
+                            "FRIDAY",
+                            "SATURDAY",
+                            "SUNDAY"
+                        ]),
+                        start: z.string(),
+                        end: z.string(),
+                        roomCode: z.string()
+                    })
+                    .strict()
+            )
+            .readonly()
+    })
+    .strict()
+    .openapi("StudentCurrentCourse");
 const person = z
     .object({
         publicId: z.string().uuid(),
         displayName: z.string(),
         bio: z.string().nullable(),
+        interests: z
+            .array(
+                z
+                    .object({
+                        id: z.number().int().positive(),
+                        name: z.string()
+                    })
+                    .strict()
+            )
+            .readonly(),
+        currentCourses: z.array(currentCourse).readonly(),
         program: academicReference.nullable(),
         specialization: academicReference.nullable(),
         entryYear: z.number().int().nullable(),
@@ -35,9 +75,7 @@ const person = z
 const ownProfile = person
     .extend({
         enabled: z.boolean(),
-        showProgram: z.boolean(),
-        showSpecialization: z.boolean(),
-        showEntryYear: z.boolean()
+        currentCoursesVisibility: z.enum(["PRIVATE", "FRIENDS", "PUBLIC"])
     })
     .strict()
     .openapi("StudentPublicProfile");
@@ -58,9 +96,9 @@ const profileBody = z
         enabled: z.boolean().optional(),
         displayName: z.string().trim().min(1).max(80).nullable().optional(),
         bio: z.string().trim().max(280).nullable().optional(),
-        showProgram: z.boolean().optional(),
-        showSpecialization: z.boolean().optional(),
-        showEntryYear: z.boolean().optional()
+        currentCoursesVisibility: z
+            .enum(["PRIVATE", "FRIENDS", "PUBLIC"])
+            .optional()
     })
     .strict();
 const profilePath = [
@@ -117,7 +155,7 @@ const listPeople = {
     request: z.object({
         path: sidPath,
         query: z.object({
-            query: z.string().trim().min(3),
+            query: z.string().trim().min(1).optional(),
             page: z
                 .string()
                 .pipe(z.coerce.number())

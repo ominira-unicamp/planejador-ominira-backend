@@ -130,7 +130,8 @@ const listForStudent = {
                 .string()
                 .pipe(z.coerce.number())
                 .pipe(z.number().int().min(1).max(50))
-                .default(20)
+                .default(20),
+            ownerPublicId: z.string().uuid().optional()
         })
     }),
     response: new OutputBuilder()

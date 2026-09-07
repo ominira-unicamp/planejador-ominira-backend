@@ -61,7 +61,6 @@ type ExistingCourse = {
     name: string;
     credits: number;
     unitId: number | null;
-    prefixId: number | null;
 };
 
 const offeringPeriods: Record<string, CourseOfferingPeriod> = {
@@ -289,8 +288,7 @@ async function injectCatalogPhase(context: PhaseContext) {
                 code: true,
                 name: true,
                 credits: true,
-                unitId: true,
-                prefixId: true
+                unitId: true
             }
         }),
         context.prisma.coordinator.findMany({
@@ -393,9 +391,6 @@ async function injectCatalogPhase(context: PhaseContext) {
                         credits: source.discipline.credits,
                         ...(existingCourse?.unitId != null
                             ? { unitId: existingCourse.unitId }
-                            : {}),
-                        ...(existingCourse?.prefixId != null
-                            ? { prefixId: existingCourse.prefixId }
                             : {})
                     };
                     const courseChanged =
@@ -612,7 +607,6 @@ async function injectCatalogPhase(context: PhaseContext) {
 function prerequisiteGroups(
     source: Discipline,
     courseByCode: Map<string, ExistingCourse>,
-    prefixByCode: Map<string, { id: number }>,
     catalogYear: number,
     code: string
 ) {
@@ -621,7 +615,6 @@ function prerequisiteGroups(
             code: string;
             kind: CatalogCoursePrerequisiteKind;
             courseId: number | null;
-            prefixId: number | null;
         }>;
     }> = [];
     for (const group of source.prerequisites?.any ?? []) {
@@ -629,7 +622,6 @@ function prerequisiteGroups(
             code: string;
             kind: CatalogCoursePrerequisiteKind;
             courseId: number | null;
-            prefixId: number | null;
         }>;
         for (const raw of group.all) {
             const input =
@@ -653,21 +645,19 @@ function prerequisiteGroups(
                 kind === "SPECIAL"
                     ? undefined
                     : courseByCode.get(prerequisiteCode);
-            const prefix =
-                kind === "SPECIAL"
-                    ? undefined
-                    : prefixByCode.get(prerequisiteCode.replace(/-+$/g, ""));
-            if (kind !== "SPECIAL" && !course && !prefix)
+            const isPrefix = /^[A-Z0-9]+-+$/.test(prerequisiteCode);
+            if (kind !== "SPECIAL" && !course && !isPrefix)
                 throw issue("Pré-requis não resolvido", {
                     catalogYear,
                     code,
                     prerequisite: raw
                 });
             items.push({
-                code: prerequisiteCode,
+                code: isPrefix
+                    ? prerequisiteCode.replace(/-+$/, "")
+                    : prerequisiteCode,
                 kind,
-                courseId: course?.id ?? null,
-                prefixId: prefix?.id ?? null
+                courseId: course?.id ?? null
             });
         }
         groups.push({ items });
@@ -718,7 +708,7 @@ async function injectRelationshipsPhase(context: PhaseContext) {
     const courseCodes = [
         ...new Set(codes.flatMap((code) => [code, legacyCourseCode(code)]))
     ];
-    const [courseRows, prefixRows, catalogCourseRows] = await Promise.all([
+    const [courseRows, catalogCourseRows] = await Promise.all([
         context.prisma.course.findMany({
             where: { code: { in: courseCodes } },
             select: {
@@ -726,12 +716,8 @@ async function injectRelationshipsPhase(context: PhaseContext) {
                 code: true,
                 name: true,
                 credits: true,
-                unitId: true,
-                prefixId: true
+                unitId: true
             }
-        }),
-        context.prisma.prefixes.findMany({
-            select: { id: true, prefix: true }
         }),
         context.prisma.catalogCourse.findMany({
             where: { catalogId: { in: [...catalogIds.values()] } },
@@ -744,9 +730,6 @@ async function injectRelationshipsPhase(context: PhaseContext) {
         const existing = courseByCode.get(code);
         if (!existing || row.code === code) courseByCode.set(code, row);
     }
-    const prefixByCode = new Map(
-        prefixRows.map((row) => [normalizeCourseCode(row.prefix), row])
-    );
     const catalogCourseByKey = new Map(
         catalogCourseRows.map((row) => [
             `${row.catalogId}:${row.courseId}`,
@@ -779,7 +762,6 @@ async function injectRelationshipsPhase(context: PhaseContext) {
                     const groups = prerequisiteGroups(
                         source.discipline,
                         courseByCode,
-                        prefixByCode,
                         source.catalog.year,
                         source.code
                     );

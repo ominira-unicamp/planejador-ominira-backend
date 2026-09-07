@@ -52,8 +52,7 @@ const prerequisiteItem = z
     .object({
         code: z.string().min(1),
         kind: z.enum(["FULL", "PARTIAL", "SPECIAL"]),
-        courseId: z.number().int().nullable(),
-        prefixId: z.number().int().nullable()
+        courseId: z.number().int().nullable()
     })
     .strict();
 
