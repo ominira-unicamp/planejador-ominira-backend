@@ -373,10 +373,49 @@ model Course {
   suggestionCourses           SuggestionCourse[]
   periodPlanningManualCourses PeriodPlanningManualCourse[]
   catalogPrerequisiteItems    CatalogCoursePrerequisiteItem[]
+  courseTags                  CourseTag[]
 
   @@index([prefixId])
   @@index([unitId])
   @@schema("data")
+}
+
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  tags Tag[]
+
+  @@schema("app")
+}
+
+model Tag {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId Int
+
+  parent   Tag?  @relation("TagHierarchy", fields: [parentTagId], references: [id], onDelete: Restrict)
+  parentTagId Int?
+  children Tag[] @relation("TagHierarchy")
+
+  courseTags CourseTag[]
+
+  @@unique([categoryId, name])
+  @@index([parentTagId])
+  @@schema("app")
+}
+
+model CourseTag {
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+  courseId Int
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Restrict)
+  tagId    Int
+
+  @@id([courseId, tagId])
+  @@index([tagId])
+  @@schema("app")
 }
 
 // ----------------------- Programs Catalog Models ----------------------- //

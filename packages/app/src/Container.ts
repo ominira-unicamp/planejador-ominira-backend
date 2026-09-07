@@ -61,6 +61,10 @@ import {
     createStudentSocialService,
     type StudentSocialService
 } from "#/modules/social/student-social/StudentSocial.service.js";
+import {
+    createTaggingService,
+    type TaggingService
+} from "#/modules/tagging/Tagging.service.js";
 import type { DatabaseClient } from "@pomi/db";
 
 export type AppCradle = {
@@ -83,6 +87,7 @@ export type AppCradle = {
     feedbackRateLimiter: FeedbackRateLimiter;
     exchangeNoticeSubscriptionService: ExchangeNoticeSubscriptionService;
     exchangeNoticeUnsubscribeService: ExchangeNoticeUnsubscribeService;
+    taggingService: TaggingService;
 };
 
 export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
@@ -122,7 +127,8 @@ export function createAppContainer(config: AppConfig, prisma: DatabaseClient) {
         ).scoped(),
         exchangeNoticeUnsubscribeService: asFunction(
             createExchangeNoticeUnsubscribeService
-        ).scoped()
+        ).scoped(),
+        taggingService: asFunction(createTaggingService).scoped()
     });
 }
 
