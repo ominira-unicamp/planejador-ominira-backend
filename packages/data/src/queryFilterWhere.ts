@@ -20,8 +20,7 @@ export type FilterWhereBuilder<TWhere> = (
     expression: FilterExpression
 ) => TWhere;
 
-type ScalarKind = "enum" | "number" | "string";
-type TraversalDepth = [never, 0, 1, 2, 3, 4, 5, 6, 7];
+type ScalarKind = "date" | "enum" | "number" | "string";
 type IgnoredWhereKey = "AND" | "NOT" | "OR";
 type StringKeyOfUnion<T> = T extends unknown ? Extract<keyof T, string> : never;
 type ValueOfUnion<T, K extends PropertyKey> = T extends unknown
@@ -30,40 +29,54 @@ type ValueOfUnion<T, K extends PropertyKey> = T extends unknown
         : never
     : never;
 type ScalarValue<T> = Extract<NonNullable<T>, number | string>;
-type ScalarKindOf<T> = [Extract<ScalarValue<T>, number>] extends [never]
-    ? [Extract<ScalarValue<T>, string>] extends [never]
-        ? never
-        : string extends Extract<ScalarValue<T>, string>
-          ? "string"
-          : "enum"
-    : "number";
-type WherePath<T, Kind extends ScalarKind, Depth extends number = 7> = [
-    Depth
-] extends [never]
-    ? never
-    : T extends readonly unknown[]
-      ? never
-      : {
-            [K in Exclude<StringKeyOfUnion<NonNullable<T>>, IgnoredWhereKey>]: [
-                ScalarKindOf<ValueOfUnion<NonNullable<T>, K>>
-            ] extends [never]
-                ? WherePath<
-                      ValueOfUnion<NonNullable<T>, K>,
-                      Kind,
-                      TraversalDepth[Depth]
-                  > extends infer NestedPath
-                    ? NestedPath extends string
-                        ? `${K}.${NestedPath}`
-                        : never
-                    : never
-                : ScalarKindOf<ValueOfUnion<NonNullable<T>, K>> extends Kind
-                  ? K
-                  : never;
-        }[Exclude<StringKeyOfUnion<NonNullable<T>>, IgnoredWhereKey>];
+type ScalarKindOf<T> = [Extract<NonNullable<T>, Date>] extends [never]
+    ? [Extract<ScalarValue<T>, number>] extends [never]
+        ? [Extract<ScalarValue<T>, string>] extends [never]
+            ? never
+            : string extends Extract<ScalarValue<T>, string>
+              ? "string"
+              : "enum"
+        : "number"
+    : "date";
+type SplitPath<Path extends string> = Path extends `${infer Head}.${infer Tail}`
+    ? [Head, ...SplitPath<Tail>]
+    : [Path];
+type ValidatedPath<
+    T,
+    Segments extends readonly string[],
+    Kind extends ScalarKind
+> = Segments extends readonly [
+    infer Head extends string,
+    ...infer Tail extends string[]
+]
+    ? Head extends IgnoredWhereKey
+        ? false
+        : Head extends StringKeyOfUnion<NonNullable<T>>
+          ? Tail extends []
+              ? ScalarKindOf<ValueOfUnion<NonNullable<T>, Head>> extends Kind
+                  ? true
+                  : false
+              : ValidatedPath<ValueOfUnion<NonNullable<T>, Head>, Tail, Kind>
+          : false
+    : false;
+type WherePath<
+    TWhere,
+    Kind extends ScalarKind,
+    Path extends string = string
+> = string extends Path
+    ? Path
+    : ValidatedPath<TWhere, SplitPath<Path>, Kind> extends true
+      ? Path
+      : never;
 
-export type NumberWherePath<TWhere> = WherePath<TWhere, "number">;
-export type StringWherePath<TWhere> = WherePath<TWhere, "string">;
-export type EnumWherePath<TWhere> = WherePath<TWhere, "enum">;
+export type NumberWherePath<TWhere, Path extends string = string> = Path &
+    WherePath<TWhere, "number", Path>;
+export type StringWherePath<TWhere, Path extends string = string> = Path &
+    WherePath<TWhere, "string", Path>;
+export type EnumWherePath<TWhere, Path extends string = string> = Path &
+    WherePath<TWhere, "enum", Path>;
+export type DateWherePath<TWhere, Path extends string = string> = Path &
+    WherePath<TWhere, "date", Path>;
 
 const forbiddenPathSegments = new Set([
     "__proto__",
@@ -107,31 +120,38 @@ function nestedWhere<TWhere>(path: string, value: unknown): TWhere {
     ) as TWhere;
 }
 
-export function containsAt<TWhere>(
-    path: StringWherePath<TWhere>
-): FilterWhereBuilder<TWhere> {
-    return (expression) =>
-        nestedWhere<TWhere>(path, {
-            contains: String(expression.values[0]),
-            mode: "insensitive"
-        });
-}
-
-export function dateAt<TWhere>(
-    path: StringWherePath<TWhere>
-): FilterWhereBuilder<TWhere> {
-    return whereAt<TWhere, Date>(path, (value) => new Date(String(value)));
-}
-
 export function prismaWhereFor<TWhere>() {
     return {
-        enumAt(path: EnumWherePath<TWhere>): FilterWhereBuilder<TWhere> {
+        containsAt<const Path extends string>(
+            path: StringWherePath<TWhere, Path>
+        ): FilterWhereBuilder<TWhere> {
+            return (expression) =>
+                nestedWhere<TWhere>(path, {
+                    contains: String(expression.values[0]),
+                    mode: "insensitive"
+                });
+        },
+        dateAt<const Path extends string>(
+            path: DateWherePath<TWhere, Path>
+        ): FilterWhereBuilder<TWhere> {
+            return whereAt<TWhere, Date>(
+                path,
+                (value) => new Date(String(value))
+            );
+        },
+        enumAt<const Path extends string>(
+            path: EnumWherePath<TWhere, Path>
+        ): FilterWhereBuilder<TWhere> {
             return whereAt<TWhere, string>(path, String);
         },
-        numberAt(path: NumberWherePath<TWhere>): FilterWhereBuilder<TWhere> {
+        numberAt<const Path extends string>(
+            path: NumberWherePath<TWhere, Path>
+        ): FilterWhereBuilder<TWhere> {
             return whereAt<TWhere, number>(path, Number);
         },
-        stringAt(path: StringWherePath<TWhere>): FilterWhereBuilder<TWhere> {
+        stringAt<const Path extends string>(
+            path: StringWherePath<TWhere, Path>
+        ): FilterWhereBuilder<TWhere> {
             return whereAt<TWhere, string>(path, String);
         }
     };

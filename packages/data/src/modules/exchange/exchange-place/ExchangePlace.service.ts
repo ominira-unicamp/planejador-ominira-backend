@@ -6,7 +6,6 @@ import type {
 import IO from "#/modules/exchange/exchange-place/ExchangePlace.contract.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -18,7 +17,7 @@ type Query = z.infer<typeof IO.list.request>["query"];
 const exchangePlaceWhere = prismaWhereFor<MyPrisma.ExchangePlaceWhereInput>();
 const exchangePlaceWhereDefinitions = {
     id: exchangePlaceWhere.numberAt("id"),
-    name: containsAt<MyPrisma.ExchangePlaceWhereInput>("name")
+    name: exchangePlaceWhere.containsAt("name")
 } satisfies Record<
     ExchangePlaceFilterName,
     FilterWhereBuilder<MyPrisma.ExchangePlaceWhereInput>

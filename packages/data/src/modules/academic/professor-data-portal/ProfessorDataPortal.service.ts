@@ -1,7 +1,6 @@
 import IO from "#/modules/academic/professor-data-portal/ProfessorDataPortal.contract.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -40,7 +39,7 @@ const profileWhereDefinitions = {
     unitId: profileWhere.numberAt("unitId"),
     departmentId: profileWhere.numberAt("departmentId"),
     positionId: profileWhere.numberAt("positionId"),
-    name: containsAt<Prisma.ProfessorDataPortalProfileWhereInput>("name")
+    name: profileWhere.containsAt("name")
 } satisfies Record<
     string,
     FilterWhereBuilder<Prisma.ProfessorDataPortalProfileWhereInput>
@@ -48,18 +47,20 @@ const profileWhereDefinitions = {
 const departmentWhere = prismaWhereFor<Prisma.DepartmentWhereInput>();
 const departmentWhereDefinitions = {
     unitId: departmentWhere.numberAt("unitId"),
-    name: containsAt<Prisma.DepartmentWhereInput>("name")
+    name: departmentWhere.containsAt("name")
 } satisfies Record<string, FilterWhereBuilder<Prisma.DepartmentWhereInput>>;
+const keywordWhere = prismaWhereFor<Prisma.KeywordWhereInput>();
 const keywordWhereDefinitions = {
-    name: containsAt<Prisma.KeywordWhereInput>("name")
+    name: keywordWhere.containsAt("name")
 } satisfies Record<string, FilterWhereBuilder<Prisma.KeywordWhereInput>>;
+const coauthorWhere = prismaWhereFor<Prisma.CoauthorWhereInput>();
 const coauthorWhereDefinitions = {
-    name: containsAt<Prisma.CoauthorWhereInput>("name")
+    name: coauthorWhere.containsAt("name")
 } satisfies Record<string, FilterWhereBuilder<Prisma.CoauthorWhereInput>>;
 const positionWhere = prismaWhereFor<Prisma.AcademicPositionWhereInput>();
 const positionWhereDefinitions = {
     id: positionWhere.numberAt("id"),
-    canonicalKey: containsAt<Prisma.AcademicPositionWhereInput>("canonicalKey"),
+    canonicalKey: positionWhere.containsAt("canonicalKey"),
     role: positionWhere.enumAt("role")
 } satisfies Record<
     string,

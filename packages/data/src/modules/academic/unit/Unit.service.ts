@@ -6,7 +6,6 @@ import IO from "#/modules/academic/unit/Unit.contract.js";
 import unitEntity from "#/modules/academic/unit/Unit.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -20,7 +19,7 @@ const unitWhere = prismaWhereFor<MyPrisma.UnitWhereInput>();
 const unitWhereDefinitions = {
     id: unitWhere.numberAt("id"),
     code: unitWhere.stringAt("code"),
-    name: containsAt<MyPrisma.UnitWhereInput>("name")
+    name: unitWhere.containsAt("name")
 } satisfies Record<UnitFilterName, FilterWhereBuilder<MyPrisma.UnitWhereInput>>;
 export function unitFilterWhere(
     filter: UnitFilter | undefined

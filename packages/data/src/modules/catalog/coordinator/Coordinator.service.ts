@@ -6,7 +6,7 @@ import IO from "#/modules/catalog/coordinator/Coordinator.contract.js";
 import coordinatorEntity from "#/modules/catalog/coordinator/Coordinator.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
+    prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
@@ -16,8 +16,9 @@ import z from "zod";
 type Coordinator = z.infer<typeof IO.schema>;
 type Query = z.infer<typeof IO.list.request>["query"];
 
+const coordinatorWhere = prismaWhereFor<MyPrisma.CoordinatorWhereInput>();
 const coordinatorWhereDefinitions = {
-    name: containsAt("name")
+    name: coordinatorWhere.containsAt("name")
 } satisfies Record<
     CoordinatorFilterName,
     FilterWhereBuilder<MyPrisma.CoordinatorWhereInput>

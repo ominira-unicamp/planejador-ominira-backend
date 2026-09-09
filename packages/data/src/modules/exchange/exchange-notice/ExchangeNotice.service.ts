@@ -6,8 +6,6 @@ import IO from "#/modules/exchange/exchange-notice/ExchangeNotice.contract.js";
 import exchangeNoticeEntity from "#/modules/exchange/exchange-notice/ExchangeNotice.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
-    dateAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -21,11 +19,9 @@ type ListQuery = z.infer<typeof IO.list.request>["query"];
 const exchangeNoticeWhere = prismaWhereFor<MyPrisma.ExchangeNoticeWhereInput>();
 const exchangeNoticeWhereDefinitions = {
     placeId: exchangeNoticeWhere.numberAt("placeId"),
-    placeName: containsAt<MyPrisma.ExchangeNoticeWhereInput>("place.name"),
-    registrationStart:
-        dateAt<MyPrisma.ExchangeNoticeWhereInput>("registrationStart"),
-    registrationEnd:
-        dateAt<MyPrisma.ExchangeNoticeWhereInput>("registrationEnd")
+    placeName: exchangeNoticeWhere.containsAt("place.name"),
+    registrationStart: exchangeNoticeWhere.dateAt("registrationStart"),
+    registrationEnd: exchangeNoticeWhere.dateAt("registrationEnd")
 } satisfies Record<
     ExchangeNoticeFilterName,
     FilterWhereBuilder<MyPrisma.ExchangeNoticeWhereInput>

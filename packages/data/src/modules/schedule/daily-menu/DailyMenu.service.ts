@@ -6,7 +6,7 @@ import IO from "#/modules/schedule/daily-menu/DailyMenu.contract.js";
 import dailyMenuEntity from "#/modules/schedule/daily-menu/DailyMenu.entity.js";
 import {
     compileFilterWhere,
-    dateAt,
+    prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
@@ -16,8 +16,9 @@ import z from "zod";
 type DailyMenu = z.infer<typeof IO.schema>;
 type ListQuery = z.infer<typeof IO.list.request>["query"];
 
+const dailyMenuWhere = prismaWhereFor<MyPrisma.DailyMenuWhereInput>();
 const dailyMenuWhereDefinitions = {
-    date: dateAt<MyPrisma.DailyMenuWhereInput>("date")
+    date: dailyMenuWhere.dateAt("date")
 } satisfies Record<
     DailyMenuFilterName,
     FilterWhereBuilder<MyPrisma.DailyMenuWhereInput>

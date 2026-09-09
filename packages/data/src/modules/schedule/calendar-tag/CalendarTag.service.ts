@@ -6,7 +6,6 @@ import IO from "#/modules/schedule/calendar-tag/CalendarTag.contract.js";
 import calendarTagEntity from "#/modules/schedule/calendar-tag/CalendarTag.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -18,7 +17,7 @@ type Query = z.infer<typeof IO.list.request>["query"];
 const calendarTagWhere = prismaWhereFor<MyPrisma.CalendarTagWhereInput>();
 const calendarTagWhereDefinitions = {
     id: calendarTagWhere.numberAt("id"),
-    name: containsAt<MyPrisma.CalendarTagWhereInput>("name")
+    name: calendarTagWhere.containsAt("name")
 } satisfies Record<
     CalendarTagFilterName,
     FilterWhereBuilder<MyPrisma.CalendarTagWhereInput>

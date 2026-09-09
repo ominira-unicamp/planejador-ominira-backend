@@ -6,7 +6,6 @@ import IO from "#/modules/schedule/class/Class.contract.js";
 import classEntity from "#/modules/schedule/class/Class.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -18,16 +17,16 @@ type Query = z.infer<typeof IO.list.request>["query"];
 
 const classWhere = prismaWhereFor<MyPrisma.ClassWhereInput>();
 const classWhereDefinitions = {
-    classCode: containsAt<MyPrisma.ClassWhereInput>("code"),
+    classCode: classWhere.containsAt("code"),
     unitId: classWhere.numberAt("course.unit.id"),
-    unitCode: containsAt<MyPrisma.ClassWhereInput>("course.unit.code"),
+    unitCode: classWhere.containsAt("course.unit.code"),
     courseId: classWhere.numberAt("course.id"),
-    courseCode: containsAt<MyPrisma.ClassWhereInput>("course.code"),
+    courseCode: classWhere.containsAt("course.code"),
     studyPeriodId: classWhere.numberAt("studyPeriod.id"),
     studyPeriodYear: classWhere.numberAt("studyPeriod.year"),
     studyPeriodYearPeriod: classWhere.enumAt("studyPeriod.yearPeriod"),
     professorId: classWhere.numberAt("professors.some.id"),
-    professorName: containsAt<MyPrisma.ClassWhereInput>("professors.some.name")
+    professorName: classWhere.containsAt("professors.some.name")
 } satisfies Record<
     ClassFilterName,
     FilterWhereBuilder<MyPrisma.ClassWhereInput>

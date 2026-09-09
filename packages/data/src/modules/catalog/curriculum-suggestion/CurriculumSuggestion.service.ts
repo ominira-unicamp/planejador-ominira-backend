@@ -8,7 +8,6 @@ import curriculumSuggestionEntity from "#/modules/catalog/curriculum-suggestion/
 import { curriculumSuggestionNotFoundProblem } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.problems.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -30,7 +29,7 @@ const curriculumSuggestionWhereDefinitions = {
     programCode: curriculumSuggestionWhere.numberAt(
         "catalogProgram.program.code"
     ),
-    code: containsAt<MyPrisma.CurriculumSuggestionWhereInput>("code"),
+    code: curriculumSuggestionWhere.containsAt("code"),
     type: curriculumSuggestionWhere.enumAt("type"),
     specializationId: curriculumSuggestionWhere.numberAt(
         "catalogSpecialization.specializationId"

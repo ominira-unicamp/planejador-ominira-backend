@@ -6,7 +6,6 @@ import IO from "#/modules/catalog/language/Language.contract.js";
 import languageEntity from "#/modules/catalog/language/Language.entity.js";
 import {
     compileFilterWhere,
-    containsAt,
     prismaWhereFor,
     type FilterWhereBuilder
 } from "#/queryFilterWhere.js";
@@ -18,7 +17,7 @@ type Query = z.infer<typeof IO.list.request>["query"];
 const languageWhere = prismaWhereFor<MyPrisma.LanguageWhereInput>();
 const languageWhereDefinitions = {
     id: languageWhere.numberAt("id"),
-    name: containsAt<MyPrisma.LanguageWhereInput>("name")
+    name: languageWhere.containsAt("name")
 } satisfies Record<
     LanguageFilterName,
     FilterWhereBuilder<MyPrisma.LanguageWhereInput>
