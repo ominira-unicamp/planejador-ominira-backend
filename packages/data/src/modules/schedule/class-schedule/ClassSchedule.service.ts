@@ -1,177 +1,46 @@
 import {
     classScheduleDataSchema,
+    type ClassScheduleFilterName,
     type ClassScheduleListInput
 } from "#/modules/schedule/class-schedule/ClassSchedule.contract.js";
 import { classScheduleNotFoundProblem } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
-import type { QueryFilterOperator } from "@pomi/api-core";
-import { err, ok, type Result } from "@pomi/api-core";
 import {
-    MyPrisma,
-    selectIdCode,
-    type DayOfWeek,
-    type PrismaClient,
-    type YearPeriods
-} from "@pomi/db";
+    compileFilterWhere,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
+import { err, ok, type Result } from "@pomi/api-core";
+import { MyPrisma, selectIdCode, type PrismaClient } from "@pomi/db";
 import z from "zod";
 
-type FilterValue = string | number;
-
-function scalarFilter<T extends FilterValue>(
-    operator: QueryFilterOperator,
-    values: T[]
-): { equals?: T; not?: T; in?: T[] } {
-    switch (operator) {
-        case "eq":
-            return { equals: values[0] };
-        case "ne":
-            return { not: values[0] };
-        case "in":
-            return { in: values };
-        default:
-            throw new Error(`Unsupported class schedule filter: ${operator}`);
-    }
-}
-
-function dayOfWeekFilter(
-    operator: QueryFilterOperator,
-    values: DayOfWeek[]
-): MyPrisma.EnumDayOfWeekFilter {
-    return scalarFilter(operator, values);
-}
-
-function yearPeriodFilter(
-    operator: QueryFilterOperator,
-    values: YearPeriods[]
-): MyPrisma.EnumYearPeriodsFilter {
-    return scalarFilter(operator, values);
-}
+const classScheduleWhere = prismaWhereFor<MyPrisma.ClassScheduleWhereInput>();
+const classScheduleWhereDefinitions = {
+    "dayOfWeek": classScheduleWhere.enumAt("dayOfWeek"),
+    "room.id": classScheduleWhere.numberAt("room.id"),
+    "room.code": classScheduleWhere.stringAt("room.code"),
+    "class.id": classScheduleWhere.numberAt("class.id"),
+    "course.id": classScheduleWhere.numberAt("class.course.id"),
+    "course.code": classScheduleWhere.stringAt("class.course.code"),
+    "unit.id": classScheduleWhere.numberAt("class.course.unit.id"),
+    "unit.code": classScheduleWhere.stringAt("class.course.unit.code"),
+    "studyPeriod.id": classScheduleWhere.numberAt("class.studyPeriod.id"),
+    "studyPeriod.year": classScheduleWhere.numberAt("class.studyPeriod.year"),
+    "studyPeriod.yearPeriod": classScheduleWhere.enumAt(
+        "class.studyPeriod.yearPeriod"
+    )
+} satisfies Record<
+    ClassScheduleFilterName,
+    FilterWhereBuilder<MyPrisma.ClassScheduleWhereInput>
+>;
 
 export function classScheduleFilterWhere(
     filter: ClassScheduleListInput["filter"]
 ): MyPrisma.ClassScheduleWhereInput[] {
-    return (filter ?? []).map((expression) => {
-        const path = expression.path.join(".");
-        const values = expression.values;
-        switch (path) {
-            case "dayOfWeek":
-                return {
-                    dayOfWeek: dayOfWeekFilter(
-                        expression.operator,
-                        values as DayOfWeek[]
-                    )
-                };
-            case "room.id":
-                return {
-                    room: {
-                        id: scalarFilter(
-                            expression.operator,
-                            values as number[]
-                        )
-                    }
-                };
-            case "room.code":
-                return {
-                    room: {
-                        code: scalarFilter(
-                            expression.operator,
-                            values as string[]
-                        )
-                    }
-                };
-            case "class.id":
-                return {
-                    class: {
-                        id: scalarFilter(
-                            expression.operator,
-                            values as number[]
-                        )
-                    }
-                };
-            case "course.id":
-                return {
-                    class: {
-                        course: {
-                            id: scalarFilter(
-                                expression.operator,
-                                values as number[]
-                            )
-                        }
-                    }
-                };
-            case "course.code":
-                return {
-                    class: {
-                        course: {
-                            code: scalarFilter(
-                                expression.operator,
-                                values as string[]
-                            )
-                        }
-                    }
-                };
-            case "unit.id":
-                return {
-                    class: {
-                        course: {
-                            unit: {
-                                id: scalarFilter(
-                                    expression.operator,
-                                    values as number[]
-                                )
-                            }
-                        }
-                    }
-                };
-            case "unit.code":
-                return {
-                    class: {
-                        course: {
-                            unit: {
-                                code: scalarFilter(
-                                    expression.operator,
-                                    values as string[]
-                                )
-                            }
-                        }
-                    }
-                };
-            case "studyPeriod.id":
-                return {
-                    class: {
-                        studyPeriod: {
-                            id: scalarFilter(
-                                expression.operator,
-                                values as number[]
-                            )
-                        }
-                    }
-                };
-            case "studyPeriod.year":
-                return {
-                    class: {
-                        studyPeriod: {
-                            year: scalarFilter(
-                                expression.operator,
-                                values as number[]
-                            )
-                        }
-                    }
-                };
-            case "studyPeriod.yearPeriod":
-                return {
-                    class: {
-                        studyPeriod: {
-                            yearPeriod: yearPeriodFilter(
-                                expression.operator,
-                                values as YearPeriods[]
-                            )
-                        }
-                    }
-                };
-            default:
-                throw new Error(`Unsupported class schedule filter: ${path}`);
-        }
-    });
+    return compileFilterWhere<MyPrisma.ClassScheduleWhereInput>(
+        filter,
+        classScheduleWhereDefinitions,
+        "class schedule"
+    );
 }
 
 type ClassScheduleData = z.infer<typeof classScheduleDataSchema>;

@@ -66,6 +66,7 @@ const courseFilterDefinitions = {
     "unit.code": filterDefinition.code({ operators: equalityOperators }),
     "unit.id": filterDefinition.id({ positive: true })
 };
+export type CourseFilterName = keyof typeof courseFilterDefinitions;
 
 const courseFilter = resourceFilterSchema(
     courseFilterDefinitions,

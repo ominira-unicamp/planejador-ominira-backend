@@ -1,121 +1,43 @@
 import type {
     CourseFilter,
-    CourseFilterValue
+    CourseFilterName
 } from "#/modules/academic/course/Course.contract.js";
 import IO from "#/modules/academic/course/Course.contract.js";
 import courseEntity from "#/modules/academic/course/Course.entity.js";
 import { courseNotFoundProblem } from "#/modules/academic/course/Course.problems.js";
-import { err, ok, type QueryFilterOperator, type Result } from "@pomi/api-core";
+import {
+    compileFilterWhere,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
+import { err, ok, type Result } from "@pomi/api-core";
 import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type CourseEntity = z.infer<typeof IO.schema>;
 type ListQueryParams = z.infer<typeof IO.list.request>["query"];
 
-function stringFilter(
-    operator: QueryFilterOperator,
-    values: CourseFilterValue[]
-): MyPrisma.StringFilter {
-    const strings = values.map(String);
-    switch (operator) {
-        case "eq":
-            return { equals: strings[0] };
-        case "ne":
-            return { not: strings[0] };
-        case "in":
-            return { in: strings };
-        case "gt":
-            return { gt: strings[0] };
-        case "gte":
-            return { gte: strings[0] };
-        case "lt":
-            return { lt: strings[0] };
-        case "lte":
-            return { lte: strings[0] };
-    }
-}
-
-function intFilter(
-    operator: QueryFilterOperator,
-    values: CourseFilterValue[]
-): MyPrisma.IntFilter {
-    const integers = values.map(Number);
-    switch (operator) {
-        case "eq":
-            return { equals: integers[0] };
-        case "ne":
-            return { not: integers[0] };
-        case "in":
-            return { in: integers };
-        case "gt":
-            return { gt: integers[0] };
-        case "gte":
-            return { gte: integers[0] };
-        case "lt":
-            return { lt: integers[0] };
-        case "lte":
-            return { lte: integers[0] };
-    }
-}
+const courseWhere = prismaWhereFor<MyPrisma.CourseWhereInput>();
+const courseWhereDefinitions = {
+    "catalogYear": courseWhere.numberAt("catalogCourses.some.catalog.year"),
+    "code": courseWhere.stringAt("code"),
+    "credits": courseWhere.numberAt("credits"),
+    "tagId": courseWhere.numberAt("courseTags.some.tagId"),
+    "unit.code": courseWhere.stringAt("unit.code"),
+    "unit.id": courseWhere.numberAt("unit.id")
+} satisfies Record<
+    CourseFilterName,
+    FilterWhereBuilder<MyPrisma.CourseWhereInput>
+>;
 
 export function courseFilterWhere(
     filter: CourseFilter | undefined
 ): MyPrisma.CourseWhereInput[] {
-    return (filter ?? []).map((expression) => {
-        switch (expression.path.join(".")) {
-            case "catalogYear":
-                return {
-                    catalogCourses: {
-                        some: {
-                            catalog: {
-                                year: intFilter(
-                                    expression.operator,
-                                    expression.values
-                                )
-                            }
-                        }
-                    }
-                };
-            case "code":
-                return {
-                    code: stringFilter(expression.operator, expression.values)
-                };
-            case "credits":
-                return {
-                    credits: intFilter(expression.operator, expression.values)
-                };
-            case "tagId":
-                return {
-                    courseTags: {
-                        some: {
-                            tagId: intFilter(
-                                expression.operator,
-                                expression.values
-                            )
-                        }
-                    }
-                };
-            case "unit.code":
-                return {
-                    unit: {
-                        code: stringFilter(
-                            expression.operator,
-                            expression.values
-                        )
-                    }
-                };
-            case "unit.id":
-                return {
-                    unit: {
-                        id: intFilter(expression.operator, expression.values)
-                    }
-                };
-            default:
-                throw new Error(
-                    `Unsupported course filter: ${expression.path.join(".")}`
-                );
-        }
-    });
+    return compileFilterWhere<MyPrisma.CourseWhereInput>(
+        filter,
+        courseWhereDefinitions,
+        "course"
+    );
 }
 
 export type CourseService = {

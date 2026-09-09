@@ -88,6 +88,8 @@ const catalogCourseFilterDefinitions = {
     "coordinatorId": filterDefinition.id(),
     "offeringPeriod": filterDefinition.enum(offeringPeriodValues)
 };
+export type CatalogCourseFilterName =
+    keyof typeof catalogCourseFilterDefinitions;
 
 const catalogCourseFilter = resourceFilterSchema(
     catalogCourseFilterDefinitions,

@@ -112,6 +112,8 @@ const classScheduleFilterDefinitions = {
         "SECOND_SEMESTER"
     ])
 };
+export type ClassScheduleFilterName =
+    keyof typeof classScheduleFilterDefinitions;
 
 const classScheduleFilter = resourceFilterSchema(
     classScheduleFilterDefinitions,
