@@ -1,11 +1,37 @@
+import type {
+    CoordinatorFilter,
+    CoordinatorFilterName
+} from "#/modules/catalog/coordinator/Coordinator.contract.js";
 import IO from "#/modules/catalog/coordinator/Coordinator.contract.js";
 import coordinatorEntity from "#/modules/catalog/coordinator/Coordinator.entity.js";
+import {
+    compileFilterWhere,
+    containsAt,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type Coordinator = z.infer<typeof IO.schema>;
 type Query = z.infer<typeof IO.list.request>["query"];
+
+const coordinatorWhereDefinitions = {
+    name: containsAt("name")
+} satisfies Record<
+    CoordinatorFilterName,
+    FilterWhereBuilder<MyPrisma.CoordinatorWhereInput>
+>;
+
+export function coordinatorFilterWhere(
+    filter: CoordinatorFilter | undefined
+): MyPrisma.CoordinatorWhereInput[] {
+    return compileFilterWhere(
+        filter,
+        coordinatorWhereDefinitions,
+        "coordinator"
+    );
+}
 
 export type CoordinatorService = {
     list(query: Query): Promise<{ items: Coordinator[]; total: number }>;
@@ -23,14 +49,9 @@ export function createCoordinatorService({
 }): CoordinatorService {
     return {
         async list(query) {
-            const where = query.name
-                ? {
-                      name: {
-                          contains: query.name,
-                          mode: "insensitive" as const
-                      }
-                  }
-                : {};
+            const filterWhere = coordinatorFilterWhere(query.filter);
+            const where: MyPrisma.CoordinatorWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const total = await prisma.coordinator.count({ where });
             const coordinators = await prisma.coordinator.findMany({
                 ...(query.page !== undefined || query.pageSize !== undefined

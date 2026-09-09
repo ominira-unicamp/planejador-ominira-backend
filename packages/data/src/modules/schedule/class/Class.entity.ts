@@ -43,7 +43,13 @@ function relatedPathsForClass(classPayload: PrismaClassPayload) {
             ]
         }),
         professors: resourcesPaths.professor.list({
-            classId: classPayload.id
+            filter: [
+                {
+                    path: ["classId"],
+                    operator: "eq",
+                    values: [classPayload.id]
+                }
+            ]
         })
     };
 }

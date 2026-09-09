@@ -16,7 +16,8 @@ const respond = createResultResponder({
 });
 
 const actions: Actions = {
-    list: async (ctx) => ApiResponse.ok(await ctx.roomService.list()),
+    list: async (ctx, input) =>
+        ApiResponse.ok(await ctx.roomService.list(input.query)),
     get: async (ctx, input) =>
         respond(await ctx.roomService.getById(input.path.id), ApiResponse.ok)
 };

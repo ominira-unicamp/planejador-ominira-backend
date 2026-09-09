@@ -1,18 +1,26 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { getPaginatedSchema, pathSeg, SpecBuilder } from "@pomi/api-core";
+import {
+    getPaginatedSchema,
+    pathSeg,
+    serializeQueryParams,
+    SpecBuilder
+} from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
 
 export const coordinatorPaths = {
     list: (query: ListQueryParams = {}) => {
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(query)) {
-            if (value !== undefined) params.set(key, String(value));
-        }
-        const search = params.toString();
+        const search = serializeQueryParams(
+            query as unknown as Record<string, unknown>
+        );
         return `/coordinators${search ? `?${search}` : ""}`;
     },
     entity: (id: number) => `/coordinators/${id}`
@@ -34,11 +42,22 @@ const coordinatorEntity = z
     .strict()
     .openapi("CoordinatorEntity");
 
+export type CoordinatorFilter = Filter;
+const coordinatorFilterDefinitions = {
+    name: filterDefinition.code({ operators: ["eq"] })
+};
+export type CoordinatorFilterName = keyof typeof coordinatorFilterDefinitions;
+const coordinatorFilter = resourceFilterSchema(
+    coordinatorFilterDefinitions,
+    "coordinators",
+    "Structured coordinator filters. Use bracket notation such as filter[name]=Ada."
+);
+
 const listQuery = z
     .object({
         page: z.coerce.number().int().min(1).optional(),
         pageSize: z.coerce.number().int().min(1).optional(),
-        name: z.string().min(1).optional()
+        filter: coordinatorFilter.optional()
     })
     .openapi("ListCoordinatorsQuery");
 
@@ -46,7 +65,7 @@ export type ListQueryParams = z.infer<typeof listQuery>;
 
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
-    request: z.object({ query: listQuery }),
+    request: z.object({ query: listQuery.strict() }),
     response: new OutputBuilder()
         .ok(
             getPaginatedSchema(coordinatorEntity),

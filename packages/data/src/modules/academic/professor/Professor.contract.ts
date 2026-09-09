@@ -1,10 +1,14 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
     paginationQuerySchema,
-    PaginationQueryType,
     pathSeg,
     SpecBuilder
 } from "@pomi/api-core";
@@ -32,10 +36,18 @@ const professorEntity = z
     .strict()
     .openapi("ProfessorEntity");
 
+export type ProfessorFilter = Filter;
+const professorFilterDefinitions = { classId: filterDefinition.id() };
+export type ProfessorFilterName = keyof typeof professorFilterDefinitions;
+const professorFilter = resourceFilterSchema(
+    professorFilterDefinitions,
+    "professors",
+    "Structured professor filters. Use bracket notation such as filter[classId]=1."
+);
+
 const listProfessorsQuery = paginationQuerySchema
-    .extend({
-        classId: z.coerce.number().int().optional()
-    })
+    .extend({ filter: professorFilter.optional() })
+    .strict()
     .openapi("ListProfessorsQuery");
 
 const PageProfessorsSchema =
@@ -71,6 +83,4 @@ export default {
     list
 };
 
-export type ListQueryParams = {
-    classId?: number;
-} & Partial<PaginationQueryType>;
+export type ListQueryParams = Partial<z.infer<typeof listProfessorsQuery>>;

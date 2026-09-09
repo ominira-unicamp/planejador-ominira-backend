@@ -1,14 +1,54 @@
 import {
     curriculumSuggestionDataSchema,
+    type CurriculumSuggestionFilter,
+    type CurriculumSuggestionFilterName,
     type ListCurriculumSuggestionsQuery
 } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.contract.js";
 import curriculumSuggestionEntity from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.entity.js";
 import { curriculumSuggestionNotFoundProblem } from "#/modules/catalog/curriculum-suggestion/CurriculumSuggestion.problems.js";
+import {
+    compileFilterWhere,
+    containsAt,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type CurriculumSuggestionData = z.infer<typeof curriculumSuggestionDataSchema>;
+
+const curriculumSuggestionWhere =
+    prismaWhereFor<MyPrisma.CurriculumSuggestionWhereInput>();
+const curriculumSuggestionWhereDefinitions = {
+    catalogProgramId: curriculumSuggestionWhere.numberAt("catalogProgramId"),
+    catalogId: curriculumSuggestionWhere.numberAt("catalogProgram.catalogId"),
+    catalogYear: curriculumSuggestionWhere.numberAt(
+        "catalogProgram.catalog.year"
+    ),
+    programId: curriculumSuggestionWhere.numberAt("catalogProgram.programId"),
+    programCode: curriculumSuggestionWhere.numberAt(
+        "catalogProgram.program.code"
+    ),
+    code: containsAt<MyPrisma.CurriculumSuggestionWhereInput>("code"),
+    type: curriculumSuggestionWhere.enumAt("type"),
+    specializationId: curriculumSuggestionWhere.numberAt(
+        "catalogSpecialization.specializationId"
+    )
+} satisfies Record<
+    CurriculumSuggestionFilterName,
+    FilterWhereBuilder<MyPrisma.CurriculumSuggestionWhereInput>
+>;
+
+export function curriculumSuggestionFilterWhere(
+    filter: CurriculumSuggestionFilter | undefined
+): MyPrisma.CurriculumSuggestionWhereInput[] {
+    return compileFilterWhere(
+        filter,
+        curriculumSuggestionWhereDefinitions,
+        "curriculum suggestion"
+    );
+}
 
 export type CurriculumSuggestionService = {
     list(
@@ -31,47 +71,10 @@ export function createCurriculumSuggestionService({
 }): CurriculumSuggestionService {
     return {
         async list(input) {
-            const hasCatalogProgramFilter =
-                input.catalogId !== undefined ||
-                input.catalogYear !== undefined ||
-                input.programId !== undefined ||
-                input.programCode !== undefined;
+            const filterWhere = curriculumSuggestionFilterWhere(input.filter);
             const suggestions = await prisma.curriculumSuggestion.findMany({
                 ...curriculumSuggestionEntity.prismaSelection,
-                where: {
-                    ...(input.catalogProgramId !== undefined
-                        ? { catalogProgramId: input.catalogProgramId }
-                        : {}),
-                    ...(input.code !== undefined
-                        ? { code: { equals: input.code, mode: "insensitive" } }
-                        : {}),
-                    ...(input.type !== undefined ? { type: input.type } : {}),
-                    ...(input.specializationId !== undefined
-                        ? {
-                              catalogSpecialization: {
-                                  specializationId: input.specializationId
-                              }
-                          }
-                        : {}),
-                    ...(hasCatalogProgramFilter
-                        ? {
-                              catalogProgram: {
-                                  ...(input.catalogId !== undefined
-                                      ? { catalogId: input.catalogId }
-                                      : {}),
-                                  ...(input.programId !== undefined
-                                      ? { programId: input.programId }
-                                      : {}),
-                                  ...(input.catalogYear !== undefined
-                                      ? { catalog: { year: input.catalogYear } }
-                                      : {}),
-                                  ...(input.programCode !== undefined
-                                      ? { program: { code: input.programCode } }
-                                      : {})
-                              }
-                          }
-                        : {})
-                }
+                where: filterWhere.length > 0 ? { AND: filterWhere } : {}
             });
             return suggestions
                 .map(curriculumSuggestionEntity.build)

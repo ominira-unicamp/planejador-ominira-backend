@@ -2,6 +2,7 @@ import {
     ApiResponse,
     buildPaginationResponse,
     createResultResponder,
+    serializeQueryParams,
     type EndpointActions
 } from "@pomi/api-core";
 
@@ -37,10 +38,9 @@ const get: Actions["get"] = async (ctx, input) =>
     respond(await ctx.professorService.getById(input.path.id), ApiResponse.ok);
 
 function listPath(query: ListQueryParams) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(query))
-        if (value !== undefined) params.set(key, String(value));
-    const search = params.toString();
+    const search = serializeQueryParams(
+        query as unknown as Record<string, unknown>
+    );
     return `/professors${search ? `?${search}` : ""}`;
 }
 

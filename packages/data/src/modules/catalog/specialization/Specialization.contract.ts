@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -10,12 +15,6 @@ const basePath = [pathSeg.literal("specializations")];
 const tags = ["specializations"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 const positiveId = z.number().int().positive();
-const queryId = z.coerce.number().int().positive();
-const specializationCode = z
-    .string()
-    .trim()
-    .min(1)
-    .transform((code) => code.toUpperCase());
 
 const schema = z
     .object({
@@ -34,6 +33,20 @@ const schema = z
     })
     .openapi("Specialization");
 
+export type SpecializationFilter = Filter;
+const specializationFilterDefinitions = {
+    programId: filterDefinition.id({ positive: true }),
+    programCode: filterDefinition.integer({ minimum: 1 }),
+    code: filterDefinition.code({ uppercase: true })
+};
+export type SpecializationFilterName =
+    keyof typeof specializationFilterDefinitions;
+const specializationFilter = resourceFilterSchema(
+    specializationFilterDefinitions,
+    "specializations",
+    "Structured specialization filters. Use bracket notation such as filter[programId]=1."
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -50,13 +63,7 @@ const get = {
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
     request: z.object({
-        query: z
-            .object({
-                programId: queryId.optional(),
-                programCode: z.coerce.number().int().positive().optional(),
-                code: specializationCode.optional()
-            })
-            .strict()
+        query: z.object({ filter: specializationFilter.optional() }).strict()
     }),
     response: new OutputBuilder()
         .ok(z.array(schema), "List of specializations retrieved successfully")

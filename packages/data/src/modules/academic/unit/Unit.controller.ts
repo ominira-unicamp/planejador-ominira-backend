@@ -13,7 +13,8 @@ const respond = createResultResponder({
     [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
 });
 const actions: Actions = {
-    list: async (ctx) => ApiResponse.ok(await ctx.unitService.list()),
+    list: async (ctx, input) =>
+        ApiResponse.ok(await ctx.unitService.list(input.query)),
     get: async (ctx, input) =>
         respond(await ctx.unitService.getById(input.path.id), ApiResponse.ok)
 };

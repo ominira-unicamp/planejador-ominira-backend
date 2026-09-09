@@ -1,11 +1,45 @@
+import type {
+    ExchangeNoticeFilter,
+    ExchangeNoticeFilterName
+} from "#/modules/exchange/exchange-notice/ExchangeNotice.contract.js";
 import IO from "#/modules/exchange/exchange-notice/ExchangeNotice.contract.js";
 import exchangeNoticeEntity from "#/modules/exchange/exchange-notice/ExchangeNotice.entity.js";
+import {
+    compileFilterWhere,
+    containsAt,
+    dateAt,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import type { Prisma, PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type ExchangeNotice = z.infer<typeof IO.schema>;
 type ListQuery = z.infer<typeof IO.list.request>["query"];
+
+const exchangeNoticeWhere = prismaWhereFor<MyPrisma.ExchangeNoticeWhereInput>();
+const exchangeNoticeWhereDefinitions = {
+    placeId: exchangeNoticeWhere.numberAt("placeId"),
+    placeName: containsAt<MyPrisma.ExchangeNoticeWhereInput>("place.name"),
+    registrationStart:
+        dateAt<MyPrisma.ExchangeNoticeWhereInput>("registrationStart"),
+    registrationEnd:
+        dateAt<MyPrisma.ExchangeNoticeWhereInput>("registrationEnd")
+} satisfies Record<
+    ExchangeNoticeFilterName,
+    FilterWhereBuilder<MyPrisma.ExchangeNoticeWhereInput>
+>;
+
+export function exchangeNoticeFilterWhere(
+    filter: ExchangeNoticeFilter | undefined
+): MyPrisma.ExchangeNoticeWhereInput[] {
+    return compileFilterWhere(
+        filter,
+        exchangeNoticeWhereDefinitions,
+        "exchange notice"
+    );
+}
 
 export type ExchangeNoticeService = {
     list(query: ListQuery): Promise<ExchangeNotice[]>;
@@ -19,17 +53,6 @@ export type ExchangeNoticeService = {
     >;
 };
 
-function dateRange(
-    after: Date | undefined,
-    before: Date | undefined
-): Prisma.DateTimeNullableFilter | undefined {
-    if (!after && !before) return undefined;
-    return {
-        ...(after ? { gte: after } : {}),
-        ...(before ? { lte: before } : {})
-    };
-}
-
 export function createExchangeNoticeService({
     prisma
 }: {
@@ -37,43 +60,10 @@ export function createExchangeNoticeService({
 }): ExchangeNoticeService {
     return {
         async list(query) {
+            const filterWhere = exchangeNoticeFilterWhere(query.filter);
             const notices = await prisma.exchangeNotice.findMany({
                 ...exchangeNoticeEntity.prismaSelection,
-                where: {
-                    ...(query.placeId ? { placeId: query.placeId } : {}),
-                    ...(query.placeName
-                        ? {
-                              place: {
-                                  name: {
-                                      contains: query.placeName,
-                                      mode: "insensitive"
-                                  }
-                              }
-                          }
-                        : {}),
-                    ...(dateRange(
-                        query.registrationStartAfter,
-                        query.registrationStartBefore
-                    )
-                        ? {
-                              registrationStart: dateRange(
-                                  query.registrationStartAfter,
-                                  query.registrationStartBefore
-                              )
-                          }
-                        : {}),
-                    ...(dateRange(
-                        query.registrationEndAfter,
-                        query.registrationEndBefore
-                    )
-                        ? {
-                              registrationEnd: dateRange(
-                                  query.registrationEndAfter,
-                                  query.registrationEndBefore
-                              )
-                          }
-                        : {})
-                },
+                where: filterWhere.length > 0 ? { AND: filterWhere } : {},
                 orderBy: [
                     { registrationEnd: { sort: "desc", nulls: "last" } },
                     { registrationStart: { sort: "desc", nulls: "last" } },

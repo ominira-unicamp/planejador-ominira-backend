@@ -44,6 +44,7 @@ type IdOptions = ScalarOptions & {
 
 type CodeOptions = ScalarOptions & {
     nonEmpty?: boolean;
+    uppercase?: boolean;
 };
 
 function definition(
@@ -72,12 +73,39 @@ export const filterDefinition = {
             operators
         });
     },
-    code({ nonEmpty = true, operators = codeOperators }: CodeOptions = {}) {
+    code({
+        nonEmpty = true,
+        uppercase = false,
+        operators = codeOperators
+    }: CodeOptions = {}) {
         const value = z.string().trim();
-        return definition(nonEmpty ? value.min(1) : value, operators, {
-            ...(nonEmpty ? { minLength: 1 } : {}),
+        const validated = nonEmpty ? value.min(1) : value;
+        return definition(
+            uppercase
+                ? validated.transform((code) => code.toUpperCase())
+                : validated,
+            operators,
+            {
+                ...(nonEmpty ? { minLength: 1 } : {}),
+                type: "string"
+            }
+        );
+    },
+    date({ operators = equalityOperators }: ScalarOptions = {}) {
+        return definition(z.iso.date(), operators, {
+            format: "date",
             type: "string"
         });
+    },
+    dateTime({ operators = equalityOperators }: ScalarOptions = {}) {
+        return definition(
+            z.union([z.iso.date(), z.iso.datetime({ offset: true })]),
+            operators,
+            {
+                format: "date-time",
+                type: "string"
+            }
+        );
     },
     enum<const T extends readonly [string, ...string[]]>(
         values: T,

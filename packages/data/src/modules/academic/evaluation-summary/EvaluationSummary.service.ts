@@ -1,4 +1,5 @@
 import IO from "#/modules/academic/evaluation-summary/EvaluationSummary.contract.js";
+import type { Filter } from "#/queryFilterDefinitions.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
 import type { PrismaClient } from "@pomi/db";
 import z from "zod";
@@ -60,11 +61,10 @@ function isPublished(metrics: Metrics) {
 }
 
 export type EvaluationSummaryService = {
-    listProfessorSummaries(): Promise<ProfessorSummary[]>;
-    listCourseSummaries(): Promise<CourseSummary[]>;
+    listProfessorSummaries(filter?: Filter): Promise<ProfessorSummary[]>;
+    listCourseSummaries(filter?: Filter): Promise<CourseSummary[]>;
     getPairSummary(
-        courseId: number,
-        professorId: number
+        filter: Filter
     ): Promise<
         Result<PairSummary, ReturnType<typeof ResourceNotFoundProblem.create>>
     >;
@@ -76,7 +76,7 @@ export function createEvaluationSummaryService({
     prisma: PrismaClient;
 }): EvaluationSummaryService {
     return {
-        async listProfessorSummaries() {
+        async listProfessorSummaries(filter) {
             const aggregates = await prisma.professorEvaluation.groupBy({
                 by: ["professorId"],
                 _count: { _all: true },
@@ -95,9 +95,14 @@ export function createEvaluationSummaryService({
                 .filter(({ metrics }) => isPublished(metrics));
             if (published.length === 0) return [];
 
+            const professorFilter = filter?.find(
+                (expression) => expression.path[0] === "professorId"
+            );
             const professors = await prisma.professor.findMany({
                 where: {
-                    id: { in: published.map((item) => item.professorId) }
+                    id: professorFilter
+                        ? Number(professorFilter.values[0])
+                        : { in: published.map((item) => item.professorId) }
                 },
                 select: { id: true, name: true },
                 orderBy: [{ name: "asc" }, { id: "asc" }]
@@ -113,7 +118,7 @@ export function createEvaluationSummaryService({
                 ...metricsByProfessorId.get(professor.id)!
             }));
         },
-        async listCourseSummaries() {
+        async listCourseSummaries(filter) {
             const aggregates = await prisma.professorEvaluation.groupBy({
                 by: ["classId"],
                 _count: { _all: true },
@@ -146,6 +151,12 @@ export function createEvaluationSummaryService({
                 courseMetrics.push(metricsFromAggregate(aggregate));
                 metricsByCourseId.set(course.id, courseMetrics);
             }
+            const courseIdFilter = filter?.find(
+                (expression) => expression.path[0] === "courseId"
+            );
+            const courseCodeFilter = filter?.find(
+                (expression) => expression.path[0] === "courseCode"
+            );
             return [...metricsByCourseId.entries()]
                 .map(([courseId, metrics]) => ({
                     course: classes.find(
@@ -154,13 +165,30 @@ export function createEvaluationSummaryService({
                     ...mergeMetrics(metrics)
                 }))
                 .filter(isPublished)
+                .filter(
+                    (summary) =>
+                        (courseIdFilter === undefined ||
+                            summary.course.id ===
+                                Number(courseIdFilter.values[0])) &&
+                        (courseCodeFilter === undefined ||
+                            summary.course.code === courseCodeFilter.values[0])
+                )
                 .sort(
                     (left, right) =>
                         left.course.code.localeCompare(right.course.code) ||
                         left.course.id - right.course.id
                 );
         },
-        async getPairSummary(courseId, professorId) {
+        async getPairSummary(filter) {
+            const courseId = Number(
+                filter.find((expression) => expression.path[0] === "courseId")
+                    ?.values[0]
+            );
+            const professorId = Number(
+                filter.find(
+                    (expression) => expression.path[0] === "professorId"
+                )?.values[0]
+            );
             const [course, professor, aggregates] = await Promise.all([
                 prisma.course.findUnique({
                     where: { id: courseId },

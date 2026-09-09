@@ -1,10 +1,39 @@
+import type {
+    SpecializationFilter,
+    SpecializationFilterName
+} from "#/modules/catalog/specialization/Specialization.contract.js";
 import IO from "#/modules/catalog/specialization/Specialization.contract.js";
 import specializationEntity from "#/modules/catalog/specialization/Specialization.entity.js";
+import {
+    compileFilterWhere,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 type Specialization = z.infer<typeof IO.schema>;
 type Query = z.infer<typeof IO.list.request>["query"];
+
+const specializationWhere = prismaWhereFor<MyPrisma.SpecializationWhereInput>();
+const specializationWhereDefinitions = {
+    programId: specializationWhere.numberAt("program.id"),
+    programCode: specializationWhere.numberAt("program.code"),
+    code: specializationWhere.stringAt("code")
+} satisfies Record<
+    SpecializationFilterName,
+    FilterWhereBuilder<MyPrisma.SpecializationWhereInput>
+>;
+
+export function specializationFilterWhere(
+    filter: SpecializationFilter | undefined
+): MyPrisma.SpecializationWhereInput[] {
+    return compileFilterWhere(
+        filter,
+        specializationWhereDefinitions,
+        "specialization"
+    );
+}
 export type SpecializationService = {
     list(query: Query): Promise<Specialization[]>;
     getById(
@@ -23,16 +52,11 @@ export function createSpecializationService({
 }): SpecializationService {
     return {
         async list(query) {
+            const filterWhere = specializationFilterWhere(query.filter);
             return (
                 await prisma.specialization.findMany({
                     ...specializationEntity.prismaSelection,
-                    where: {
-                        program: {
-                            id: query.programId,
-                            code: query.programCode
-                        },
-                        code: query.code
-                    },
+                    where: filterWhere.length > 0 ? { AND: filterWhere } : {},
                     orderBy: [{ program: { code: "asc" } }, { name: "asc" }]
                 })
             ).map(specializationEntity.build);

@@ -81,7 +81,7 @@ function relatedPathsForCatalogProgram(
         self: `/catalog-program/${catalogProgramId}`,
         catalog: `/catalogs/${catalogId}`,
         program: `/programs/${programId}`,
-        curriculumSuggestions: `/curriculum-suggestions?catalogProgramId=${catalogProgramId}`
+        curriculumSuggestions: `/curriculum-suggestions?filter[catalogProgramId]=${catalogProgramId}`
     };
 }
 

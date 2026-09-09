@@ -1,10 +1,33 @@
+import type {
+    CatalogFilter,
+    CatalogFilterName
+} from "#/modules/catalog/catalog/Catalog.contract.js";
 import IO from "#/modules/catalog/catalog/Catalog.contract.js";
 import catalogEntity from "#/modules/catalog/catalog/Catalog.entity.js";
+import {
+    compileFilterWhere,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 type Catalog = z.infer<typeof IO.schemas.catalogEntitySchema>;
 type Query = z.infer<typeof IO.list.request>["query"];
+
+const catalogWhere = prismaWhereFor<MyPrisma.CatalogWhereInput>();
+const catalogWhereDefinitions = {
+    year: catalogWhere.numberAt("year")
+} satisfies Record<
+    CatalogFilterName,
+    FilterWhereBuilder<MyPrisma.CatalogWhereInput>
+>;
+
+export function catalogFilterWhere(
+    filter: CatalogFilter | undefined
+): MyPrisma.CatalogWhereInput[] {
+    return compileFilterWhere(filter, catalogWhereDefinitions, "catalog");
+}
 export type CatalogService = {
     list(query: Query): Promise<Catalog[]>;
     getById(
@@ -20,10 +43,11 @@ export function createCatalogService({
 }): CatalogService {
     return {
         async list(query) {
+            const filterWhere = catalogFilterWhere(query.filter);
             return (
                 await prisma.catalog.findMany({
                     ...catalogEntity.prismaSelection,
-                    where: query.year ? { year: query.year } : {},
+                    where: filterWhere.length > 0 ? { AND: filterWhere } : {},
                     orderBy: { year: "desc" }
                 })
             ).map(catalogEntity.build);

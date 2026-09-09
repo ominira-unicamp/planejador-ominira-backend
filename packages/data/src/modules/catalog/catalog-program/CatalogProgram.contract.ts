@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     pathSeg,
@@ -82,6 +87,24 @@ const catalogProgramEntity = z
     .strict()
     .openapi("CatalogProgramEntity");
 
+export type CatalogProgramFilter = Filter;
+
+const catalogProgramFilterDefinitions = {
+    catalogId: filterDefinition.id(),
+    catalogYear: filterDefinition.integer(),
+    programId: filterDefinition.id(),
+    programCode: filterDefinition.integer()
+};
+export type CatalogProgramFilterName =
+    keyof typeof catalogProgramFilterDefinitions;
+
+const catalogProgramFilter = resourceFilterSchema(
+    catalogProgramFilterDefinitions,
+    "catalog programs",
+    "Structured catalog program filters. Use bracket notation such as filter[catalogYear]=2025.",
+    { catalogYear: 2025, programCode: 34 }
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -104,11 +127,9 @@ const list = {
     request: z.object({
         query: z
             .object({
-                catalogId: z.string().pipe(z.coerce.number()).pipe(z.number()),
-                programId: z.string().pipe(z.coerce.number()).pipe(z.number()),
-                programCode: z.string().pipe(z.coerce.number()).pipe(z.number())
+                filter: catalogProgramFilter.optional()
             })
-            .partial()
+            .strict()
     }),
     response: new OutputBuilder()
         .ok(

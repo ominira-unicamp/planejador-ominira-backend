@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -8,8 +13,6 @@ extendZodWithOpenApi(z);
 
 const basePath = [pathSeg.literal("exchange-notices")];
 const specsBuilder = new SpecBuilder(basePath, ["exchange-notices"], "id");
-const dateInput = z.iso.date().pipe(z.coerce.date());
-
 const placeSchema = z
     .object({
         id: z.number().int().positive(),
@@ -44,6 +47,21 @@ const schema = z
     .strict()
     .openapi("ExchangeNotice");
 
+export type ExchangeNoticeFilter = Filter;
+const exchangeNoticeFilterDefinitions = {
+    placeId: filterDefinition.id({ positive: true }),
+    placeName: filterDefinition.code({ operators: ["eq"] }),
+    registrationStart: filterDefinition.date({ operators: ["gte", "lte"] }),
+    registrationEnd: filterDefinition.date({ operators: ["gte", "lte"] })
+};
+export type ExchangeNoticeFilterName =
+    keyof typeof exchangeNoticeFilterDefinitions;
+const exchangeNoticeFilter = resourceFilterSchema(
+    exchangeNoticeFilterDefinitions,
+    "exchange notices",
+    "Structured exchange notice filters. Use bracket notation such as filter[registrationEnd][gte]=2026-01-01."
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -61,36 +79,8 @@ const get = {
 } satisfies IO;
 
 const listQuery = z
-    .object({
-        placeId: z.coerce.number().int().positive().optional(),
-        placeName: z.string().trim().min(1).optional(),
-        registrationStartAfter: dateInput.optional(),
-        registrationStartBefore: dateInput.optional(),
-        registrationEndAfter: dateInput.optional(),
-        registrationEndBefore: dateInput.optional()
-    })
-    .refine(
-        ({ registrationStartAfter, registrationStartBefore }) =>
-            !registrationStartAfter ||
-            !registrationStartBefore ||
-            registrationStartAfter <= registrationStartBefore,
-        {
-            path: ["registrationStartBefore"],
-            message:
-                "registrationStartBefore must be greater than or equal to registrationStartAfter"
-        }
-    )
-    .refine(
-        ({ registrationEndAfter, registrationEndBefore }) =>
-            !registrationEndAfter ||
-            !registrationEndBefore ||
-            registrationEndAfter <= registrationEndBefore,
-        {
-            path: ["registrationEndBefore"],
-            message:
-                "registrationEndBefore must be greater than or equal to registrationEndAfter"
-        }
-    );
+    .object({ filter: exchangeNoticeFilter.optional() })
+    .strict();
 
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },

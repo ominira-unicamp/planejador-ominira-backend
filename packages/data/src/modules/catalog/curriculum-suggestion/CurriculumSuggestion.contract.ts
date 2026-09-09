@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     pathSeg,
@@ -20,7 +25,6 @@ const pathId = z
     .string()
     .pipe(z.coerce.number())
     .pipe(z.number().int().positive());
-const queryId = z.coerce.number().int().positive();
 const catalogYear = z.number().int().min(1900).max(2100);
 const suggestionType = z.enum(CurriculumSuggestionType);
 const specializationSummary = z
@@ -67,6 +71,25 @@ export const curriculumSuggestionDataSchema = z
     .strict()
     .openapi("CurriculumSuggestionData");
 
+export type CurriculumSuggestionFilter = Filter;
+const curriculumSuggestionFilterDefinitions = {
+    catalogProgramId: filterDefinition.id({ positive: true }),
+    catalogId: filterDefinition.id({ positive: true }),
+    catalogYear: filterDefinition.integer({ minimum: 1900 }),
+    programId: filterDefinition.id({ positive: true }),
+    programCode: filterDefinition.integer({ minimum: 1 }),
+    code: filterDefinition.code(),
+    type: filterDefinition.enum(["GENERAL", "SPECIALIZATION", "PRE_OPTION"]),
+    specializationId: filterDefinition.id({ positive: true })
+};
+export type CurriculumSuggestionFilterName =
+    keyof typeof curriculumSuggestionFilterDefinitions;
+const curriculumSuggestionFilter = resourceFilterSchema(
+    curriculumSuggestionFilterDefinitions,
+    "curriculum suggestions",
+    "Structured curriculum suggestion filters. Use bracket notation such as filter[catalogYear]=2025."
+);
+
 const curriculumSuggestionEntitySchema = curriculumSuggestionDataSchema
     .extend({
         _paths: z
@@ -81,16 +104,7 @@ const curriculumSuggestionEntitySchema = curriculumSuggestionDataSchema
     .openapi("CurriculumSuggestionEntity");
 
 const listQuerySchema = z
-    .object({
-        catalogProgramId: queryId.optional(),
-        catalogId: queryId.optional(),
-        catalogYear: z.coerce.number().pipe(catalogYear).optional(),
-        programId: queryId.optional(),
-        programCode: z.coerce.number().int().positive().optional(),
-        code: z.string().trim().min(1).optional(),
-        type: suggestionType.optional(),
-        specializationId: queryId.optional()
-    })
+    .object({ filter: curriculumSuggestionFilter.optional() })
     .strict()
     .openapi("ListCurriculumSuggestionsQuery");
 

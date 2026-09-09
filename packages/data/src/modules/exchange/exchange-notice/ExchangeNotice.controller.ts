@@ -36,7 +36,7 @@ export default {
         entity: (id: number) => `/exchange-notices/${id}`,
         list: (query?: { placeId?: number }) => {
             if (!query?.placeId) return "/exchange-notices";
-            return `/exchange-notices?placeId=${query.placeId}`;
+            return `/exchange-notices?filter[placeId]=${query.placeId}`;
         }
     }
 };

@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -10,10 +15,6 @@ const basePath = [pathSeg.literal("calendar-events")];
 const tags = ["calendar-events"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
-const dateInput = z
-    .union([z.iso.date(), z.iso.datetime({ offset: true })])
-    .pipe(z.coerce.date());
-
 const dateOutput = z.union([z.string(), z.date()]).pipe(z.coerce.date());
 
 const calendarTagSchema = z
@@ -22,23 +23,6 @@ const calendarTagSchema = z
         name: z.string()
     })
     .strict();
-
-const tagIdsQuerySchema = z
-    .union([z.string(), z.array(z.string())])
-    .transform((tagIds) => (Array.isArray(tagIds) ? tagIds : [tagIds]))
-    .pipe(
-        z
-            .array(
-                z
-                    .string()
-                    .pipe(z.coerce.number())
-                    .pipe(z.number().int().positive())
-            )
-            .min(1)
-            .refine((tagIds) => new Set(tagIds).size === tagIds.length, {
-                message: "tagId must not contain duplicates"
-            })
-    );
 
 const schema = z
     .object({
@@ -53,6 +37,20 @@ const schema = z
     })
     .strict()
     .openapi("CalendarEvent");
+
+export type CalendarEventFilter = Filter;
+const calendarEventFilterDefinitions = {
+    startDate: filterDefinition.dateTime(),
+    endDate: filterDefinition.dateTime(),
+    tagId: filterDefinition.id()
+};
+export type CalendarEventFilterName =
+    keyof typeof calendarEventFilterDefinitions;
+const calendarEventFilter = resourceFilterSchema(
+    calendarEventFilterDefinitions,
+    "calendar events",
+    "Structured calendar event filters. Use bracket notation such as filter[tagId]=1."
+);
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -72,11 +70,7 @@ const get = {
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
     request: z.object({
-        query: z.object({
-            startDate: dateInput.optional(),
-            endDate: dateInput.optional(),
-            tagId: tagIdsQuerySchema.optional()
-        })
+        query: z.object({ filter: calendarEventFilter.optional() }).strict()
     }),
     response: new OutputBuilder()
         .ok(z.array(schema), "List of calendar events retrieved successfully")

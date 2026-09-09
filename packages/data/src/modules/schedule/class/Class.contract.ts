@@ -1,10 +1,14 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
     paginationQuerySchema,
-    PaginationQueryType,
     pathSeg,
     SpecBuilder
 } from "@pomi/api-core";
@@ -60,21 +64,34 @@ const classEntity = z
     .strict()
     .openapi("ClassEntity");
 
+export type ClassFilter = Filter;
+const classFilterDefinitions = {
+    classCode: filterDefinition.code({ operators: ["eq"] }),
+    unitId: filterDefinition.id(),
+    unitCode: filterDefinition.code({ operators: ["eq"] }),
+    courseId: filterDefinition.id(),
+    courseCode: filterDefinition.code({ operators: ["eq"] }),
+    studyPeriodId: filterDefinition.id(),
+    studyPeriodYear: filterDefinition.integer(),
+    studyPeriodYearPeriod: filterDefinition.enum([
+        "SUMMER",
+        "FIRST_SEMESTER",
+        "WINTER",
+        "SECOND_SEMESTER"
+    ]),
+    professorId: filterDefinition.id(),
+    professorName: filterDefinition.code({ operators: ["eq"] })
+};
+export type ClassFilterName = keyof typeof classFilterDefinitions;
+const classFilter = resourceFilterSchema(
+    classFilterDefinitions,
+    "classes",
+    "Structured class filters. Use bracket notation such as filter[courseCode]=MC102."
+);
+
 const listClassesQuery = paginationQuerySchema
-    .extend({
-        classCode: z.string().optional(),
-        unitId: z.coerce.number().int().optional(),
-        unitCode: z.string().optional(),
-        courseId: z.coerce.number().int().optional(),
-        courseCode: z.string().optional(),
-        studyPeriodId: z.coerce.number().int().optional(),
-        studyPeriodYear: z.coerce.number().int().optional(),
-        studyPeriodYearPeriod: z
-            .enum(["SUMMER", "FIRST_SEMESTER", "WINTER", "SECOND_SEMESTER"])
-            .optional(),
-        professorId: z.coerce.number().int().optional(),
-        professorName: z.string().optional()
-    })
+    .extend({ filter: classFilter.optional() })
+    .strict()
     .openapi("GetClassesQuery");
 
 const PageClassesSchema = getPaginatedSchema(classEntity);
@@ -109,9 +126,4 @@ export default {
     list
 };
 
-export type ListQueryParams = {
-    unitId?: number | undefined;
-    courseId?: number | undefined;
-    studyPeriodId?: number | undefined;
-    professorId?: number | undefined;
-} & Partial<PaginationQueryType>;
+export type ListQueryParams = Partial<z.infer<typeof listClassesQuery>>;

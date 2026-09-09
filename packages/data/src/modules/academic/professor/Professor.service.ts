@@ -1,11 +1,32 @@
 import IO, {
-    type ListQueryParams
+    type ListQueryParams,
+    type ProfessorFilter,
+    type ProfessorFilterName
 } from "#/modules/academic/professor/Professor.contract.js";
+import {
+    compileFilterWhere,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type ProfessorEntity = z.infer<typeof IO.schema>;
+
+const professorWhere = prismaWhereFor<MyPrisma.ProfessorWhereInput>();
+const professorWhereDefinitions = {
+    classId: professorWhere.numberAt("classes.some.id")
+} satisfies Record<
+    ProfessorFilterName,
+    FilterWhereBuilder<MyPrisma.ProfessorWhereInput>
+>;
+
+export function professorFilterWhere(
+    filter: ProfessorFilter | undefined
+): MyPrisma.ProfessorWhereInput[] {
+    return compileFilterWhere(filter, professorWhereDefinitions, "professor");
+}
 
 export type ProfessorService = {
     list(
@@ -28,9 +49,9 @@ export function createProfessorService({
 }): ProfessorService {
     return {
         async list(query) {
-            const where = query.classId
-                ? { classes: { some: { id: query.classId } } }
-                : {};
+            const filterWhere = professorFilterWhere(query.filter);
+            const where: MyPrisma.ProfessorWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const total = await prisma.professor.count({ where });
             const professors = await prisma.professor.findMany({
                 where,

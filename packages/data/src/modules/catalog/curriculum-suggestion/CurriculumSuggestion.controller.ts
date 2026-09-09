@@ -1,6 +1,7 @@
 import {
     ApiResponse,
     createResultResponder,
+    serializeQueryParams,
     type EndpointActions
 } from "@pomi/api-core";
 
@@ -21,11 +22,9 @@ function entityPath(id: number) {
 }
 
 function listPath(query: Partial<ListCurriculumSuggestionsQuery> = {}) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) params.set(key, String(value));
-    }
-    const search = params.toString();
+    const search = serializeQueryParams(
+        query as unknown as Record<string, unknown>
+    );
     return `/curriculum-suggestions${search ? `?${search}` : ""}`;
 }
 

@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -33,6 +38,24 @@ const studyPeriodEntity = z
     .strict()
     .openapi("StudyPeriodEntity");
 
+export type StudyPeriodFilter = Filter;
+const studyPeriodFilterDefinitions = {
+    id: filterDefinition.id(),
+    year: filterDefinition.integer(),
+    yearPeriod: filterDefinition.enum([
+        "SUMMER",
+        "FIRST_SEMESTER",
+        "WINTER",
+        "SECOND_SEMESTER"
+    ])
+};
+export type StudyPeriodFilterName = keyof typeof studyPeriodFilterDefinitions;
+const studyPeriodFilter = resourceFilterSchema(
+    studyPeriodFilterDefinitions,
+    "study periods",
+    "Structured study period filters. Use bracket notation such as filter[year]=2025."
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -48,7 +71,9 @@ const get = {
 
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
-    request: z.object({}),
+    request: z.object({
+        query: z.object({ filter: studyPeriodFilter.optional() }).strict()
+    }),
     response: new OutputBuilder()
         .ok(
             z.array(studyPeriodEntity),

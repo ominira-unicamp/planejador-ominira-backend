@@ -32,8 +32,9 @@ const professorSummaries: Actions["professorSummaries"] = async (
     ctx,
     input
 ) => {
-    const summaries =
-        await ctx.evaluationSummaryService.listProfessorSummaries();
+    const summaries = await ctx.evaluationSummaryService.listProfessorSummaries(
+        input.query.filter
+    );
     const page = input.query.page ?? 1;
     const pageSize = input.query.pageSize ?? Math.max(summaries.length, 1);
     const start = (page - 1) * pageSize;
@@ -53,7 +54,9 @@ const professorSummaries: Actions["professorSummaries"] = async (
 };
 
 const courseSummaries: Actions["courseSummaries"] = async (ctx, input) => {
-    const summaries = await ctx.evaluationSummaryService.listCourseSummaries();
+    const summaries = await ctx.evaluationSummaryService.listCourseSummaries(
+        input.query.filter
+    );
     const page = input.query.page ?? 1;
     const pageSize = input.query.pageSize ?? Math.max(summaries.length, 1);
     const start = (page - 1) * pageSize;
@@ -70,10 +73,7 @@ const courseSummaries: Actions["courseSummaries"] = async (ctx, input) => {
 
 const pair: Actions["pair"] = async (ctx, input) => {
     return respond(
-        await ctx.evaluationSummaryService.getPairSummary(
-            input.query.courseId,
-            input.query.professorId
-        ),
+        await ctx.evaluationSummaryService.getPairSummary(input.query.filter),
         ApiResponse.ok
     );
 };

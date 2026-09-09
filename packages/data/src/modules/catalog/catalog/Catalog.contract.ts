@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -25,6 +30,15 @@ const catalogEntitySchema = z
     })
     .openapi("Catalog");
 
+export type CatalogFilter = Filter;
+const catalogFilterDefinitions = { year: filterDefinition.integer() };
+export type CatalogFilterName = keyof typeof catalogFilterDefinitions;
+const catalogFilter = resourceFilterSchema(
+    catalogFilterDefinitions,
+    "catalogs",
+    "Structured catalog filters. Use bracket notation such as filter[year]=2025."
+);
+
 const get = {
     meta: {
         method: "get",
@@ -46,13 +60,7 @@ const get = {
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
     request: z.object({
-        query: z.object({
-            year: z
-                .string()
-                .pipe(z.coerce.number())
-                .pipe(z.number().int())
-                .optional()
-        })
+        query: z.object({ filter: catalogFilter.optional() }).strict()
     }),
     response: new OutputBuilder()
         .ok(

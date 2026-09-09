@@ -1,5 +1,13 @@
+import IO from "#/modules/academic/professor-data-portal/ProfessorDataPortal.contract.js";
+import {
+    compileFilterWhere,
+    containsAt,
+    prismaWhereFor,
+    type FilterWhereBuilder
+} from "#/queryFilterWhere.js";
 import { err, ok, ResourceNotFoundProblem, type Result } from "@pomi/api-core";
 import type { Department, Prisma, PrismaClient } from "@pomi/db";
+import z from "zod";
 
 type Profile = ReturnType<typeof buildProfile>;
 const profileInclude = {
@@ -19,17 +27,44 @@ type ProfileValue = Prisma.ProfessorDataPortalProfileGetPayload<{
 type PositionValue = Prisma.AcademicPositionGetPayload<{
     include: { careerReference: true };
 }>;
-type ProfileQuery = {
-    page?: number;
-    pageSize?: number;
-    professorId?: number;
-    portalId?: number;
-    unitId?: number;
-    departmentId?: number;
-    positionId?: number;
-    name?: string;
-};
-type NameQuery = { page?: number; pageSize?: number; name?: string };
+type ProfileQuery = z.infer<typeof IO.profile.list.request>["query"];
+type DepartmentQuery = z.infer<typeof IO.departments.list.request>["query"];
+type NameQuery = z.infer<typeof IO.keywords.list.request>["query"];
+type PositionQuery = z.infer<typeof IO.positions.list.request>["query"];
+
+const profileWhere =
+    prismaWhereFor<Prisma.ProfessorDataPortalProfileWhereInput>();
+const profileWhereDefinitions = {
+    professorId: profileWhere.numberAt("professorId"),
+    portalId: profileWhere.numberAt("portalId"),
+    unitId: profileWhere.numberAt("unitId"),
+    departmentId: profileWhere.numberAt("departmentId"),
+    positionId: profileWhere.numberAt("positionId"),
+    name: containsAt<Prisma.ProfessorDataPortalProfileWhereInput>("name")
+} satisfies Record<
+    string,
+    FilterWhereBuilder<Prisma.ProfessorDataPortalProfileWhereInput>
+>;
+const departmentWhere = prismaWhereFor<Prisma.DepartmentWhereInput>();
+const departmentWhereDefinitions = {
+    unitId: departmentWhere.numberAt("unitId"),
+    name: containsAt<Prisma.DepartmentWhereInput>("name")
+} satisfies Record<string, FilterWhereBuilder<Prisma.DepartmentWhereInput>>;
+const keywordWhereDefinitions = {
+    name: containsAt<Prisma.KeywordWhereInput>("name")
+} satisfies Record<string, FilterWhereBuilder<Prisma.KeywordWhereInput>>;
+const coauthorWhereDefinitions = {
+    name: containsAt<Prisma.CoauthorWhereInput>("name")
+} satisfies Record<string, FilterWhereBuilder<Prisma.CoauthorWhereInput>>;
+const positionWhere = prismaWhereFor<Prisma.AcademicPositionWhereInput>();
+const positionWhereDefinitions = {
+    id: positionWhere.numberAt("id"),
+    canonicalKey: containsAt<Prisma.AcademicPositionWhereInput>("canonicalKey"),
+    role: positionWhere.enumAt("role")
+} satisfies Record<
+    string,
+    FilterWhereBuilder<Prisma.AcademicPositionWhereInput>
+>;
 
 function buildPosition(value: PositionValue) {
     return {
@@ -114,7 +149,9 @@ export type ProfessorDataPortalService = {
     ): Promise<
         Result<Profile, ReturnType<typeof ResourceNotFoundProblem.create>>
     >;
-    listPositions(): Promise<ReturnType<typeof buildPosition>[]>;
+    listPositions(
+        query: PositionQuery
+    ): Promise<ReturnType<typeof buildPosition>[]>;
     getPosition(
         id: number
     ): Promise<
@@ -123,9 +160,7 @@ export type ProfessorDataPortalService = {
             ReturnType<typeof ResourceNotFoundProblem.create>
         >
     >;
-    listDepartments(
-        query: NameQuery & { unitId?: number }
-    ): Promise<Department[]>;
+    listDepartments(query: DepartmentQuery): Promise<Department[]>;
     getDepartment(
         id: number
     ): Promise<
@@ -164,25 +199,13 @@ export function createProfessorDataPortalService({
 }): ProfessorDataPortalService {
     return {
         async listProfiles(query) {
-            const where = {
-                ...(query.professorId
-                    ? { professorId: query.professorId }
-                    : {}),
-                ...(query.portalId ? { portalId: query.portalId } : {}),
-                ...(query.unitId ? { unitId: query.unitId } : {}),
-                ...(query.departmentId
-                    ? { departmentId: query.departmentId }
-                    : {}),
-                ...(query.positionId ? { positionId: query.positionId } : {}),
-                ...(query.name
-                    ? {
-                          name: {
-                              contains: query.name,
-                              mode: "insensitive" as const
-                          }
-                      }
-                    : {})
-            };
+            const filterWhere = compileFilterWhere(
+                query.filter,
+                profileWhereDefinitions,
+                "professor data portal profile"
+            );
+            const where: Prisma.ProfessorDataPortalProfileWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const [total, values] = await Promise.all([
                 prisma.professorDataPortalProfile.count({ where }),
                 prisma.professorDataPortalProfile.findMany({
@@ -202,8 +225,14 @@ export function createProfessorDataPortalService({
             });
             return value ? ok(buildProfile(value)) : notFound();
         },
-        async listPositions() {
+        async listPositions(query) {
+            const filterWhere = compileFilterWhere(
+                query.filter,
+                positionWhereDefinitions,
+                "professor position"
+            );
             const values = await prisma.academicPosition.findMany({
+                where: filterWhere.length > 0 ? { AND: filterWhere } : {},
                 include: { careerReference: true },
                 orderBy: { canonicalKey: "asc" }
             });
@@ -217,18 +246,13 @@ export function createProfessorDataPortalService({
             return value ? ok(buildPosition(value)) : notFound();
         },
         async listDepartments(query) {
+            const filterWhere = compileFilterWhere(
+                query.filter,
+                departmentWhereDefinitions,
+                "department"
+            );
             return prisma.department.findMany({
-                where: {
-                    ...(query.unitId ? { unitId: query.unitId } : {}),
-                    ...(query.name
-                        ? {
-                              name: {
-                                  contains: query.name,
-                                  mode: "insensitive"
-                              }
-                          }
-                        : {})
-                },
+                where: filterWhere.length > 0 ? { AND: filterWhere } : {},
                 orderBy: [{ name: "asc" }, { id: "asc" }]
             });
         },
@@ -237,14 +261,13 @@ export function createProfessorDataPortalService({
             return value ? ok(value) : notFound();
         },
         async listKeywords(query) {
-            const where = query.name
-                ? {
-                      name: {
-                          contains: query.name,
-                          mode: "insensitive" as const
-                      }
-                  }
-                : {};
+            const filterWhere = compileFilterWhere(
+                query.filter,
+                keywordWhereDefinitions,
+                "keyword"
+            );
+            const where: Prisma.KeywordWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const [total, values] = await Promise.all([
                 prisma.keyword.count({ where }),
                 prisma.keyword.findMany({
@@ -264,14 +287,13 @@ export function createProfessorDataPortalService({
             return value ? ok({ id: value.id, name: value.name }) : notFound();
         },
         async listCoauthors(query) {
-            const where = query.name
-                ? {
-                      name: {
-                          contains: query.name,
-                          mode: "insensitive" as const
-                      }
-                  }
-                : {};
+            const filterWhere = compileFilterWhere(
+                query.filter,
+                coauthorWhereDefinitions,
+                "coauthor"
+            );
+            const where: Prisma.CoauthorWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const [total, values] = await Promise.all([
                 prisma.coauthor.count({ where }),
                 prisma.coauthor.findMany({

@@ -50,8 +50,10 @@ const actions: Actions = {
             await ctx.professorDataPortalService.getProfile(input.path.id),
             ApiResponse.ok
         ),
-    positionList: async (ctx) =>
-        ApiResponse.ok(await ctx.professorDataPortalService.listPositions()),
+    positionList: async (ctx, input) =>
+        ApiResponse.ok(
+            await ctx.professorDataPortalService.listPositions(input.query)
+        ),
     positionGet: async (ctx, input) =>
         respond(
             await ctx.professorDataPortalService.getPosition(input.path.id),

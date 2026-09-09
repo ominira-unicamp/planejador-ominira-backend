@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -29,6 +34,15 @@ const schema = z
     })
     .openapi("Program");
 
+export type ProgramFilter = Filter;
+const programFilterDefinitions = { unitId: filterDefinition.id() };
+export type ProgramFilterName = keyof typeof programFilterDefinitions;
+const programFilter = resourceFilterSchema(
+    programFilterDefinitions,
+    "programs",
+    "Structured program filters. Use bracket notation such as filter[unitId]=1."
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -45,13 +59,7 @@ const get = {
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
     request: z.object({
-        query: z.object({
-            unitId: z
-                .string()
-                .pipe(z.coerce.number())
-                .pipe(z.number().int())
-                .optional()
-        })
+        query: z.object({ filter: programFilter.optional() }).strict()
     }),
     response: new OutputBuilder()
         .ok(z.array(schema), "List of programs retrieved successfully")

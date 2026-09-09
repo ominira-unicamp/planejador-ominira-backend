@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -41,6 +46,39 @@ const pairSummary = metrics
     .strict()
     .openapi("CourseProfessorEvaluationSummary");
 
+const pairFilter = resourceFilterSchema(
+    {
+        courseId: filterDefinition.id({ positive: true }),
+        professorId: filterDefinition.id({ positive: true })
+    },
+    "evaluation summary pair",
+    "Structured evaluation summary filters. Use filter[courseId]=1&filter[professorId]=2."
+).superRefine((filter: Filter, context) => {
+    const fields = new Set(filter.map((expression) => expression.path[0]));
+    for (const field of ["courseId", "professorId"]) {
+        if (!fields.has(field)) {
+            context.addIssue({
+                code: "custom",
+                message: `${field} is required`
+            });
+        }
+    }
+});
+
+const professorSummaryFilter = resourceFilterSchema(
+    { professorId: filterDefinition.id({ positive: true }) },
+    "professor evaluation summaries",
+    "Structured professor summary filters. Use filter[professorId]=1."
+);
+const courseSummaryFilter = resourceFilterSchema(
+    {
+        courseId: filterDefinition.id({ positive: true }),
+        courseCode: filterDefinition.code()
+    },
+    "course evaluation summaries",
+    "Structured course summary filters. Use filter[courseCode]=MC102."
+);
+
 const professorSummaries = {
     meta: {
         method: "get" as const,
@@ -51,7 +89,11 @@ const professorSummaries = {
         tags: ["evaluation-summaries"],
         authorization: policies.public
     },
-    request: z.object({ query: paginationQuerySchema }),
+    request: z.object({
+        query: paginationQuerySchema.extend({
+            filter: professorSummaryFilter.optional()
+        })
+    }),
     response: new OutputBuilder()
         .ok(
             getPaginatedSchema(professorSummary).openapi(
@@ -73,7 +115,11 @@ const courseSummaries = {
         tags: ["evaluation-summaries"],
         authorization: policies.public
     },
-    request: z.object({ query: paginationQuerySchema }),
+    request: z.object({
+        query: paginationQuerySchema.extend({
+            filter: courseSummaryFilter.optional()
+        })
+    }),
     response: new OutputBuilder()
         .ok(
             getPaginatedSchema(courseSummary).openapi(
@@ -93,12 +139,7 @@ const pair = {
         authorization: policies.public
     },
     request: z.object({
-        query: z
-            .object({
-                courseId: z.coerce.number().int(),
-                professorId: z.coerce.number().int()
-            })
-            .strict()
+        query: z.object({ filter: pairFilter }).strict()
     }),
     response: new OutputBuilder()
         .ok(pairSummary, "Sumário de avaliações por professor e disciplina")

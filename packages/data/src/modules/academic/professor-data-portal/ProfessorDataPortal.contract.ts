@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -108,17 +113,56 @@ export const profileSummary = profile.pick({
     _paths: true
 });
 
+export type ProfileFilter = Filter;
+const profileFilterDefinitions = {
+    professorId: filterDefinition.id({ positive: true }),
+    portalId: filterDefinition.id({ positive: true }),
+    unitId: filterDefinition.id({ positive: true }),
+    departmentId: filterDefinition.id({ positive: true }),
+    positionId: filterDefinition.id({ positive: true }),
+    name: filterDefinition.code({ operators: ["eq"] })
+};
+export type ProfileFilterName = keyof typeof profileFilterDefinitions;
+const profileFilter = resourceFilterSchema(
+    profileFilterDefinitions,
+    "professor data portal profiles",
+    "Structured profile filters. Use bracket notation such as filter[unitId]=1."
+);
+const nameFilter = resourceFilterSchema(
+    { name: filterDefinition.code({ operators: ["eq"] }) },
+    "named professor data portal resources",
+    "Structured name filters. Use bracket notation such as filter[name]=Ada."
+);
+const departmentFilter = resourceFilterSchema(
+    {
+        unitId: filterDefinition.id({ positive: true }),
+        name: filterDefinition.code({ operators: ["eq"] })
+    },
+    "departments",
+    "Structured department filters. Use bracket notation such as filter[unitId]=1."
+);
+const positionFilter = resourceFilterSchema(
+    {
+        id: filterDefinition.id({ positive: true }),
+        canonicalKey: filterDefinition.code({ operators: ["eq"] }),
+        role: filterDefinition.enum([
+            "PROFESSOR",
+            "RESEARCHER",
+            "POSTDOCTORAL_RESEARCHER"
+        ])
+    },
+    "professor positions",
+    "Structured professor position filters. Use bracket notation such as filter[role]=Professor."
+);
+
 const profileList = {
     meta: { ...profileSpecs.list(), authorization: policies.public },
     request: z.object({
-        query: paginationQuerySchema.extend({
-            professorId: z.coerce.number().int().positive().optional(),
-            portalId: z.coerce.number().int().positive().optional(),
-            unitId: z.coerce.number().int().positive().optional(),
-            departmentId: z.coerce.number().int().positive().optional(),
-            positionId: z.coerce.number().int().positive().optional(),
-            name: z.string().trim().min(1).optional()
-        })
+        query: paginationQuerySchema
+            .extend({
+                filter: profileFilter.optional()
+            })
+            .strict()
     }),
     response: new OutputBuilder()
         .ok(
@@ -181,9 +225,9 @@ const keywordList = {
         authorization: policies.public
     },
     request: z.object({
-        query: paginationQuerySchema.extend({
-            name: z.string().trim().min(1).optional()
-        })
+        query: paginationQuerySchema
+            .extend({ filter: nameFilter.optional() })
+            .strict()
     }),
     response: new OutputBuilder()
         .ok(
@@ -203,9 +247,9 @@ const coauthorList = {
         authorization: policies.public
     },
     request: z.object({
-        query: paginationQuerySchema.extend({
-            name: z.string().trim().min(1).optional()
-        })
+        query: paginationQuerySchema
+            .extend({ filter: nameFilter.optional() })
+            .strict()
     }),
     response: new OutputBuilder()
         .ok(
@@ -221,7 +265,8 @@ export default {
         list: simpleList(
             "professor-positions",
             "professor-positions",
-            position
+            position,
+            z.object({ filter: positionFilter.optional() }).strict()
         ),
         get: simpleGet("professor-positions", "professor-positions", position)
     },
@@ -230,10 +275,7 @@ export default {
             "departments",
             "departments",
             department,
-            z.object({
-                unitId: z.coerce.number().int().positive().optional(),
-                name: z.string().trim().min(1).optional()
-            })
+            z.object({ filter: departmentFilter.optional() }).strict()
         ),
         get: simpleGet("departments", "departments", department)
     },

@@ -6,6 +6,7 @@ import {
     createResultResponder,
     problemResponse,
     ResourceNotFoundProblem,
+    serializeQueryParams,
     type EndpointActions
 } from "@pomi/api-core";
 const { schema: _schema, ...contracts } = IO;
@@ -15,10 +16,7 @@ const respond = createResultResponder({
 });
 
 function listPath(query: Record<string, unknown>) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(query))
-        if (value !== undefined) params.set(key, String(value));
-    const search = params.toString();
+    const search = serializeQueryParams(query);
     return `/classes${search ? `?${search}` : ""}`;
 }
 

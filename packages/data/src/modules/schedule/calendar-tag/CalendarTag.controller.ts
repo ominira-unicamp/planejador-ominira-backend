@@ -13,7 +13,8 @@ const respond = createResultResponder({
     [ResourceNotFoundProblem.type]: problemResponse(ResourceNotFoundProblem)
 });
 const actions: Actions = {
-    list: async (ctx) => ApiResponse.ok(await ctx.calendarTagService.list()),
+    list: async (ctx, input) =>
+        ApiResponse.ok(await ctx.calendarTagService.list(input.query)),
     get: async (ctx, input) =>
         respond(
             await ctx.calendarTagService.getById(input.path.id),

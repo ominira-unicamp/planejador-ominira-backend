@@ -71,7 +71,7 @@ const forbiddenPathSegments = new Set([
     "prototype"
 ]);
 
-function whereAt<TWhere, T extends string | number>(
+function whereAt<TWhere, T extends string | number | Date>(
     path: string,
     convert: (value: FilterValue) => T
 ): FilterWhereBuilder<TWhere> {
@@ -91,6 +91,38 @@ function whereAt<TWhere, T extends string | number>(
         ) as TWhere;
 }
 
+function nestedWhere<TWhere>(path: string, value: unknown): TWhere {
+    const segments = path.split(".");
+    if (
+        segments.some(
+            (segment) =>
+                segment.length === 0 || forbiddenPathSegments.has(segment)
+        )
+    ) {
+        throw new Error(`Invalid Prisma where path: ${path}`);
+    }
+    return segments.reduceRight<unknown>(
+        (where, segment) => ({ [segment]: where }),
+        value
+    ) as TWhere;
+}
+
+export function containsAt<TWhere>(
+    path: StringWherePath<TWhere>
+): FilterWhereBuilder<TWhere> {
+    return (expression) =>
+        nestedWhere<TWhere>(path, {
+            contains: String(expression.values[0]),
+            mode: "insensitive"
+        });
+}
+
+export function dateAt<TWhere>(
+    path: StringWherePath<TWhere>
+): FilterWhereBuilder<TWhere> {
+    return whereAt<TWhere, Date>(path, (value) => new Date(String(value)));
+}
+
 export function prismaWhereFor<TWhere>() {
     return {
         enumAt(path: EnumWherePath<TWhere>): FilterWhereBuilder<TWhere> {
@@ -105,7 +137,7 @@ export function prismaWhereFor<TWhere>() {
     };
 }
 
-export function scalarFilter<T extends string | number>(
+export function scalarFilter<T extends string | number | Date>(
     operator: QueryFilterOperator,
     values: FilterValue[],
     convert: (value: FilterValue) => T

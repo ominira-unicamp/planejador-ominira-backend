@@ -1,5 +1,10 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { pathSeg, SpecBuilder } from "@pomi/api-core";
 import z from "zod";
@@ -29,6 +34,19 @@ const unitEntity = z
     .strict()
     .openapi("UnitEntity");
 
+export type UnitFilter = Filter;
+const unitFilterDefinitions = {
+    id: filterDefinition.id(),
+    code: filterDefinition.code(),
+    name: filterDefinition.code({ operators: ["eq"] })
+};
+export type UnitFilterName = keyof typeof unitFilterDefinitions;
+const unitFilter = resourceFilterSchema(
+    unitFilterDefinitions,
+    "units",
+    "Structured unit filters. Use bracket notation such as filter[code]=IC."
+);
+
 const get = {
     meta: { ...specsBuilder.get(), authorization: policies.public },
     request: z.object({
@@ -44,7 +62,9 @@ const get = {
 
 const list = {
     meta: { ...specsBuilder.list(), authorization: policies.public },
-    request: z.object({}),
+    request: z.object({
+        query: z.object({ filter: unitFilter.optional() }).strict()
+    }),
     response: new OutputBuilder()
         .ok(z.array(unitEntity), "List of units retrieved successfully")
         .build()
