@@ -182,6 +182,58 @@ export function resourceFilterOpenApiSchema(
     return root;
 }
 
+const operatorSuggestions: Record<string, string> = {
+    ge: "gte",
+    le: "lte"
+};
+
+type FilterOpenApiMetadata = {
+    enum?: unknown[];
+    format?: string;
+    minLength?: number;
+    minimum?: number;
+    type?: string;
+};
+
+function filterExpectedMetadata(definition: FilterDefinition) {
+    const schema = definition.openApi as FilterOpenApiMetadata;
+    return {
+        ...(schema.type ? { type: schema.type } : {}),
+        ...(schema.format ? { format: schema.format } : {}),
+        ...(schema.minimum === undefined ? {} : { minimum: schema.minimum }),
+        ...(schema.minLength === undefined
+            ? {}
+            : { minLength: schema.minLength }),
+        ...(schema.enum ? { allowedValues: schema.enum } : {})
+    };
+}
+
+function filterExpectedDescription(definition: FilterDefinition) {
+    const expected = filterExpectedMetadata(definition);
+    if (expected.allowedValues) {
+        return `um dos valores: ${expected.allowedValues.join(", ")}`;
+    }
+    if (expected.format === "date") {
+        return "uma data no formato AAAA-MM-DD";
+    }
+    if (expected.format === "date-time") {
+        return "uma data ou data-hora no formato ISO 8601";
+    }
+    if (expected.type === "integer" && expected.minimum !== undefined) {
+        return `um número inteiro maior ou igual a ${expected.minimum}`;
+    }
+    if (expected.type === "integer") {
+        return "um número inteiro";
+    }
+    if (expected.type === "string" && expected.minLength !== undefined) {
+        return "um texto não vazio";
+    }
+    if (expected.type === "string") {
+        return "um texto";
+    }
+    return "um valor válido";
+}
+
 export function resourceFilterSchema(
     definitions: Record<string, FilterDefinition>,
     resourceName: string,
@@ -194,12 +246,37 @@ export function resourceFilterSchema(
             let valid = true;
 
             for (const [index, filter] of filters.entries()) {
-                const field = definitions[filter.path.join(".")];
+                const filterPath = filter.path.join(".");
+                const field = definitions[filterPath];
                 if (!field) {
+                    const parentPath = filter.path.slice(0, -1).join(".");
+                    const parent = definitions[parentPath];
+                    const possibleOperator = filter.path.at(-1) ?? "";
+                    const suggestion = operatorSuggestions[possibleOperator];
                     context.addIssue({
                         code: "custom",
                         path: [index, ...filter.path],
-                        message: `filter field is not supported for ${resourceName}`
+                        message: parent
+                            ? `O operador "${possibleOperator}" não é aceito para o campo "${parentPath}".${suggestion ? ` Você quis dizer "${suggestion}"?` : ""} Operadores aceitos: ${parent.operators.join(", ")}.`
+                            : `O campo "${filterPath}" não é aceito neste endpoint. Campos aceitos: ${Object.keys(definitions).join(", ")}.`,
+                        params: {
+                            code: parent
+                                ? "FILTER_OPERATOR_UNSUPPORTED"
+                                : "FILTER_FIELD_UNSUPPORTED",
+                            details: parent
+                                ? {
+                                      resource: resourceName,
+                                      field: parentPath,
+                                      receivedOperator: possibleOperator,
+                                      allowedOperators: parent.operators,
+                                      ...(suggestion ? { suggestion } : {})
+                                  }
+                                : {
+                                      resource: resourceName,
+                                      field: filterPath,
+                                      allowedFields: Object.keys(definitions)
+                                  }
+                        }
                     });
                     valid = false;
                     continue;
@@ -209,8 +286,16 @@ export function resourceFilterSchema(
                     context.addIssue({
                         code: "custom",
                         path: [index, ...filter.path, filter.operator],
-                        message:
-                            "filter operator is not supported for this field"
+                        message: `O operador "${filter.operator}" não é aceito para o campo "${filterPath}". Operadores aceitos: ${field.operators.join(", ")}.`,
+                        params: {
+                            code: "FILTER_OPERATOR_UNSUPPORTED",
+                            details: {
+                                resource: resourceName,
+                                field: filterPath,
+                                receivedOperator: filter.operator,
+                                allowedOperators: field.operators
+                            }
+                        }
                     });
                     valid = false;
                     continue;
@@ -223,7 +308,23 @@ export function resourceFilterSchema(
                         context.addIssue({
                             code: "custom",
                             path: [index, ...filter.path, valueIndex],
-                            message: "filter value is invalid for this field"
+                            message: `O valor informado para o campo "${filterPath}" é inválido. Esperado: ${filterExpectedDescription(field)}.`,
+                            params: {
+                                code: "FILTER_VALUE_INVALID",
+                                details: {
+                                    resource: resourceName,
+                                    field: filterPath,
+                                    operator: filter.operator,
+                                    valueIndex,
+                                    expected: filterExpectedMetadata(field),
+                                    receivedType:
+                                        value === null
+                                            ? "null"
+                                            : Array.isArray(value)
+                                              ? "array"
+                                              : typeof value
+                                }
+                            }
                         });
                         valid = false;
                         continue;

@@ -22,8 +22,10 @@ export type QueryFilterExpression = {
 export type QueryFilter = QueryFilterExpression[];
 
 type QueryFilterIssue = {
+    code: "FILTER_SYNTAX_INVALID";
     path: (string | number)[];
     message: string;
+    details?: Record<string, unknown>;
 };
 
 type NormalizedQueryFilter =
@@ -58,43 +60,67 @@ function valueAsString(value: unknown): string | undefined {
     return typeof value === "string" ? value : undefined;
 }
 
+function valueType(value: unknown) {
+    if (value === null) return "null";
+    if (Array.isArray(value)) return "array";
+    return typeof value;
+}
+
 function normalizeQueryFilterInput(input: unknown): NormalizedQueryFilter {
     const issues: QueryFilterIssue[] = [];
     const expressions: QueryFilterExpression[] = [];
 
-    if (!isRecord(input)) {
-        return {
-            success: false,
-            issues: [
-                {
-                    path: [],
-                    message: "filter must be an object"
-                }
-            ]
-        };
+    function addIssue(
+        path: (string | number)[],
+        message: string,
+        details?: Record<string, unknown>
+    ) {
+        issues.push({
+            code: "FILTER_SYNTAX_INVALID",
+            path,
+            message,
+            ...(details ? { details } : {})
+        });
     }
 
-    function addIssue(path: (string | number)[], message: string) {
-        issues.push({ path, message });
+    if (!isRecord(input)) {
+        addIssue([], "O filtro deve ser um objeto.", {
+            expected: "object",
+            receivedType: valueType(input)
+        });
+        return {
+            success: false,
+            issues
+        };
     }
 
     function visit(value: unknown, path: string[]) {
         if (expressions.length >= queryFilterLimits.expressions) {
             addIssue(
                 path,
-                `filter must contain at most ${queryFilterLimits.expressions} expressions`
+                `O filtro pode conter no máximo ${queryFilterLimits.expressions} expressões.`,
+                {
+                    limit: queryFilterLimits.expressions,
+                    received: expressions.length + 1
+                }
             );
             return;
         }
 
         if (!isRecord(value)) {
-            addIssue(path, "filter fields must be objects or scalar values");
+            addIssue(
+                path,
+                "Os campos do filtro devem ser objetos ou valores escalares.",
+                { expected: ["object", "string", "number"] }
+            );
             return;
         }
 
         for (const [key, child] of Object.entries(value)) {
             if (isDangerousKey(key)) {
-                addIssue([...path, key], "filter contains an invalid field");
+                addIssue([...path, key], "O filtro contém um campo inválido.", {
+                    field: key
+                });
                 continue;
             }
 
@@ -102,7 +128,8 @@ function normalizeQueryFilterInput(input: unknown): NormalizedQueryFilter {
                 if (path.length === 0) {
                     addIssue(
                         [...path, key],
-                        "filter operators require a field"
+                        `O operador de filtro "${key}" precisa estar associado a um campo.`,
+                        { operator: key }
                     );
                     continue;
                 }
@@ -111,19 +138,35 @@ function normalizeQueryFilterInput(input: unknown): NormalizedQueryFilter {
                 if (key !== "in" && values.length !== 1) {
                     addIssue(
                         [...path, key],
-                        `${key} accepts exactly one value`
+                        `O operador "${key}" aceita exatamente um valor.`,
+                        {
+                            operator: key,
+                            expectedValues: 1,
+                            receivedValues: values.length
+                        }
                     );
                     continue;
                 }
 
                 const normalizedValues = values.map(valueAsString);
                 if (normalizedValues.some((item) => item === undefined)) {
-                    addIssue([...path, key], "filter values must be strings");
+                    addIssue(
+                        [...path, key],
+                        "Os valores do filtro devem ser textos.",
+                        {
+                            operator: key,
+                            receivedTypes: values.map(valueType)
+                        }
+                    );
                     continue;
                 }
 
                 if (normalizedValues.length === 0) {
-                    addIssue([...path, key], "filter values cannot be empty");
+                    addIssue(
+                        [...path, key],
+                        "O filtro deve conter pelo menos um valor.",
+                        { operator: key, minimumValues: 1 }
+                    );
                     continue;
                 }
 
@@ -137,14 +180,22 @@ function normalizeQueryFilterInput(input: unknown): NormalizedQueryFilter {
 
             const nextPath = [...path, key];
             if (nextPath.length > queryFilterLimits.path) {
-                addIssue(nextPath, "filter path is too deep");
+                addIssue(
+                    nextPath,
+                    `O caminho do filtro é muito profundo. O limite é de ${queryFilterLimits.path} níveis.`,
+                    {
+                        maxDepth: queryFilterLimits.path,
+                        receivedDepth: nextPath.length
+                    }
+                );
                 continue;
             }
 
             if (Array.isArray(child)) {
                 addIssue(
                     nextPath,
-                    "arrays are only supported by the in operator"
+                    'Arrays só são aceitos com o operador "in".',
+                    { operator: "in" }
                 );
                 continue;
             }
@@ -164,7 +215,9 @@ function normalizeQueryFilterInput(input: unknown): NormalizedQueryFilter {
     }
 
     if (Object.keys(input).length === 0) {
-        addIssue([], "filter must contain at least one expression");
+        addIssue([], "O filtro deve conter pelo menos uma expressão.", {
+            minimumExpressions: 1
+        });
     } else {
         visit(input, []);
     }
@@ -190,7 +243,11 @@ export const queryFilterSchema = z.unknown().transform((input, context) => {
         context.addIssue({
             code: "custom",
             path: issue.path,
-            message: issue.message
+            message: issue.message,
+            params: {
+                code: issue.code,
+                ...(issue.details ? { details: issue.details } : {})
+            }
         });
     }
     return z.NEVER;
@@ -278,8 +335,9 @@ export function unsupportedQueryFilterField(
     }
 
     return {
-        code: "INVALID_VALUE",
+        code: "FILTER_UNSUPPORTED_ENDPOINT",
         path: ["query", "filter"],
-        message: "filter is not supported by this endpoint"
+        message: "Este endpoint não aceita filtros.",
+        details: { feature: "filter" }
     };
 }

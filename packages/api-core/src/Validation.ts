@@ -4,12 +4,18 @@ extendZodWithOpenApi(z);
 type ValidationErrorField = {
     path: PropertyKey[];
     message: string;
+    details?: Record<string, unknown>;
 };
 const ErrorCodeSchema = z
     .enum([
         "UNIQUE_VIOLATION",
         "INVALID_TYPE",
         "INVALID_VALUE",
+        "FILTER_UNSUPPORTED_ENDPOINT",
+        "FILTER_SYNTAX_INVALID",
+        "FILTER_FIELD_UNSUPPORTED",
+        "FILTER_OPERATOR_UNSUPPORTED",
+        "FILTER_VALUE_INVALID",
         "REQUIRED",
         "REFERENCE_NOT_FOUND",
         "ALREADY_EXISTS",
@@ -21,7 +27,8 @@ const ErrorFieldSchema = z
     .object({
         code: ErrorCodeSchema,
         path: z.array(z.string()),
-        message: z.string()
+        message: z.string(),
+        details: z.record(z.string(), z.unknown()).optional()
     })
     .openapi("ErrorField");
 
@@ -38,6 +45,17 @@ type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
 type PathPrefix = ["query" | "path" | "body" | "header", ...string[]] | [];
 
+function zodIssueParams(issue: z.core.$ZodIssue) {
+    if (
+        !("params" in issue) ||
+        !issue.params ||
+        typeof issue.params !== "object"
+    ) {
+        return undefined;
+    }
+    return issue.params as Record<string, unknown>;
+}
+
 // Mapeia código do Zod para nosso ErrorCode
 function zodCodeToErrorCode(
     issue: z.core.$ZodIssue
@@ -46,7 +64,11 @@ function zodCodeToErrorCode(
         case "invalid_type":
             return "INVALID_TYPE";
         case "custom":
-            return issue.params?.code || "INVALID_VALUE";
+            return typeof zodIssueParams(issue)?.code === "string"
+                ? (zodIssueParams(issue)?.code as z.infer<
+                      typeof ErrorCodeSchema
+                  >)
+                : "INVALID_VALUE";
         default:
             return "INVALID_VALUE";
     }
@@ -59,11 +81,17 @@ function ZodToApiError(
     if (!zodError) {
         return [];
     }
-    return zodError.issues.map((issue) => ({
-        code: zodCodeToErrorCode(issue),
-        path: [...prefix, ...issue.path.map(String)],
-        message: issue.message
-    }));
+    return zodError.issues.map((issue) => {
+        const details = zodIssueParams(issue)?.details;
+        return {
+            code: zodCodeToErrorCode(issue),
+            path: [...prefix, ...issue.path.map(String)],
+            message: issue.message,
+            ...(details && typeof details === "object"
+                ? { details: details as Record<string, unknown> }
+                : {})
+        };
+    });
 }
 
 const ValidationErrorSchema = ApiErrorSchema;

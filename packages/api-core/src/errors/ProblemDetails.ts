@@ -11,7 +11,8 @@ export const ProblemFieldSchema = z
     .object({
         code: z.string(),
         path: z.array(z.string()),
-        message: z.string()
+        message: z.string(),
+        details: z.record(z.string(), z.unknown()).optional()
     })
     .strict()
     .openapi("ProblemField");
