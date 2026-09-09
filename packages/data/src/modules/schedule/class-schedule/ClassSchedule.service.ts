@@ -3,14 +3,176 @@ import {
     type ClassScheduleListInput
 } from "#/modules/schedule/class-schedule/ClassSchedule.contract.js";
 import { classScheduleNotFoundProblem } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
+import type { QueryFilterOperator } from "@pomi/api-core";
 import { err, ok, type Result } from "@pomi/api-core";
 import {
     MyPrisma,
     selectIdCode,
-    whereIdCode,
-    type PrismaClient
+    type DayOfWeek,
+    type PrismaClient,
+    type YearPeriods
 } from "@pomi/db";
 import z from "zod";
+
+type FilterValue = string | number;
+
+function scalarFilter<T extends FilterValue>(
+    operator: QueryFilterOperator,
+    values: T[]
+): { equals?: T; not?: T; in?: T[] } {
+    switch (operator) {
+        case "eq":
+            return { equals: values[0] };
+        case "ne":
+            return { not: values[0] };
+        case "in":
+            return { in: values };
+        default:
+            throw new Error(`Unsupported class schedule filter: ${operator}`);
+    }
+}
+
+function dayOfWeekFilter(
+    operator: QueryFilterOperator,
+    values: DayOfWeek[]
+): MyPrisma.EnumDayOfWeekFilter {
+    return scalarFilter(operator, values);
+}
+
+function yearPeriodFilter(
+    operator: QueryFilterOperator,
+    values: YearPeriods[]
+): MyPrisma.EnumYearPeriodsFilter {
+    return scalarFilter(operator, values);
+}
+
+export function classScheduleFilterWhere(
+    filter: ClassScheduleListInput["filter"]
+): MyPrisma.ClassScheduleWhereInput[] {
+    return (filter ?? []).map((expression) => {
+        const path = expression.path.join(".");
+        const values = expression.values;
+        switch (path) {
+            case "dayOfWeek":
+                return {
+                    dayOfWeek: dayOfWeekFilter(
+                        expression.operator,
+                        values as DayOfWeek[]
+                    )
+                };
+            case "room.id":
+                return {
+                    room: {
+                        id: scalarFilter(
+                            expression.operator,
+                            values as number[]
+                        )
+                    }
+                };
+            case "room.code":
+                return {
+                    room: {
+                        code: scalarFilter(
+                            expression.operator,
+                            values as string[]
+                        )
+                    }
+                };
+            case "class.id":
+                return {
+                    class: {
+                        id: scalarFilter(
+                            expression.operator,
+                            values as number[]
+                        )
+                    }
+                };
+            case "course.id":
+                return {
+                    class: {
+                        course: {
+                            id: scalarFilter(
+                                expression.operator,
+                                values as number[]
+                            )
+                        }
+                    }
+                };
+            case "course.code":
+                return {
+                    class: {
+                        course: {
+                            code: scalarFilter(
+                                expression.operator,
+                                values as string[]
+                            )
+                        }
+                    }
+                };
+            case "unit.id":
+                return {
+                    class: {
+                        course: {
+                            unit: {
+                                id: scalarFilter(
+                                    expression.operator,
+                                    values as number[]
+                                )
+                            }
+                        }
+                    }
+                };
+            case "unit.code":
+                return {
+                    class: {
+                        course: {
+                            unit: {
+                                code: scalarFilter(
+                                    expression.operator,
+                                    values as string[]
+                                )
+                            }
+                        }
+                    }
+                };
+            case "studyPeriod.id":
+                return {
+                    class: {
+                        studyPeriod: {
+                            id: scalarFilter(
+                                expression.operator,
+                                values as number[]
+                            )
+                        }
+                    }
+                };
+            case "studyPeriod.year":
+                return {
+                    class: {
+                        studyPeriod: {
+                            year: scalarFilter(
+                                expression.operator,
+                                values as number[]
+                            )
+                        }
+                    }
+                };
+            case "studyPeriod.yearPeriod":
+                return {
+                    class: {
+                        studyPeriod: {
+                            yearPeriod: yearPeriodFilter(
+                                expression.operator,
+                                values as YearPeriods[]
+                            )
+                        }
+                    }
+                };
+            default:
+                throw new Error(`Unsupported class schedule filter: ${path}`);
+        }
+    });
+}
 
 type ClassScheduleData = z.infer<typeof classScheduleDataSchema>;
 
@@ -87,28 +249,9 @@ export function createClassScheduleService({
 }): ClassScheduleService {
     return {
         async list(input) {
-            const where = {
-                dayOfWeek: input.dayOfWeek,
-                room: whereIdCode(input.roomId, input.roomCode),
-                class: {
-                    ...whereIdCode(input.classId, undefined),
-                    course: {
-                        ...whereIdCode(input.courseId, input.courseCode),
-                        unit: whereIdCode(input.unitId, input.unitCode)
-                    },
-                    studyPeriod: {
-                        ...(input.studyPeriodId
-                            ? { id: input.studyPeriodId }
-                            : {}),
-                        ...(input.studyPeriodYear
-                            ? { year: input.studyPeriodYear }
-                            : {}),
-                        ...(input.studyPeriodYearPeriod
-                            ? { yearPeriod: input.studyPeriodYearPeriod }
-                            : {})
-                    }
-                }
-            };
+            const filterWhere = classScheduleFilterWhere(input.filter);
+            const where: MyPrisma.ClassScheduleWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const [total, schedules] = await Promise.all([
                 prisma.classSchedule.count({ where }),
                 prisma.classSchedule.findMany({

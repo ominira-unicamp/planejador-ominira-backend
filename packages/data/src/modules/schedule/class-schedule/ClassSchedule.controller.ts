@@ -11,8 +11,7 @@ import { unitPaths } from "#/modules/academic/unit/Unit.contract.js";
 import IO, {
     classScheduleDataSchema,
     classScheduleEntity,
-    classSchedulePaths,
-    type ListQueryParams
+    classSchedulePaths
 } from "#/modules/schedule/class-schedule/ClassSchedule.contract.js";
 import { classScheduleProblemResponses } from "#/modules/schedule/class-schedule/ClassSchedule.problems.js";
 import { classPaths } from "#/modules/schedule/class/Class.contract.js";
@@ -43,7 +42,7 @@ const list: Actions["list"] = async (ctx, input) => {
             result.items.map(withPaths),
             result.total,
             input.query,
-            (page) => listPath({ ...input.query, page })
+            (page) => classSchedulePaths.list({ ...input.query, page })
         )
     );
 };
@@ -54,28 +53,6 @@ const get: Actions["get"] = async (ctx, input) => {
     );
 };
 
-function listPath({
-    unitId,
-    courseId,
-    studyPeriodId,
-    classId,
-    page,
-    pageSize
-}: ListQueryParams) {
-    return (
-        `/class-schedules?` +
-        [
-            unitId ? "unitId=" + unitId : undefined,
-            courseId ? "courseId=" + courseId : undefined,
-            studyPeriodId ? "studyPeriodId=" + studyPeriodId : undefined,
-            classId ? "classId=" + classId : undefined,
-            page ? "page=" + page : undefined,
-            pageSize ? "pageSize=" + pageSize : undefined
-        ]
-            .filter(Boolean)
-            .join("&")
-    );
-}
 const actions: Actions = {
     list,
     get
@@ -91,7 +68,7 @@ export default {
     registry,
     authRegistry,
     paths: {
-        list: listPath,
+        list: classSchedulePaths.list,
         entity: classSchedulePaths.entity
     }
 };

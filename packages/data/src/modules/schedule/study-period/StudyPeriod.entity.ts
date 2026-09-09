@@ -12,7 +12,13 @@ const relatedPathsForStudyPeriod = (studyPeriodId: number) => {
             studyPeriodId: studyPeriodId
         }),
         classSchedules: resourcesPaths.classSchedule.list({
-            studyPeriodId: studyPeriodId
+            filter: [
+                {
+                    path: ["studyPeriod", "id"],
+                    operator: "eq",
+                    values: [studyPeriodId]
+                }
+            ]
         })
     };
 };

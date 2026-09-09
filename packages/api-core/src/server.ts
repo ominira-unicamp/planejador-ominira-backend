@@ -5,6 +5,7 @@ import type { Logger } from "pino";
 
 import jsonErrorHandler from "./middleware/jsonErrorHandler.js";
 import sizeLimitMiddleware from "./middleware/sizeLimitMiddleware.js";
+import { parseStructuredQuery } from "./queryFilter.js";
 import {
     createHttpTelemetryMiddleware,
     createLogger
@@ -15,14 +16,20 @@ export type BaseApplicationOptions = {
     corsOrigins?: string;
     serviceName: string;
     logger?: Logger;
+    queryParser?: "simple" | "structured";
 };
 
 export function createBaseApplication({
     corsOrigins: corsConfiguration,
     serviceName,
-    logger: configuredLogger
+    logger: configuredLogger,
+    queryParser = "simple"
 }: BaseApplicationOptions) {
     const application = express();
+    application.set(
+        "query parser",
+        queryParser === "structured" ? parseStructuredQuery : queryParser
+    );
     const logger = configuredLogger ?? createLogger(serviceName);
     application.use(createHttpTelemetryMiddleware(logger));
     application.use(createHttpMetricsMiddleware());

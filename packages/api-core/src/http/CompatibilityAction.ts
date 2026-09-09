@@ -21,6 +21,9 @@ export type CompatibilityContract = {
         path: PathSegment[];
         tags: string[];
         authorization: unknown;
+        queryFeatures?: {
+            filter?: boolean;
+        };
     };
     request: EndpointRequestSchema;
     response: EndpointResponsesSchema;

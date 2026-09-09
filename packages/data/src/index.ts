@@ -20,7 +20,8 @@ const logger = createLogger("pomi-data");
 const application = createBaseApplication({
     corsOrigins: config.corsOrigins,
     serviceName: "pomi-data",
-    logger
+    logger,
+    queryParser: "structured"
 });
 
 for (const path of [

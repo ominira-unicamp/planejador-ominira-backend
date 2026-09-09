@@ -1,18 +1,28 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    equalityOperators,
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter,
+    type FilterValue
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { getPaginatedSchema, pathSeg, SpecBuilder } from "@pomi/api-core";
+import {
+    getPaginatedSchema,
+    pathSeg,
+    serializeQueryParams,
+    SpecBuilder
+} from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
 
 export const coursePaths = {
     list: (query: ListQueryParams = {}) => {
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(query)) {
-            if (value !== undefined) params.set(key, String(value));
-        }
-        const search = params.toString();
+        const search = serializeQueryParams(
+            query as unknown as Record<string, unknown>
+        );
         return `/courses${search ? `?${search}` : ""}`;
     },
     entity: (id: number) => `/courses/${id}`
@@ -42,6 +52,31 @@ const courseEntity = z
     .strict()
     .openapi("CourseEntity");
 
+export type CourseFilterValue = FilterValue;
+export type CourseFilter = Filter;
+
+const courseFilterDefinitions = {
+    "catalogYear": filterDefinition.integer(),
+    "code": filterDefinition.code(),
+    "credits": filterDefinition.integer({
+        minimum: 0,
+        operators: ["eq", "ne", "gt", "gte", "lt", "lte", "in"]
+    }),
+    "tagId": filterDefinition.id({ positive: true }),
+    "unit.code": filterDefinition.code({ operators: equalityOperators }),
+    "unit.id": filterDefinition.id({ positive: true })
+};
+
+const courseFilter = resourceFilterSchema(
+    courseFilterDefinitions,
+    "courses",
+    "Structured course filters. Use bracket notation such as filter[credits][gte]=4.",
+    {
+        credits: { gte: 4 },
+        unit: { code: "IC" }
+    }
+);
+
 const listCourseQuery = z
     .object({
         page: z.coerce.number().int().min(1).optional().openapi({
@@ -52,13 +87,9 @@ const listCourseQuery = z
             description:
                 "Number of courses per page. If omitted together with page, all courses are returned."
         }),
-        unitId: z.coerce.number().int().optional(),
-        unitCode: z.string().min(1).optional(),
-        courseCode: z.string().min(1).optional(),
-        q: z.string().trim().min(1).optional(),
-        catalogYear: z.coerce.number().int().optional(),
-        tagId: z.coerce.number().int().positive().optional()
+        filter: courseFilter.optional()
     })
+    .strict()
     .openapi("ListCoursesQuery");
 export type ListQueryParams = z.infer<typeof listCourseQuery>;
 
@@ -81,7 +112,11 @@ const get = {
 };
 
 const list = {
-    meta: { ...specsBuilder.list(), authorization: policies.public },
+    meta: {
+        ...specsBuilder.list(),
+        authorization: policies.public,
+        queryFeatures: { filter: true }
+    },
     request: z.object({
         query: listCourseQuery
     }),

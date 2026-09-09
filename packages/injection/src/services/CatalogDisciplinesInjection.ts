@@ -662,7 +662,15 @@ function prerequisiteGroups(
         }
         groups.push({ items });
     }
-    return groups;
+    const seen = new Set<string>();
+    return groups.filter((group) => {
+        const key = JSON.stringify(
+            group.items.map(({ code, kind }) => `${code}:${kind}`).sort()
+        );
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
 }
 
 function canonicalGroups(

@@ -5,6 +5,7 @@ import {
     invalidRequestProblem,
     withProblemInstance
 } from "../errors/ProblemDetails.js";
+import { unsupportedQueryFilterField } from "../queryFilter.js";
 import { ZodToApiError } from "../Validation.js";
 import type {
     EndpointContract,
@@ -44,6 +45,16 @@ export function buildEndpointHandler<
         request: Request,
         response: Response
     ) {
+        const unsupportedFilter = unsupportedQueryFilterField(
+            request.query,
+            contract.meta.queryFeatures
+        );
+        if (unsupportedFilter) {
+            return sendProblem(
+                response,
+                invalidRequestProblem([unsupportedFilter], request.path)
+            );
+        }
         const parsed = contract.request.safeParse({
             query: request.query,
             path: request.params,

@@ -23,7 +23,13 @@ function buildCoordinatorEntity(
         _paths: {
             self: resourcesPaths.coordinator.entity(coordinator.id),
             catalogCourses: resourcesPaths.catalogCourse.list({
-                coordinatorId: coordinator.id
+                filter: [
+                    {
+                        path: ["coordinatorId"],
+                        operator: "eq",
+                        values: [coordinator.id]
+                    }
+                ]
             })
         }
     };

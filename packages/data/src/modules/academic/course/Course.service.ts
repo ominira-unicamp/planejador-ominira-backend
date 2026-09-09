@@ -1,12 +1,122 @@
+import type {
+    CourseFilter,
+    CourseFilterValue
+} from "#/modules/academic/course/Course.contract.js";
 import IO from "#/modules/academic/course/Course.contract.js";
 import courseEntity from "#/modules/academic/course/Course.entity.js";
 import { courseNotFoundProblem } from "#/modules/academic/course/Course.problems.js";
-import { err, ok, type Result } from "@pomi/api-core";
-import type { PrismaClient } from "@pomi/db";
+import { err, ok, type QueryFilterOperator, type Result } from "@pomi/api-core";
+import type { MyPrisma, PrismaClient } from "@pomi/db";
 import z from "zod";
 
 type CourseEntity = z.infer<typeof IO.schema>;
 type ListQueryParams = z.infer<typeof IO.list.request>["query"];
+
+function stringFilter(
+    operator: QueryFilterOperator,
+    values: CourseFilterValue[]
+): MyPrisma.StringFilter {
+    const strings = values.map(String);
+    switch (operator) {
+        case "eq":
+            return { equals: strings[0] };
+        case "ne":
+            return { not: strings[0] };
+        case "in":
+            return { in: strings };
+        case "gt":
+            return { gt: strings[0] };
+        case "gte":
+            return { gte: strings[0] };
+        case "lt":
+            return { lt: strings[0] };
+        case "lte":
+            return { lte: strings[0] };
+    }
+}
+
+function intFilter(
+    operator: QueryFilterOperator,
+    values: CourseFilterValue[]
+): MyPrisma.IntFilter {
+    const integers = values.map(Number);
+    switch (operator) {
+        case "eq":
+            return { equals: integers[0] };
+        case "ne":
+            return { not: integers[0] };
+        case "in":
+            return { in: integers };
+        case "gt":
+            return { gt: integers[0] };
+        case "gte":
+            return { gte: integers[0] };
+        case "lt":
+            return { lt: integers[0] };
+        case "lte":
+            return { lte: integers[0] };
+    }
+}
+
+export function courseFilterWhere(
+    filter: CourseFilter | undefined
+): MyPrisma.CourseWhereInput[] {
+    return (filter ?? []).map((expression) => {
+        switch (expression.path.join(".")) {
+            case "catalogYear":
+                return {
+                    catalogCourses: {
+                        some: {
+                            catalog: {
+                                year: intFilter(
+                                    expression.operator,
+                                    expression.values
+                                )
+                            }
+                        }
+                    }
+                };
+            case "code":
+                return {
+                    code: stringFilter(expression.operator, expression.values)
+                };
+            case "credits":
+                return {
+                    credits: intFilter(expression.operator, expression.values)
+                };
+            case "tagId":
+                return {
+                    courseTags: {
+                        some: {
+                            tagId: intFilter(
+                                expression.operator,
+                                expression.values
+                            )
+                        }
+                    }
+                };
+            case "unit.code":
+                return {
+                    unit: {
+                        code: stringFilter(
+                            expression.operator,
+                            expression.values
+                        )
+                    }
+                };
+            case "unit.id":
+                return {
+                    unit: {
+                        id: intFilter(expression.operator, expression.values)
+                    }
+                };
+            default:
+                throw new Error(
+                    `Unsupported course filter: ${expression.path.join(".")}`
+                );
+        }
+    });
+}
 
 export type CourseService = {
     list(input: ListQueryParams): Promise<{
@@ -25,59 +135,12 @@ export function createCourseService({
 }): CourseService {
     return {
         async list(query) {
-            const text = query.q?.trim();
-            const where = {
-                ...(query.courseCode
-                    ? {
-                          code: {
-                              contains: query.courseCode,
-                              mode: "insensitive" as const
-                          }
-                      }
-                    : {}),
-                ...(text
-                    ? {
-                          OR: [
-                              {
-                                  code: {
-                                      contains: text,
-                                      mode: "insensitive" as const
-                                  }
-                              },
-                              {
-                                  name: {
-                                      contains: text,
-                                      mode: "insensitive" as const
-                                  }
-                              }
-                          ]
-                      }
-                    : {}),
-                ...(query.unitId || query.unitCode
-                    ? {
-                          unit: {
-                              ...(query.unitId ? { id: query.unitId } : {}),
-                              ...(query.unitCode
-                                  ? { code: query.unitCode }
-                                  : {})
-                          }
-                      }
-                    : {}),
-                ...(query.catalogYear
-                    ? {
-                          catalogCourses: {
-                              some: { catalog: { year: query.catalogYear } }
-                          }
-                      }
-                    : {}),
-                ...(query.tagId
-                    ? { courseTags: { some: { tagId: query.tagId } } }
-                    : {})
-            };
+            const filterWhere = courseFilterWhere(query.filter);
+            const where: MyPrisma.CourseWhereInput =
+                filterWhere.length > 0 ? { AND: filterWhere } : {};
             const total = await prisma.course.count({ where });
             const courses = await prisma.course.findMany({
-                ...(!text &&
-                (query.page !== undefined || query.pageSize !== undefined)
+                ...(query.page !== undefined || query.pageSize !== undefined
                     ? {
                           skip:
                               ((query.page ?? 1) - 1) * (query.pageSize ?? 20),
@@ -88,34 +151,7 @@ export function createCourseService({
                 where,
                 orderBy: { code: "asc" }
             });
-            if (!text) return { items: courses.map(courseEntity.build), total };
-
-            const normalizedText = text.toLocaleLowerCase("pt-BR");
-            const ranked = courses.sort((left, right) => {
-                const leftCode = left.code.toLocaleLowerCase("pt-BR");
-                const rightCode = right.code.toLocaleLowerCase("pt-BR");
-                const leftName = left.name.toLocaleLowerCase("pt-BR");
-                const rightName = right.name.toLocaleLowerCase("pt-BR");
-                const rank = (code: string, name: string) => {
-                    if (code === normalizedText) return 0;
-                    if (code.startsWith(normalizedText)) return 1;
-                    if (name.startsWith(normalizedText)) return 2;
-                    return 3;
-                };
-                return (
-                    rank(leftCode, leftName) - rank(rightCode, rightName) ||
-                    left.code.localeCompare(right.code, "pt-BR")
-                );
-            });
-            const page = query.page ?? 1;
-            const pageSize = query.pageSize ?? Math.max(total, 1);
-            const start = (page - 1) * pageSize;
-            return {
-                items: ranked
-                    .slice(start, start + pageSize)
-                    .map(courseEntity.build),
-                total
-            };
+            return { items: courses.map(courseEntity.build), total };
         },
         async getById(id) {
             const course = await prisma.course.findUnique({

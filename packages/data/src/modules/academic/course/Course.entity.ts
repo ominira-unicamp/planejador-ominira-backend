@@ -22,7 +22,9 @@ function relatedPathsForCourse(courseId: number, unitId: number | null) {
     return {
         classes: resourcesPaths.class.list({ courseId }),
         unit: unitId === null ? null : resourcesPaths.unit.entity(unitId),
-        catalogCourses: resourcesPaths.catalogCourse.list({ courseId })
+        catalogCourses: resourcesPaths.catalogCourse.list({
+            filter: [{ path: ["courseId"], operator: "eq", values: [courseId] }]
+        })
     };
 }
 

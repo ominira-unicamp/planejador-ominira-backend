@@ -34,7 +34,13 @@ function relatedPathsForClass(classPayload: PrismaClassPayload) {
         course: resourcesPaths.course.entity(classPayload.course.id),
         class: resourcesPaths.class.entity(classPayload.id),
         classSchedules: resourcesPaths.classSchedule.list({
-            classId: classPayload.id
+            filter: [
+                {
+                    path: ["class", "id"],
+                    operator: "eq",
+                    values: [classPayload.id]
+                }
+            ]
         }),
         professors: resourcesPaths.professor.list({
             classId: classPayload.id

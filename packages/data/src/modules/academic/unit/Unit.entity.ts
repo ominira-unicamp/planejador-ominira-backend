@@ -11,7 +11,9 @@ function relatedPathsForUnit(unitId: number) {
         classes: resourcesPaths.class.list({
             unitId: unitId
         }),
-        courses: resourcesPaths.course.list({ unitId: unitId })
+        courses: resourcesPaths.course.list({
+            filter: [{ path: ["unit", "id"], operator: "eq", values: [unitId] }]
+        })
     };
 }
 

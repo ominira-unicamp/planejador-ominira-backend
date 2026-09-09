@@ -1,5 +1,12 @@
 import { type IO, OutputBuilder } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    equalityOperators,
+    type Filter,
+    filterDefinition,
+    type FilterValue,
+    resourceFilterSchema
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import {
     getPaginatedSchema,
@@ -7,6 +14,7 @@ import {
     PaginationQueryType,
     pathSeg,
     ResourceNotFoundProblemSchema,
+    serializeQueryParams,
     SpecBuilder
 } from "@pomi/api-core";
 import z from "zod";
@@ -66,8 +74,11 @@ export const classScheduleEntity = classScheduleDataSchema
     .strict()
     .openapi("ClassScheduleEntity");
 
-const daysOfWeekEnum = z
-    .enum([
+export type ClassScheduleFilterValue = FilterValue;
+export type ClassScheduleFilter = Filter;
+
+const classScheduleFilterDefinitions = {
+    "dayOfWeek": filterDefinition.enum([
         "MONDAY",
         "TUESDAY",
         "WEDNESDAY",
@@ -75,25 +86,44 @@ const daysOfWeekEnum = z
         "FRIDAY",
         "SATURDAY",
         "SUNDAY"
+    ]),
+    "room.id": filterDefinition.id(),
+    "room.code": filterDefinition.code({
+        nonEmpty: false,
+        operators: equalityOperators
+    }),
+    "class.id": filterDefinition.id(),
+    "course.id": filterDefinition.id(),
+    "course.code": filterDefinition.code({
+        nonEmpty: false,
+        operators: equalityOperators
+    }),
+    "unit.id": filterDefinition.id(),
+    "unit.code": filterDefinition.code({
+        nonEmpty: false,
+        operators: equalityOperators
+    }),
+    "studyPeriod.id": filterDefinition.id(),
+    "studyPeriod.year": filterDefinition.integer(),
+    "studyPeriod.yearPeriod": filterDefinition.enum([
+        "SUMMER",
+        "FIRST_SEMESTER",
+        "WINTER",
+        "SECOND_SEMESTER"
     ])
-    .openapi("DaysOfWeekEnum");
+};
+
+const classScheduleFilter = resourceFilterSchema(
+    classScheduleFilterDefinitions,
+    "class schedules",
+    "Structured class schedule filters. Use bracket notation such as filter[course][code]=MC102."
+);
 
 const getClassSchedulesQuery = paginationQuerySchema
     .extend({
-        studyPeriodId: z.coerce.number().int().optional(),
-        studyPeriodYear: z.coerce.number().int().optional(),
-        studyPeriodYearPeriod: z
-            .enum(["SUMMER", "FIRST_SEMESTER", "WINTER", "SECOND_SEMESTER"])
-            .optional(),
-        unitId: z.coerce.number().int().optional(),
-        unitCode: z.string().optional(),
-        courseId: z.coerce.number().int().optional(),
-        courseCode: z.string().optional(),
-        roomId: z.coerce.number().int().optional(),
-        roomCode: z.string().optional(),
-        classId: z.coerce.number().int().optional(),
-        dayOfWeek: daysOfWeekEnum.optional()
+        filter: classScheduleFilter.optional()
     })
+    .strict()
     .openapi("GetClassSchedulesQuery");
 
 const ClassSchedulePageSchema =
@@ -117,7 +147,11 @@ const get = {
 } satisfies IO;
 
 const list = {
-    meta: { ...specsBuilder.list(), authorization: policies.public },
+    meta: {
+        ...specsBuilder.list(),
+        authorization: policies.public,
+        queryFeatures: { filter: true }
+    },
     request: z.object({
         query: getClassSchedulesQuery
     }),
@@ -137,14 +171,15 @@ const contracts = {
 
 export default contracts;
 
-export type ListQueryParams = {
-    unitId?: number;
-    courseId?: number;
-    studyPeriodId?: number;
-    classId?: number;
-} & Partial<PaginationQueryType>;
+export type ListQueryParams = Partial<PaginationQueryType>;
 export type ClassScheduleListInput = z.infer<typeof getClassSchedulesQuery>;
 
 export const classSchedulePaths = {
+    list: (query: Partial<ClassScheduleListInput> = {}) => {
+        const search = serializeQueryParams(
+            query as unknown as Record<string, unknown>
+        );
+        return `/class-schedules${search ? `?${search}` : ""}`;
+    },
     entity: (id: number) => `/class-schedules/${id}`
 };

@@ -48,7 +48,13 @@ function buildCatalogEntity(
         _paths: {
             self: resourcesPaths.catalog.entity(catalog.id),
             courses: resourcesPaths.catalogCourse.list({
-                catalogId: catalog.id
+                filter: [
+                    {
+                        path: ["catalogId"],
+                        operator: "eq",
+                        values: [catalog.id]
+                    }
+                ]
             })
         }
     };

@@ -1,18 +1,28 @@
-import { type IO, OutputBuilder } from "#/BuildHandler.js";
+import { OutputBuilder, type IO } from "#/BuildHandler.js";
 import { policies } from "#/auth.js";
+import {
+    equalityOperators,
+    filterDefinition,
+    resourceFilterSchema,
+    type Filter,
+    type FilterValue
+} from "#/queryFilterDefinitions.js";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { getPaginatedSchema, pathSeg, SpecBuilder } from "@pomi/api-core";
+import {
+    getPaginatedSchema,
+    pathSeg,
+    serializeQueryParams,
+    SpecBuilder
+} from "@pomi/api-core";
 import z from "zod";
 
 extendZodWithOpenApi(z);
 
 export const catalogCoursePaths = {
     list: (query: ListQueryParams = {}) => {
-        const params = new URLSearchParams();
-        for (const [key, value] of Object.entries(query)) {
-            if (value !== undefined) params.set(key, String(value));
-        }
-        const search = params.toString();
+        const search = serializeQueryParams(
+            query as unknown as Record<string, unknown>
+        );
         return `/catalog-courses${search ? `?${search}` : ""}`;
     },
     entity: (id: number) => `/catalog-courses/${id}`
@@ -22,8 +32,14 @@ const basePath = [pathSeg.literal("catalog-courses")];
 const tags = ["catalog-courses"];
 const specsBuilder = new SpecBuilder(basePath, tags, "id");
 
+const offeringPeriodValues = [
+    "ALL_PERIODS",
+    "ODD_PERIODS",
+    "EVEN_PERIODS",
+    "UNIT_DISCRETION"
+] as const;
 const offeringPeriod = z
-    .enum(["ALL_PERIODS", "ODD_PERIODS", "EVEN_PERIODS", "UNIT_DISCRETION"])
+    .enum(offeringPeriodValues)
     .openapi("CourseOfferingPeriod");
 
 const coordinator = z
@@ -55,6 +71,29 @@ const prerequisiteItem = z
         courseId: z.number().int().nullable()
     })
     .strict();
+
+export type CatalogCourseFilterValue = FilterValue;
+export type CatalogCourseFilter = Filter;
+
+const catalogCourseFilterDefinitions = {
+    "catalogId": filterDefinition.id(),
+    "catalogYear": filterDefinition.integer(),
+    "courseId": filterDefinition.id(),
+    "courseCode": filterDefinition.code({ nonEmpty: false }),
+    "unit.id": filterDefinition.id(),
+    "unit.code": filterDefinition.code({
+        nonEmpty: false,
+        operators: equalityOperators
+    }),
+    "coordinatorId": filterDefinition.id(),
+    "offeringPeriod": filterDefinition.enum(offeringPeriodValues)
+};
+
+const catalogCourseFilter = resourceFilterSchema(
+    catalogCourseFilterDefinitions,
+    "catalog courses",
+    "Structured catalog course filters. Use bracket notation such as filter[unit][code]=IC."
+);
 
 const prerequisites = z
     .object({
@@ -97,21 +136,19 @@ const listQuery = z
     .object({
         page: z.coerce.number().int().min(1).optional(),
         pageSize: z.coerce.number().int().min(1).optional(),
-        catalogId: z.coerce.number().int().optional(),
-        catalogYear: z.coerce.number().int().optional(),
-        courseId: z.coerce.number().int().optional(),
-        courseCode: z.string().min(1).optional(),
-        unitId: z.coerce.number().int().optional(),
-        unitCode: z.string().min(1).optional(),
-        coordinatorId: z.coerce.number().int().optional(),
-        offeringPeriod: offeringPeriod.optional()
+        filter: catalogCourseFilter.optional()
     })
+    .strict()
     .openapi("ListCatalogCoursesQuery");
 
 export type ListQueryParams = z.infer<typeof listQuery>;
 
 const list = {
-    meta: { ...specsBuilder.list(), authorization: policies.public },
+    meta: {
+        ...specsBuilder.list(),
+        authorization: policies.public,
+        queryFeatures: { filter: true }
+    },
     request: z.object({ query: listQuery }),
     response: new OutputBuilder()
         .ok(

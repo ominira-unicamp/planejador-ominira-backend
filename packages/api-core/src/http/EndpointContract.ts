@@ -53,6 +53,9 @@ export type EndpointContract<Authorization = unknown> = {
         path: PathSegment[];
         tags: string[];
         authorization: Authorization;
+        queryFeatures?: {
+            filter?: boolean;
+        };
     };
     request: EndpointRequestSchema;
     response: EndpointResponsesSchema;
